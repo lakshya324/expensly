@@ -51,6 +51,35 @@
             display: block;
         }
 
+        .form h3 {
+            color: #cbd5e1;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .form input {
+            width: 100%;
+            /* max-width: 420px; */
+            /* padding: 10px; */
+            background: #334155;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            color: #f1f5f9;
+        }
+
+        .form button {
+            width: 100%;
+            background: #3b82f6;
+            color: #f1f5f9;
+            border: none;
+            border-radius: 8px;
+        }
+
+        .form button:hover {
+            background: #2563eb;
+        }
+
         .error {
             color: red;
             margin-bottom: 10px;
@@ -72,20 +101,26 @@
             color: #94a3b8;
             font-size: 14px;
         }
+
         .login-selector {
             display: flex;
             justify-content: space-between;
             margin-bottom: 20px;
         }
+
         .login-selector button {
-            width: 32%;
-            background-color: #3b82f6;
-            color: white;
+            flex: 1;
+            background: #334155;
+            color: #f1f5f9;
             border: none;
+            padding: 10px;
+            margin: 0 5px;
             border-radius: 8px;
         }
+
+        .login-selector button.active,
         .login-selector button:hover {
-            background-color: #2563eb;
+            background: #3b82f6;
         }
     </style>
 
@@ -100,9 +135,9 @@
         </div>
 
         <div class="login-selector">
-            <button onclick="">User Login</button>
-            <button onclick="">Admin Login</button>
-            <button onclick="">Sign Up Organization</button>
+            <button class="active" data-type="user">User Login</button>
+            <button data-type="admin">Admin Login</button>
+            <button data-type="signup">Sign Up Organization</button>
         </div>
 
         <div id="error" class="error"></div>
