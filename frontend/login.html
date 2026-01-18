@@ -183,6 +183,9 @@
         const loginButtons = document.querySelectorAll('.login-selector button');
         const errorBox = document.getElementById('error');
 
+        const emailRegex = /\S+@\S+\.\S+/;
+        const passwordRegex = /.{6,}/;
+
         loginButtons.forEach(button => {
             button.addEventListener('click', () => {
                 loginButtons.forEach(btn => btn.classList.remove('active'));
@@ -193,6 +196,20 @@
 
         document.getElementById('user').onsubmit = async e => {
             e.preventDefault();
+            const email = userEmail.value;
+            const password = userPassword.value;
+            if (!email || !password) {
+                showError('Please fill in all fields');
+                return;
+            }
+            if (!passwordRegex.test(password)) {
+                showError('Password must be at least 6 characters');
+                return;
+            }
+            if (!emailRegex.test(email)) {
+                showError('Please enter a valid email');
+                return;
+            }
             try {
                 // user login
                 location.href = 'index.html';
@@ -203,6 +220,20 @@
 
         document.getElementById('admin').onsubmit = async e => {
             e.preventDefault();
+            const email = adminEmail.value;
+            const password = adminPassword.value;
+            if (!email || !password) {
+                showError('Please fill in all fields');
+                return;
+            }
+            if (!passwordRegex.test(password)) {
+                showError('Password must be at least 6 characters');
+                return;
+            }
+            if (!emailRegex.test(email)) {
+                showError('Please enter a valid email');
+                return;
+            }
             try {
                 // admin login
                 location.href = 'index.html';
@@ -213,12 +244,26 @@
 
         document.getElementById('signup').onsubmit = async e => {
             e.preventDefault();
-
-            if (orgPassword.value !== orgPasswordConfirm.value) {
+            const name = orgName.value;
+            const email = orgEmail.value;
+            const password = orgPassword.value;
+            const passwordConfirm = orgPasswordConfirm.value;
+            if (!name || !email || !password || !passwordConfirm) {
+                showError('Please fill in all fields');
+                return;
+            }
+            if (!emailRegex.test(email)) {
+                showError('Please enter a valid email');
+                return;
+            }
+            if (!passwordRegex.test(password)) {
+                showError('Password must be at least 6 characters');
+                return;
+            }
+            if (password !== passwordConfirm) {
                 showError('Passwords do not match');
                 return;
             }
-
             try {
                 // create organization
                 alert('Organization created. Login as admin.');
