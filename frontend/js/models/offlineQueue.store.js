@@ -1,6 +1,8 @@
-class OfflineQueue {
+import { dbManager } from "./database";
+
+export class OfflineQueue {
   static async add(expense, receiptBlob = null) {
-    const db = await DBManager.getDB();
+    const db = await dbManager.getDB();
     return new Promise((resolve, reject) => {
       //TODO: make common transaction function
       const transaction = db.transaction(["offlineQueue"], "readwrite");
@@ -23,7 +25,7 @@ class OfflineQueue {
   }
 
   static async getAll() {
-    const db = await DBManager.getDB();
+    const db = await dbManager.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(["offlineQueue"], "readonly");
       const store = transaction.objectStore("offlineQueue");
@@ -35,7 +37,7 @@ class OfflineQueue {
   }
 
   static async clear() {
-    const db = await DBManager.getDB();
+    const db = await dbManager.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(["offlineQueue"], "readwrite");
       const store = transaction.objectStore("offlineQueue");
@@ -50,7 +52,7 @@ class OfflineQueue {
   }
 
   static async getCount() {
-    const db = await DBManager.getDB();
+    const db = await dbManager.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(["offlineQueue"], "readonly");
       const store = transaction.objectStore("offlineQueue");
@@ -62,7 +64,7 @@ class OfflineQueue {
   }
 
   static async remove(queueId) {
-    const db = await DBManager.getDB();
+    const db = await dbManager.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(["offlineQueue"], "readwrite");
       const store = transaction.objectStore("offlineQueue");
