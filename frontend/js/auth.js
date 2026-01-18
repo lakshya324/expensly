@@ -103,4 +103,61 @@ export class AuthManager {
       throw error;
     }
   }
+
+  static async loginAdmin(email, password) {
+    try {
+      // finding organization
+      const org = await OrganizationStore.getOrganizationByAdminEmail(email);
+
+      if (!org) {
+        throw new Error("No organization found with this admin email.");
+      }
+
+      // Verify password
+      const hashedpassword = await hashPassword(password);
+      if (org.adminPassword !== hashedpassword) {
+        throw new Error("Invalid admin credentials");
+      }
+
+      // dummy backend call
+      const response = await fetch(`${API_BASE}/auth/admin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      // TODO: get jwt token as response and set it for future requests
+
+      if (!response.ok) {
+        throw new Error("Invalid admin credentials");
+      }
+
+      // user currency preference
+      let currency = UserPreferenceLocal.get()?.currency;
+      if (!currency || !CURRENCY.includes(currency)) {
+        currency = CURRENCY[0]; // default
+        UserPreferenceLocal.set({ currency: currency });
+      }
+
+      const adminId = "admin_" + org.id;
+      const session = {
+        userId: adminId,
+        email: email,
+        name: "Administrator",
+        department: null,
+        managerId: null,
+        orgId: org.id,
+        orgName: org.name,
+        currency: currency,
+        loginTime: new Date().toISOString(),
+        isAdmin: true,
+        isFinance: false,
+      };
+      sessionStorage.setItem(SESSION_KEYS.user, JSON.stringify(session));
+
+      return session;
+    } catch (error) {
+      console.error("Admin login failed:", error);
+      throw error;
+    }
+  }
 }
