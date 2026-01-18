@@ -59,10 +59,11 @@ class DatabaseManager {
           });
           ticketStore.createIndex("status", "status", { unique: false });
           ticketStore.createIndex("timestamp", "timestamp", { unique: false });
-          ticketStore.createIndex("managerApproval.reviewedBy", "managerApproval.reviewedBy", { unique: false });
+        //   ticketStore.createIndex("managerApproval.reviewedBy", "managerApproval.reviewedBy", { unique: false });
         //   ticketStore.createIndex("financeApproval.reviewedBy", "financeApproval.reviewedBy", {
         //     unique: false,
         //   });
+        ticketStore.createIndex("org_deptartment", ["orgId", "department"], { unique: false });
           console.log("Created: tickets store");
         }
 
