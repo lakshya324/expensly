@@ -169,7 +169,66 @@
         </form>
     </div>
 
-    <script src=""></script>
+    <script>
+        function showForm(type) {
+            document.querySelectorAll('.form').forEach(f => f.classList.remove('active'));
+            document.getElementById(type).classList.add('active');
+            errorBox.textContent = '';
+        }
+
+        function showError(msg) {
+            errorBox.textContent = msg;
+        }
+
+        const loginButtons = document.querySelectorAll('.login-selector button');
+        const errorBox = document.getElementById('error');
+
+        loginButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                loginButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                showForm(button.getAttribute('data-type'));
+            });
+        });
+
+        document.getElementById('user').onsubmit = async e => {
+            e.preventDefault();
+            try {
+                // user login
+                location.href = 'index.html';
+            } catch (err) {
+                showError(err.message);
+            }
+        };
+
+        document.getElementById('admin').onsubmit = async e => {
+            e.preventDefault();
+            try {
+                // admin login
+                location.href = 'index.html';
+            } catch (err) {
+                showError(err.message);
+            }
+        };
+
+        document.getElementById('signup').onsubmit = async e => {
+            e.preventDefault();
+
+            if (orgPassword.value !== orgPasswordConfirm.value) {
+                showError('Passwords do not match');
+                return;
+            }
+
+            try {
+                // create organization
+                alert('Organization created. Login as admin.');
+                showForm('admin');
+                adminEmail.value = orgEmail.value;
+            } catch (err) {
+                showError(err.message);
+            }
+        };
+    </script>
 
 </body>
 
