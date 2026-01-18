@@ -1,7 +1,7 @@
 import { API_BASE } from "./config/env.config.js";
 import { CURRENCY } from "./utils/currency.js";
 import { hashPassword } from "./utils/encode.js";
-import { OrganizationStore } from "./stores/organization.store.js";
+import { OrganizationStore } from "./models/organization.store.js";
 import { UserPreferenceLocal } from "./storage/local.js";
 import { UserSession } from "./storage/session.js";
 
@@ -56,7 +56,7 @@ export class AuthManager {
       }
 
       // Check user exist locally
-      const user = await window.UserStore.getUserByEmail(email);
+      const user = await UserStore.getUserByEmail(email); //TODO
 
       if (!user) {
         throw new Error("User not found. Please contact your administrator.");
