@@ -123,7 +123,6 @@
             background: #3b82f6;
         }
     </style>
-
 </head>
 
 <body>
@@ -169,6 +168,8 @@
         </form>
     </div>
 
+
+    <script defer type="module" src="js/auth.js"></script>
     <script>
         function showForm(type) {
             document.querySelectorAll('.form').forEach(f => f.classList.remove('active'));
@@ -211,7 +212,10 @@
                 return;
             }
             try {
-                // user login
+                await AuthManager.loginUser(
+                    userEmail.value,
+                    userPassword.value
+                );
                 location.href = 'index.html';
             } catch (err) {
                 showError(err.message);
@@ -235,7 +239,10 @@
                 return;
             }
             try {
-                // admin login
+                await AuthManager.loginAdmin(
+                    adminEmail.value,
+                    adminPassword.value
+                );
                 location.href = 'index.html';
             } catch (err) {
                 showError(err.message);
@@ -265,7 +272,11 @@
                 return;
             }
             try {
-                // create organization
+                await AuthManager.signupOrganization(
+                    orgName.value,
+                    orgEmail.value,
+                    orgPassword.value
+                );
                 alert('Organization created. Login as admin.');
                 showForm('admin');
                 adminEmail.value = orgEmail.value;
