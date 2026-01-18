@@ -7,7 +7,11 @@ export const INDEXED_DB_CONFIG ={
     version: 1,
 }
 
-export const SESSION_KEY = {
+export const SESSION_KEYS = {
     user: "expensly_user_session",
     draft: "expensly_draft_expense",
+}
+
+export const LOCAL_KEYS = {
+    userPreference: "expensly_user_preference",
 }
