@@ -2,6 +2,10 @@ import { dbManager } from "./database";
 
 export class OrganizationStore {
   static async createOrganization(orgData) {
+    if (!orgData.name || !orgData.adminEmail || !orgData.adminPassword) {
+      throw new Error("Incomplete organization data");
+    }
+
     const db = await dbManager.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(["organizations"], "readwrite");
@@ -26,6 +30,7 @@ export class OrganizationStore {
   }
 
   static async getOrganizationById(orgId) {
+    if (!orgId) throw new Error("Organization ID is required");
     const db = await dbManager.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(["organizations"], "readonly");
@@ -38,6 +43,7 @@ export class OrganizationStore {
   }
 
   static async getOrganizationByAdminEmail(email) {
+    if (!email) throw new Error("Admin email is required");
     const db = await dbManager.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(["organizations"], "readonly");
