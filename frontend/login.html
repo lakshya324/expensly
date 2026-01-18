@@ -65,12 +65,27 @@
             color: #3b82f6;
             font-size: 32px;
             font-weight: 700;
-            margin-bottom: 5px;
+            margin-bottom: -10px;
         }
 
         .logo p {
             color: #94a3b8;
             font-size: 14px;
+        }
+        .login-selector {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .login-selector button {
+            width: 32%;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+        }
+        .login-selector button:hover {
+            background-color: #2563eb;
         }
     </style>
 
@@ -84,9 +99,11 @@
             <p>Enterprise Expense Auditor</p>
         </div>
 
-        <button onclick="">User Login</button>
-        <button onclick="">Admin Login</button>
-        <button onclick="">Sign Up Organization</button>
+        <div class="login-selector">
+            <button onclick="">User Login</button>
+            <button onclick="">Admin Login</button>
+            <button onclick="">Sign Up Organization</button>
+        </div>
 
         <div id="error" class="error"></div>
 
