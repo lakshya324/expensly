@@ -1,8 +1,9 @@
-import { API_BASE, SESSION_KEYS } from "./config/env.config.js";
+import { API_BASE } from "./config/env.config.js";
 import { CURRENCY } from "./utils/currency.js";
 import { hashPassword } from "./utils/encode.js";
 import { OrganizationStore } from "./stores/organization.store.js";
 import { UserPreferenceLocal } from "./storage/local.js";
+import { UserSession } from "./storage/session.js";
 
 export class AuthManager {
   static async signupOrganization(orgName, adminEmail, adminPassword) {
@@ -95,7 +96,7 @@ export class AuthManager {
       };
 
       // store inside session
-      sessionStorage.setItem(SESSION_KEYS.user, JSON.stringify(session));
+      UserSession.set(session);
 
       return session;
     } catch (error) {
@@ -152,7 +153,8 @@ export class AuthManager {
         isAdmin: true,
         isFinance: false,
       };
-      sessionStorage.setItem(SESSION_KEYS.user, JSON.stringify(session));
+
+      UserSession.set(session);
 
       return session;
     } catch (error) {
