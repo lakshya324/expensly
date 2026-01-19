@@ -1,8 +1,8 @@
-import { DBManager } from "./db.manager.js";
+import { dbManager } from "./database.js";
 
 export class ReceiptStore {
   static async storeReceipt(expenseId, receiptBlob) {
-    const db = await DBManager.getDB();
+    const db = await dbManager.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(["receipts"], "readwrite");
       const store = transaction.objectStore("receipts");
@@ -17,7 +17,7 @@ export class ReceiptStore {
   }
 
   static async getReceipt(expenseId) {
-    const db = await DBManager.getDB();
+    const db = await dbManager.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(["receipts"], "readonly");
       const store = transaction.objectStore("receipts");
