@@ -8,14 +8,6 @@ export function getExpenseFormData() {
   };
 }
 
-export function clearExpenseForm() {
-  document.getElementById("expense-title").value = "";
-  document.getElementById("expense-amount").value = "";
-  // document.getElementById("expense-dept").value = "";
-  document.getElementById("expense-desc").value = "";
-  document.getElementById("expense-tags").value = "";
-}
-
 export function populateExpenseForm(data) {
   document.getElementById("expense-title").value = data.title || "";
   document.getElementById("expense-amount").value = data.amount || "";
@@ -32,14 +24,6 @@ export function getAdminAddUserFormData() {
     department: document.getElementById("user-department").value,
     managerId: document.getElementById("user-manager").value || null,
   };
-}
-
-export function clearAdminAddUserForm() {
-  document.getElementById("user-name").value = "";
-  document.getElementById("user-email").value = "";
-  document.getElementById("user-password").value = "";
-  document.getElementById("user-department").value = "";
-  document.getElementById("user-manager").value = "";
 }
 
 export function populateAdminAddUserForm(data) {
