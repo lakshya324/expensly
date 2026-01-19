@@ -13,3 +13,12 @@ export const SESSION_KEYS = {
 export const LOCAL_KEYS = {
     userPreference: "expensly_user_preference",
 }
+
+export const DEPARTMENTS = [
+    "Finance",
+    "HR",
+    "IT",
+    "Sales",
+    "Marketing",
+    "Operations",
+];
