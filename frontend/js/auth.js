@@ -1,8 +1,8 @@
 import { API_BASE } from "./config/env.config.js";
-import { CURRENCY } from "./utils/currency.js";
+// import { CURRENCY } from "./utils/currency.js";
 import { hashPassword } from "./utils/encode.js";
 import { OrganizationStore } from "./models/organization.store.js";
-import { UserPreferenceLocal } from "./storage/local.js";
+// import { UserPreferenceLocal } from "./storage/local.js";
 import { UserSession } from "./storage/session.js";
 import { UserStore } from "./models/user.store.js";
 
@@ -75,11 +75,7 @@ export class AuthManager {
       }
 
       // user currency preference
-      let currency = UserPreferenceLocal.get()?.currency;
-      if (!currency || !CURRENCY.includes(currency)) {
-        currency = CURRENCY[0]; // default
-        UserPreferenceLocal.set({ currency: currency });
-      }
+    //   let currency = UserPreferenceLocal.getCurrency();
 
       // user session object
       const session = {
@@ -134,11 +130,7 @@ export class AuthManager {
       }
 
       // user currency preference
-      let currency = UserPreferenceLocal.get()?.currency;
-      if (!currency || !CURRENCY.includes(currency)) {
-        currency = CURRENCY[0]; // default
-        UserPreferenceLocal.set({ currency: currency });
-      }
+    //   let currency = UserPreferenceLocal.getCurrency();
 
       const adminId = "admin_" + org.id;
       const session = {
