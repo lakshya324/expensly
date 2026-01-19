@@ -1,24 +1,4 @@
-import { AppState } from "../data/state.js";
-import { renderAvailableTags, renderBudgetGrid } from "./user.left.js";
-
-export async function renderLeftPanelUI() {
-  const adminPanel = document.getElementById("adminPanel");
-  const expensePanel = document.getElementById("expensePanel");
-
-  const isAdmin = AppState.currentUser?.isAdmin;
-  if (isAdmin) {
-    // Show admin panel
-    adminPanel.style.display = "block";
-    expensePanel.style.display = "none";
-  } else {
-    // Show expense submission panel
-    adminPanel.style.display = "none";
-    expensePanel.style.display = "block";
-
-    await renderBudgetGrid();
-    renderAvailableTags();
-  }
-}
+import { AppState } from "../../data/state";
 
 export function renderUsersListForAdmin() {
   const usersList = document.getElementById("usersList");
