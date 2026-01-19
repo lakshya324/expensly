@@ -4,7 +4,7 @@ import { TicketStore } from "../../models/ticket.store.js";
 import { UserPreferenceLocal } from "../../storage/local.js";
 import { CURRENCY, getCurrencySymbol } from "../../utils/currency.js";
 
-export class expenseDomManager {
+class TicketDomManager {
   constructor() {
     this.expenseListContainer = null;
 
@@ -20,6 +20,9 @@ export class expenseDomManager {
       console.error("Expense list container not found");
       return;
     }
+
+    // render expenses
+    this.renderExpenses();
 
     // single event delegation for all expense
     this.expenseListContainer.addEventListener("click", async (event) => {
@@ -273,3 +276,5 @@ export class expenseDomManager {
     console.log(`Rendered ${expenses.length} expenses`);
   }
 }
+
+export const ticketDomManager = new TicketDomManager();
