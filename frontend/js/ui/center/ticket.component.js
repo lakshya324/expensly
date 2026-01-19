@@ -1,8 +1,8 @@
-import { exchangeRateStream } from "../../communication/connect";
-import { AppState } from "../../data/state";
-import { TicketStore } from "../../models/ticket.store";
-import { UserPreferenceLocal } from "../../storage/local";
-import { CURRENCY, getCurrencySymbol } from "../../utils/currency";
+import { exchangeRateStream } from "../../communication/connect.js";
+import { AppState } from "../../data/state.js";
+import { TicketStore } from "../../models/ticket.store.js";
+import { UserPreferenceLocal } from "../../storage/local.js";
+import { CURRENCY, getCurrencySymbol } from "../../utils/currency.js";
 
 export class expenseDomManager {
   constructor() {
