@@ -1,17 +1,17 @@
-import { approvalPoller } from "../communication/connect";
-import { API_BASE } from "../config/env.config";
-import { budgetTracker } from "../data/budget";
-import { AppState } from "../data/state";
-import { tagManager } from "../data/tags";
-import { OfflineQueue } from "../models/offlineQueue.store";
-import { ReceiptStore } from "../models/receipt.store";
-import { TicketStore } from "../models/ticket.store";
-import { UserPreferenceLocal } from "../storage/local";
-import { getExpenseFormData } from "../ui/left/form";
+import { approvalPoller } from "../communication/connect.js";
+import { API_BASE } from "../config/env.config.js";
+import { budgetTracker } from "../data/budget.js";
+import { AppState } from "../data/state.js";
+import { tagManager } from "../data/tags.js";
+import { OfflineQueue } from "../models/offlineQueue.store.js";
+import { ReceiptStore } from "../models/receipt.store.js";
+import { TicketStore } from "../models/ticket.store.js";
+import { UserPreferenceLocal } from "../storage/local.js";
+import { getExpenseFormData } from "../ui/left/form.js";
 import {
   renderAvailableTags,
   renderBudgetGrid,
-} from "../ui/left/user.component";
+} from "../ui/left/user.component.js";
 
 export async function handleTicketFormSubmit(event) {
   event.preventDefault();
