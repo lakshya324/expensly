@@ -3,8 +3,15 @@ import {
   auditFeedSocket,
   exchangeRateStream,
   healthChecker,
-} from "./communication/connect";
-import { dbManager } from "./models/database";
+} from "./communication/connect.js";
+import { budgetTracker } from "./data/budget.js";
+import { tagManager } from "./data/tags.js";
+import { dbManager } from "./models/database.js";
+import {
+  addAuditLogEntry,
+  renderExchangeRates,
+  updateStatusIndicator,
+} from "./ui/right.render.js";
 
 export async function setupDB() {
   try {
@@ -20,18 +27,18 @@ export function setupCommunicationCallbacks() {
   // ws
   auditFeedSocket.onMessage((data) => {
     if (data.type === "audit") {
-      addAuditLogEntry(data); // TODO: implement
+      addAuditLogEntry(data);
     }
   });
 
   // sse
   exchangeRateStream.onRatesUpdate((rates) => {
-    renderExchangeRates(rates); // TODO: implement
+    renderExchangeRates(rates);
   });
 
   // status change handler (for all communication types)
   const statusCallback = (type, status) => {
-    updateStatusIndicator(type, status); //TODO: implement
+    updateStatusIndicator(type, status);
   };
 
   // ws: connected, error, disconnected, reconnecting, failed
@@ -45,4 +52,19 @@ export function setupCommunicationCallbacks() {
 
   // sp: healthy, unhealthy
   healthChecker.onStatusChange(statusCallback);
+}
+
+export async function setupData() {
+  try {
+    budgetTracker.initialize();
+    console.log("Budget data loaded");
+  } catch (error) {
+    console.error("Failed to load budget data:", error);
+  }
+  try {
+    await tagManager.sync();
+    console.log("Tag data loaded");
+  } catch (error) {
+    console.error("Failed to load tag data:", error);
+  }
 }
