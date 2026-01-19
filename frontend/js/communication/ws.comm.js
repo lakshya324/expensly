@@ -80,7 +80,7 @@ export class AuditFeedSocket {
     if (this.reconnectAttempts < WS_CONFIG.maxReconnectAttempts) {
       this.reconnectAttempts++;
       const delay =
-        WS_CONFIG.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+        WS_CONFIG.reconnectDelay * Math.pow(WS_CONFIG.backoffFactor, this.reconnectAttempts - 1);
       // delay increases exponentially
 
       console.log(`Reconnect attempt ${this.reconnectAttempts} in ${delay}ms`);
