@@ -1,4 +1,4 @@
-import { dbManager } from "./database";
+import { dbManager } from "./database.js";
 
 export class OfflineQueue {
   static async add(expense, receiptBlob = null) {

@@ -1,4 +1,4 @@
-import { LOCAL_KEYS } from "../config/env.config";
+import { LOCAL_KEYS } from "../config/env.config.js";
 
 export class UserPreferenceLocal {
   static set(preference) {

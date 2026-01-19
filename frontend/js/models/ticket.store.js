@@ -1,5 +1,5 @@
-import { UserSession } from "../storage/session";
-import { dbManager } from "./database";
+import { UserSession } from "../storage/session.js";
+import { dbManager } from "./database.js";
 
 export class TicketStore {
   static async createTicket(ticketData) {

@@ -1,4 +1,4 @@
-import { SESSION_KEYS } from "../config/env.config";
+import { SESSION_KEYS } from "../config/env.config.js";
 
 export class UserSession {
   static set(userInfo) {

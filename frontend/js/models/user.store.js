@@ -1,6 +1,6 @@
-import { DEPARTMENTS } from "../config/env.config";
-import { UserSession } from "../storage/session";
-import { dbManager } from "./database";
+import { DEPARTMENTS } from "../config/env.config.js";
+import { UserSession } from "../storage/session.js";
+import { dbManager } from "./database.js";
 
 export class UserStore {
   static async createUser(userData) {

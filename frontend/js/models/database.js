@@ -1,4 +1,4 @@
-import { INDEXED_DB_CONFIG } from "../config/env.config";
+import { INDEXED_DB_CONFIG } from "../config/env.config.js";
 
 class DatabaseManager {
   constructor() {
