@@ -13,6 +13,7 @@ export const SESSION_KEYS = {
 
 export const LOCAL_KEYS = {
     userPreference: "expensly_user_preference",
+    budgetData: "expensly_budget_data",
 }
 
 export const DEPARTMENTS = [
