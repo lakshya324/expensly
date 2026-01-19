@@ -28,9 +28,17 @@ export const WS_CONFIG = {
     maxReconnectAttempts: 5,
     reconnectDelay: 3000,
     heartbeatInterval: 15000,
+    backoffFactor: 1.5,
 };
 
 export const LP_CONFIG = {
     pollInterval: 35000,
     maxPollAttempts: 12,
+};
+
+export const SP_CONFIG = {
+    initialInterval: 5000,
+    maxInterval: 60000,
+    backoffFactor: 2,
+    requestTimeout: 4000,
 };
