@@ -44,7 +44,7 @@ export class OfflineQueue {
       const request = store.clear();
 
       request.onsuccess = () => {
-        console.log("✅ Offline queue cleared");
+        console.log("Offline queue cleared");
         resolve();
       };
       request.onerror = () => reject(request.error);
@@ -71,7 +71,7 @@ export class OfflineQueue {
       const request = store.delete(queueId);
 
       request.onsuccess = () => {
-        console.log("✅ Item removed from queue:", queueId);
+        console.log("Item removed from queue:", queueId);
         resolve(true);
       };
       request.onerror = () => reject(request.error);
