@@ -2,7 +2,11 @@ import { API_BASE } from "../config/env.config";
 import { AppState } from "../data/state";
 import { UserStore } from "../models/user.store";
 import { FormDraftSession } from "../storage/session";
-import { getAdminAddUserFormData, getExpenseFormData } from "../ui/form";
+import {
+  getAdminAddUserFormData,
+  getExpenseFormData,
+  populateExpenseForm,
+} from "../ui/form";
 import { renderUsersListForAdmin } from "../ui/left.render";
 import { handleReceiptFile } from "./receipt";
 
@@ -11,6 +15,13 @@ export function setupExpenseForm() {
   const dropZone = document.getElementById("drop-zone");
   const fileInput = document.getElementById("receipt-file");
   const clearDraftBtn = document.getElementById("btn-clear-draft");
+
+  // load draft if exists
+  if (FormDraftSession.hasDraft()) {
+    const draft = FormDraftSession.loadDraft();
+    populateExpenseForm(draft);
+    console.log("Draft loaded:", draft);
+  }
 
   form.addEventListener("submit", handleFormSubmit);
 
@@ -55,6 +66,7 @@ export function setupExpenseForm() {
 }
 
 export function setupAdminAddUserForm() {
+  //Todo: add draft feature
   const addUserForm = document.getElementById("add-user-form");
   const departmentSelect = document.getElementById("user-department");
   const managerSelect = document.getElementById("user-manager");
