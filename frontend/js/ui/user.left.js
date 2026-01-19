@@ -1,4 +1,5 @@
 import { budgetTracker } from "../data/budget";
+import { tagManager } from "../data/tags";
 import { UserPreferenceLocal } from "../storage/local";
 import { getCurrencySymbol } from "../utils/currency";
 
@@ -26,4 +27,10 @@ export async function renderBudgetGrid() {
     `;
     container.appendChild(item);
   });
+}
+
+export function renderAvailableTags() {
+  const container = document.getElementById("available-tags");
+  const tags = tagManager.getAllTags();
+  container.textContent = tags.join(", ");
 }
