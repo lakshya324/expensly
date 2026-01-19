@@ -6,7 +6,7 @@ import { AppState } from "./state";
 
 //Todo: add auto budget calculation feat based on prev expenses
 //TODO: Improve overall logic... so that it got auto update on expense status change
-export class BudgetTracker {
+class BudgetTracker {
   constructor() {
     this.budgetMap = new Map();
   }
@@ -65,7 +65,7 @@ export class BudgetTracker {
       console.warn(`Department '${department}' not found in budget map`);
       return null;
     }
-    const userCurrency = UserPreferenceLocal.get()?.currency || CURRENCY[0];
+    const userCurrency = UserPreferenceLocal.getCurrency();
     const budget = this.budgetMap.get(department);
     return userCurrency !== CURRENCY[0]
       ? {
@@ -92,7 +92,7 @@ export class BudgetTracker {
 
   addExpense(amount) {
     const user = AppState.currentUser;
-    const userCurrency = UserPreferenceLocal.get()?.currency || CURRENCY[0];
+    const userCurrency = UserPreferenceLocal.getCurrency();
     if (!this.budgetMap.has(user.department)) {
       console.warn(`Department '${user.department}' not found in budget map`);
       return false;
@@ -115,7 +115,7 @@ export class BudgetTracker {
   }
 
   removeExpense(department, amount) {
-    const userCurrency = UserPreferenceLocal.get()?.currency || CURRENCY[0];
+    const userCurrency = UserPreferenceLocal.getCurrency();
     if (!this.budgetMap.has(department)) {
       return false;
     }
@@ -137,7 +137,7 @@ export class BudgetTracker {
   }
 
   getAllBudgets() {
-    const userCurrency = UserPreferenceLocal.get()?.currency || CURRENCY[0];
+    const userCurrency = UserPreferenceLocal.getCurrency();
     const budgets = [];
     this.budgetMap.forEach((budget, department) => {
       budgets.push({
@@ -158,3 +158,5 @@ export class BudgetTracker {
     return budgets;
   }
 }
+
+export const budgetTracker = new BudgetTracker();
