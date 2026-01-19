@@ -1,4 +1,4 @@
-import { AppState } from "../../data/state";
+import { AppState } from "../../data/state.js";
 
 export function renderUsersListForAdmin() {
   const usersList = document.getElementById("usersList");

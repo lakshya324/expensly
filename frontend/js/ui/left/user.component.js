@@ -1,7 +1,7 @@
-import { budgetTracker } from "../../data/budget";
-import { tagManager } from "../../data/tags";
-import { UserPreferenceLocal } from "../../storage/local";
-import { getCurrencySymbol } from "../../utils/currency";
+import { budgetTracker } from "../../data/budget.js";
+import { tagManager } from "../../data/tags.js";
+import { UserPreferenceLocal } from "../../storage/local.js";
+import { getCurrencySymbol } from "../../utils/currency.js";
 
 export async function renderBudgetGrid() {
   const currency = UserPreferenceLocal.getCurrency();
