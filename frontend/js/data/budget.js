@@ -1,8 +1,8 @@
-import { exchangeRateStream } from "../communication/connect";
-import { DEPARTMENTS } from "../config/env.config";
-import { BudgetLocal, UserPreferenceLocal } from "../storage/local";
-import { CURRENCY } from "../utils/currency";
-import { AppState } from "./state";
+import { exchangeRateStream } from "../communication/connect.js";
+import { DEPARTMENTS } from "../config/env.config.js";
+import { BudgetLocal, UserPreferenceLocal } from "../storage/local.js";
+import { CURRENCY } from "../utils/currency.js";
+import { AppState } from "./state.js";
 
 //Todo: add auto budget calculation feat based on prev expenses
 //TODO: Improve overall logic... so that it got auto update on expense status change

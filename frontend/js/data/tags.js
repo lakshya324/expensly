@@ -1,4 +1,4 @@
-import { TicketStore } from "../models/ticket.store";
+import { TicketStore } from "../models/ticket.store.js";
 
 class TagManager {
   constructor() {
