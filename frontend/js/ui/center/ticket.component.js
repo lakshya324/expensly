@@ -30,7 +30,7 @@ export class expenseDomManager {
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
-        const expense = AppState.expenses.find((e) => e.id === expenseId);
+        const expense = AppState.tickets.find((e) => e.id === expenseId);
 
         if (!expense) {
           console.error("Expense not found:", expenseId);
@@ -51,14 +51,14 @@ export class expenseDomManager {
           },
           status: "approved",
         });
-        AppState.expenses = await TicketStore.getAllTickets();
+        AppState.tickets = await TicketStore.getAllTickets();
         this.renderExpenses();
         console.log("Finance approve clicked for", expenseId);
       } else if (target.classList.contains("btn-finance-reject")) {
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
-        const expense = AppState.expenses.find((e) => e.id === expenseId);
+        const expense = AppState.tickets.find((e) => e.id === expenseId);
 
         if (!expense) {
           console.error("Expense not found:", expenseId);
@@ -79,7 +79,7 @@ export class expenseDomManager {
           },
           status: "rejected",
         });
-        AppState.expenses = await TicketStore.getAllTickets();
+        AppState.tickets = await TicketStore.getAllTickets();
         this.renderExpenses();
         console.log("Finance reject clicked for", expenseId);
       }
@@ -89,7 +89,7 @@ export class expenseDomManager {
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
-        const expense = AppState.expenses.find((e) => e.id === expenseId);
+        const expense = AppState.tickets.find((e) => e.id === expenseId);
 
         if (!expense) {
           console.error("Expense not found:", expenseId);
@@ -111,14 +111,14 @@ export class expenseDomManager {
           },
           status: "manager_approved",
         });
-        AppState.expenses = await TicketStore.getAllTickets();
+        AppState.tickets = await TicketStore.getAllTickets();
         this.renderExpenses();
         console.log("Manager approve clicked for", expenseId);
       } else if (target.classList.contains("btn-manager-reject")) {
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
-        const expense = AppState.expenses.find((e) => e.id === expenseId);
+        const expense = AppState.tickets.find((e) => e.id === expenseId);
 
         if (!expense) {
           console.error("Expense not found:", expenseId);
@@ -140,7 +140,7 @@ export class expenseDomManager {
           },
           status: "rejected",
         });
-        AppState.expenses = await TicketStore.getAllTickets();
+        AppState.tickets = await TicketStore.getAllTickets();
         this.renderExpenses();
         console.log("Manager reject clicked for", expenseId);
       }
@@ -262,7 +262,7 @@ export class expenseDomManager {
 
     this.expenseListContainer.innerHTML = "";
 
-    const expenses = AppState.expenses; // todo: check it is update when edit
+    const expenses = AppState.tickets; // todo: check it is update when edit
     // const expenses = TicketStore.getAllTickets();
 
     expenses.forEach((expense) => {
