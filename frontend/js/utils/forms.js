@@ -1,16 +1,18 @@
-import { API_BASE } from "../config/env.config";
-import { AppState } from "../data/state";
-import { UserStore } from "../models/user.store";
-import { FormDraftSession } from "../storage/session";
+import { API_BASE } from "../config/env.config.js";
+import { AppState } from "../data/state.js";
+import { UserStore } from "../models/user.store.js";
+import { FormDraftSession } from "../storage/session.js";
 import {
   getAdminAddUserFormData,
   getExpenseFormData,
   populateExpenseForm,
-} from "../ui/form";
-import { renderUsersListForAdmin } from "../ui/left.render";
-import { handleReceiptFile } from "./receipt";
+} from "../ui/left/form.js";
+import { renderUsersListForAdmin } from "../ui/left/admin.component.js";
+import { renderAvailableTags, renderBudgetGrid } from "../ui/left/user.component.js";
+import { handleReceiptFile } from "./receipt.js";
 
-export function setupExpenseForm() {
+export async function setupExpenseForm() {
+
   const form = document.getElementById("expense-form");
   const dropZone = document.getElementById("drop-zone");
   const fileInput = document.getElementById("receipt-file");
@@ -63,6 +65,9 @@ export function setupExpenseForm() {
       handleReceiptFile(file);
     }
   });
+
+  await renderBudgetGrid();
+  renderAvailableTags();
 }
 
 export function setupAdminAddUserForm() {
