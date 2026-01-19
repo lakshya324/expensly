@@ -3,10 +3,10 @@ import { ExchangeRateStream } from './sse.comm.js';
 import { ApprovalPoller } from './lp.comm.js';
 import { HealthChecker } from './sp.comm.js';
 
-const auditFeedSocket = new AuditFeedSocket();
-const exchangeRateStream = new ExchangeRateStream();
-const approvalPoller = new ApprovalPoller();
-const healthChecker = new HealthChecker();
+export const auditFeedSocket = new AuditFeedSocket();
+export const exchangeRateStream = new ExchangeRateStream();
+export const approvalPoller = new ApprovalPoller();
+export const healthChecker = new HealthChecker();
 
 export function initCommunication() {
   console.log('Initializing communication...');
