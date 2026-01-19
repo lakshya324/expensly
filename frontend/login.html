@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Expensly - Login</title>
-    
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -174,22 +174,27 @@
     <script defer type="module" src="js/auth.js"></script>
     <script type="module">
         import { AuthManager } from './js/auth.js';
-        
-        function showForm(type) {
-            document.querySelectorAll('.form').forEach(f => f.classList.remove('active'));
-            document.getElementById(type).classList.add('active');
-            errorBox.textContent = '';
-        }
-
-        function showError(msg) {
-            errorBox.textContent = msg;
-        }
+        import { UserSession } from './js/storage/session.js';
 
         const loginButtons = document.querySelectorAll('.login-selector button');
         const errorBox = document.getElementById('error');
 
         const emailRegex = /\S+@\S+\.\S+/;
         const passwordRegex = /.{6,}/;
+
+        function showForm(type) {
+            document.querySelectorAll('.form').forEach(f => f.classList.remove('active'));
+            document.getElementById(type).classList.add('active');
+
+            loginButtons.forEach(btn =>
+                btn.getAttribute('data-type') === type ? btn.classList.add('active') : btn.classList.remove('active')
+            )
+            errorBox.textContent = '';
+        }
+
+        function showError(msg) {
+            errorBox.textContent = msg;
+        }
 
         loginButtons.forEach(button => {
             button.addEventListener('click', () => {
@@ -288,6 +293,10 @@
                 showError(err.message);
             }
         };
+
+        if(UserSession.isLoggedIn()) {
+            location.href = 'index.html';
+        }
     </script>
 
 </body>
