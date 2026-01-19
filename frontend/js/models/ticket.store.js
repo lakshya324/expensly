@@ -13,7 +13,8 @@ export class TicketStore {
       const store = transaction.objectStore("tickets");
 
       const ticket = {
-        id: "ticket_" + crypto.randomUUID(),
+        id: ticketData.id || "ticket_" + crypto.randomUUID(),
+        title: ticketData.title,
         submittedBy: ticketData.submittedBy,
         orgId: ticketData.orgId,
         amount: parseFloat(ticketData.amount),
@@ -33,7 +34,7 @@ export class TicketStore {
               reviewedAt: null,
               comments: null,
             }
-          : null, // TODO: add auto-approval logic in controller
+          : null,
 
         financeApproval: {
           approved: false,
