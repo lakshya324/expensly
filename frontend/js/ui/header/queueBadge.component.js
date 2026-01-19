@@ -1,4 +1,4 @@
-import { OfflineQueue } from "../../models/offlineQueue.store";
+import { OfflineQueue } from "../../models/offlineQueue.store.js";
 
 export async function updateQueueBadge() {
   const count = await OfflineQueue.getCount();
