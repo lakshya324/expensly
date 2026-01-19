@@ -1,7 +1,8 @@
 import { initCommunication } from "./communication/connect.js";
 import { AppState } from "./data/state.js";
 import { TicketStore } from "./models/ticket.store.js";
-import { setupData, setupDB } from "./setup.js";
+import { UserStore } from "./models/user.store.js";
+import { setupCommunicationCallbacks, setupData, setupDB } from "./setup.js";
 import { UserSession } from "./storage/session.js";
 import { ticketDomManager } from "./ui/center/ticket.component.js";
 import { updateQueueBadge } from "./ui/header/queueBadge.component.js";
@@ -13,8 +14,10 @@ async function initApp() {
   console.log("Initializing Expensly...");
 
   try {
-    //TODO: check if new login setup works
-    // AppState.currentUser = UserSession.get();
+    // load State
+    AppState.currentUser = UserSession.get();
+    AppState.tickets = await TicketStore.getAllTickets();
+    AppState.users = await UserStore.getAllUsers();
     console.log(
       "Current user:",
       AppState.currentUser.name,
@@ -30,9 +33,6 @@ async function initApp() {
 
     // render left side
     await renderLeftPanelUI();
-
-    // load tickets
-    AppState.tickets = await TicketStore.getAllTickets();
 
     //init communication
     initCommunication();
@@ -61,5 +61,5 @@ async function initApp() {
 
 initApp();
 if (AppState.currentUser && AppState.currentUser.role !== "admin") {
-  setupTaxReportWorker();
+  setupTaxReportWorker(); //TODO: add this
 }
