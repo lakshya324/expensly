@@ -1,5 +1,5 @@
-import { API_BASE } from "../config/env.config";
-import { CURRENCY } from "../utils/currency";
+import { API_BASE } from "../config/env.config.js";
+import { CURRENCY } from "../utils/currency.js";
 
 export class ExchangeRateStream {
   constructor(url = API_BASE + "/exchange-rates") {

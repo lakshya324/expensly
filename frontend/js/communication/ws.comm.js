@@ -1,4 +1,4 @@
-import { WS_BASE, WS_CONFIG } from "../config/env.config";
+import { WS_BASE, WS_CONFIG } from "../config/env.config.js";
 
 export class AuditFeedSocket {
   constructor(url = WS_BASE) {

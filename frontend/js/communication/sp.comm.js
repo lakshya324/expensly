@@ -1,4 +1,4 @@
-import { API_BASE, SP_CONFIG } from "../config/env.config";
+import { API_BASE, SP_CONFIG } from "../config/env.config.js";
 
 export class HealthChecker {
   constructor() {

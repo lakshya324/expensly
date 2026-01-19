@@ -1,4 +1,4 @@
-import { API_BASE, LP_CONFIG } from "../config/env.config";
+import { API_BASE, LP_CONFIG } from "../config/env.config.js";
 
 export class ApprovalPoller {
   constructor() {
