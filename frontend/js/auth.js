@@ -4,6 +4,7 @@ import { hashPassword } from "./utils/encode.js";
 import { OrganizationStore } from "./models/organization.store.js";
 import { UserPreferenceLocal } from "./storage/local.js";
 import { UserSession } from "./storage/session.js";
+import { UserStore } from "./models/user.store.js";
 
 export class AuthManager {
   static async signupOrganization(orgName, adminEmail, adminPassword) {
@@ -56,7 +57,7 @@ export class AuthManager {
       }
 
       // Check user exist locally
-      const user = await UserStore.getUserByEmail(email); //TODO
+      const user = await UserStore.getUserByEmail(email);
 
       if (!user) {
         throw new Error("User not found. Please contact your administrator.");
