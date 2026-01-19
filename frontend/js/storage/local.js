@@ -26,7 +26,11 @@ export class UserPreferenceLocal {
 
   static getCurrency() {
     const pref = this.get();
-    return pref ? pref.currency : CURRENCY[0];
+    if (!pref || !CURRENCY.includes(pref.currency)) {
+      this.setCurrency(CURRENCY[0]);
+      return CURRENCY[0];
+    }
+    return pref.currency;
   }
 }
 
