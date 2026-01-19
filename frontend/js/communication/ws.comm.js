@@ -102,11 +102,13 @@ export class AuditFeedSocket {
   }
 
   // Set message callback
+  // TODO: Use in future to handle different message types
   onMessage(callback) {
     this.onMessageCallback = callback;
   }
 
   // Set status change callback
+  //TODO: use in LEDs for shwoing status
   onStatusChange(callback) {
     this.onStatusChangeCallback = callback;
   }
