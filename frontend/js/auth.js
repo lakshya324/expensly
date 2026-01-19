@@ -90,7 +90,7 @@ export class AuthManager {
         managerId: user.managerId || null,
         orgId: user.orgId,
         orgName: org.name,
-        currency: currency,
+        // currency: currency,
         loginTime: new Date().toISOString(),
         isAdmin: false,
         isFinance: user.department === "Finance", // Finance dept has approve/reject privileges
@@ -149,7 +149,7 @@ export class AuthManager {
         managerId: null,
         orgId: org.id,
         orgName: org.name,
-        currency: currency,
+        // currency: currency,
         loginTime: new Date().toISOString(),
         isAdmin: true,
         isFinance: false,
