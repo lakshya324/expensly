@@ -14,6 +14,20 @@ export class UserPreferenceLocal {
   static clear() {
     localStorage.removeItem(LOCAL_KEYS.userPreference);
   }
+
+  static setCurrency(currency) {
+    if (!CURRENCY.includes(currency)) {
+      currency = CURRENCY[0]; // default
+    }
+    const pref = this.get() || {};
+    pref.currency = currency;
+    this.set(pref);
+  }
+
+  static getCurrency() {
+    const pref = this.get();
+    return pref ? pref.currency : CURRENCY[0];
+  }
 }
 
 export class BudgetLocal {
