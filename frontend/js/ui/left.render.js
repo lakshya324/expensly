@@ -1,7 +1,11 @@
-export function renderUIForRole(isAdmin = false) {
+import { AppState } from "../data/state.js";
+import { renderAvailableTags, renderBudgetGrid } from "./user.left.js";
+
+export async function renderLeftPanelUI() {
   const adminPanel = document.getElementById("adminPanel");
   const expensePanel = document.getElementById("expensePanel");
 
+  const isAdmin = AppState.currentUser?.isAdmin;
   if (isAdmin) {
     // Show admin panel
     adminPanel.style.display = "block";
@@ -10,6 +14,9 @@ export function renderUIForRole(isAdmin = false) {
     // Show expense submission panel
     adminPanel.style.display = "none";
     expensePanel.style.display = "block";
+
+    await renderBudgetGrid();
+    renderAvailableTags();
   }
 }
 
