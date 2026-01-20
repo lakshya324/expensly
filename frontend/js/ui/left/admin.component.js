@@ -18,18 +18,18 @@ export function renderUsersListForAdmin() {
           <h4>${user.name}</h4>
           <p class="user-email">${user.email}</p>
         </div>
-        <span class="user-dept-badge dept-${user.department.toLowerCase()}">${
+        <span class="user-dept-badge">${
         user.department
       }</span>
       </div>
       <div class="user-details">
         ${
           user.managerId
-            ? `<span class="detail-item">Manager: ${user.managerId.substring(
+            ? `<span>Manager: ${user.managerId.substring(
                 0,
                 8
               )}...</span>`
-            : '<span class="detail-item">No Manager</span>'
+            : '<span>No Manager</span>'
         }
       </div>
     </div>
