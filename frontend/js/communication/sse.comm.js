@@ -8,7 +8,14 @@ export class ExchangeRateStream {
     this.onRatesUpdateCallback = null;
     this.onStatusChangeCallback = null;
     this.isConnected = false;
-    this.currentRates = {};
+    this.currentRates = {
+      USD: 1,
+      EUR: 0.85,
+      GBP: 0.75,
+      INR: 74,
+      JPY: 110,
+      CAD: 1.25,
+    };
   }
 
   connect() {
@@ -74,6 +81,8 @@ export class ExchangeRateStream {
   }
 
   convert(amount, fromCurrency, toCurrency) {
+    console.log(`${amount} ${fromCurrency} -> ${toCurrency}`);
+    console.log("Current Rates:", this.currentRates[fromCurrency], this.currentRates[toCurrency]);
     if (!CURRENCY.includes(fromCurrency)) {
       throw new Error("Unsupported fromCurrency: " + fromCurrency);
     }
