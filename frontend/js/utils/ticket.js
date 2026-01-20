@@ -7,7 +7,8 @@ import { OfflineQueue } from "../models/offlineQueue.store.js";
 import { ReceiptStore } from "../models/receipt.store.js";
 import { TicketStore } from "../models/ticket.store.js";
 import { UserPreferenceLocal } from "../storage/local.js";
-import { getExpenseFormData } from "../ui/left/form.js";
+import { ticketDomManager } from "../ui/center/ticket.component.js";
+import { clearExpenseForm, getExpenseFormData } from "../ui/left/form.js";
 import {
   renderAvailableTags,
   renderBudgetGrid,
@@ -55,7 +56,9 @@ export async function handleTicketFormSubmit(event) {
     // Clear form
     document.getElementById("expense-form").reset();
     document.getElementById("receipt-preview").innerHTML = "";
-    expenseDraft.clearDraft();
+    clearExpenseForm();
+
+    AppState.currentReceiptUrl = null;
     AppState.currentReceiptFile = null;
 
     if (AppState.currentReceiptUrl) {
@@ -79,12 +82,12 @@ export async function addTicketToIDB(ticket, receiptFile = null) {
       await ReceiptStore.storeReceipt(ticket.id, receiptFile);
     }
 
-    budgetTracker.addExpense(ticket.department, ticket.amount);
+    budgetTracker.addExpense(ticket.amount);
     await renderBudgetGrid();
 
     // Add to state and render
     AppState.tickets.push(ticket);
-    domManager.renderExpenses(); //TODO
+    ticketDomManager.renderExpenses();
 
     // Start long polling for approval
     startApprovalPolling(ticket.id);
