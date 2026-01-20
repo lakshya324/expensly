@@ -2,7 +2,12 @@ import { initCommunication } from "./communication/connect.js";
 import { AppState } from "./data/state.js";
 import { TicketStore } from "./models/ticket.store.js";
 import { UserStore } from "./models/user.store.js";
-import { setupCommunicationCallbacks, setupData, setupDB } from "./setup.js";
+import {
+  setupCommunicationCallbacks,
+  setupData,
+  setupDB,
+  setupWorker,
+} from "./setup.js";
 import { UserSession } from "./storage/session.js";
 import { ticketDomManager } from "./ui/center/ticket.component.js";
 import { updateQueueBadge } from "./ui/header/queueBadge.component.js";
@@ -18,12 +23,7 @@ async function initApp() {
     AppState.currentUser = UserSession.get();
     AppState.tickets = await TicketStore.getAllTickets();
     AppState.users = await UserStore.getAllUsers();
-    console.log(
-      "Current user:",
-      AppState.currentUser.name,
-      "-",
-      AppState.currentUser.department
-    );
+    console.log("Current user:", AppState.currentUser);
 
     // idb init
     await setupDB();
@@ -52,6 +52,9 @@ async function initApp() {
     // diagnostic button
     setupDiagnosticButton();
 
+    // setup worker
+    setupWorker();
+
     console.log("Expensly initialized successfully");
   } catch (error) {
     console.error("Failed to initialize app:", error);
@@ -60,6 +63,3 @@ async function initApp() {
 }
 
 initApp();
-if (AppState.currentUser && AppState.currentUser.role !== "admin") {
-  setupTaxReportWorker(); //TODO: add this
-}
