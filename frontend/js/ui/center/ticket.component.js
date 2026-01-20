@@ -13,7 +13,7 @@ class TicketDomManager {
     this.auditNotesMap = new WeakMap();
   }
 
-  initEventDelegation() {
+  async initEventDelegation() {
     this.expenseListContainer = document.getElementById("expense-list");
 
     if (!this.expenseListContainer) {
@@ -22,7 +22,7 @@ class TicketDomManager {
     }
 
     // render expenses
-    this.renderExpenses();
+    await this.renderExpenses();
 
     // single event delegation for all expense
     this.expenseListContainer.addEventListener("click", async (event) => {
@@ -55,7 +55,7 @@ class TicketDomManager {
           status: "approved",
         });
         AppState.tickets = await TicketStore.getAllTickets();
-        this.renderExpenses();
+        await this.renderExpenses();
         console.log("Finance approve clicked for", expenseId);
       } else if (target.id === "btnFinanceReject") {
         target.disabled = true;
@@ -83,7 +83,7 @@ class TicketDomManager {
           status: "rejected",
         });
         AppState.tickets = await TicketStore.getAllTickets();
-        this.renderExpenses();
+        await this.renderExpenses();
         console.log("Finance reject clicked for", expenseId);
       }
 
@@ -115,7 +115,7 @@ class TicketDomManager {
           status: "manager_approved",
         });
         AppState.tickets = await TicketStore.getAllTickets();
-        this.renderExpenses();
+        await this.renderExpenses();
         console.log("Manager approve clicked for", expenseId);
       } else if (target.id === "btnManagerReject") {
         target.disabled = true;
@@ -144,7 +144,7 @@ class TicketDomManager {
           status: "rejected",
         });
         AppState.tickets = await TicketStore.getAllTickets();
-        this.renderExpenses();
+        await this.renderExpenses();
         console.log("Manager reject clicked for", expenseId);
       }
 
@@ -250,7 +250,7 @@ class TicketDomManager {
     return card;
   }
 
-  renderExpenses() {
+  async renderExpenses() {
     if (!this.expenseListContainer) {
       console.error("Container not initialized");
       return;
@@ -258,8 +258,10 @@ class TicketDomManager {
 
     this.expenseListContainer.innerHTML = "";
 
-    const expenses = AppState.tickets; // todo: check it is update when edit
-    // const expenses = TicketStore.getAllTickets();
+    // const expenses = AppState.tickets; // todo: check it is update when edit
+    const expenses = await TicketStore.getAllTickets();
+
+    console.log("Rendering expenses:", expenses.length);
 
     expenses.forEach((expense) => {
       const card = this.createExpenseCard(expense);
