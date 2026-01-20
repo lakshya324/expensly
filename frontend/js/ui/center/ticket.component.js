@@ -29,7 +29,7 @@ class TicketDomManager {
       const target = event.target;
 
       //* Finance actions
-      if (target.classList.contains("btn-finance-approve")) {
+      if (target.id === "btnFinanceApprove") {
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
@@ -57,7 +57,7 @@ class TicketDomManager {
         AppState.tickets = await TicketStore.getAllTickets();
         this.renderExpenses();
         console.log("Finance approve clicked for", expenseId);
-      } else if (target.classList.contains("btn-finance-reject")) {
+      } else if (target.id === "btnFinanceReject") {
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
@@ -88,7 +88,7 @@ class TicketDomManager {
       }
 
       //* manager actions
-      else if (target.classList.contains("btn-manager-approve")) {
+      else if (target.id === "btnManagerApprove") {
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
@@ -117,7 +117,7 @@ class TicketDomManager {
         AppState.tickets = await TicketStore.getAllTickets();
         this.renderExpenses();
         console.log("Manager approve clicked for", expenseId);
-      } else if (target.classList.contains("btn-manager-reject")) {
+      } else if (target.id === "btnManagerReject") {
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
@@ -154,13 +154,6 @@ class TicketDomManager {
         this.toggleCardExpansion(expenseCard);
       }
     });
-  }
-
-  handleEdit(expenseId) {
-    console.log("✏️ Edit expense:", expenseId);
-    // Implementation would load expense data into form
-    // For demo, just log
-    alert(`Edit expense ${expenseId}`);
   }
 
   toggleCardExpansion(expenseCard) {
@@ -222,8 +215,8 @@ class TicketDomManager {
           ${
             user.isFinance & (expense.status === "manager_approved")
               ? `
-            <button class="btn-finance-approve" data-expense-id="${expense.id}" title="Approve Expense">Approve</button>
-            <button class="btn-finance-reject" data-expense-id="${expense.id}" title="Reject Expense">Reject</button>
+            <button id="btnFinanceApprove" data-expense-id="${expense.id}" title="Approve Expense">Approve</button>
+            <button id="btnFinanceReject" data-expense-id="${expense.id}" title="Reject Expense">Reject</button>
           `
               : ""
           }
@@ -232,8 +225,8 @@ class TicketDomManager {
             expense.managerApproval.reviewedBy === user.id &&
             expense.status === "pending"
               ? `
-            <button class="btn-manager-approve" data-expense-id="${expense.id}" title="Approve Expense">Approve</button>
-            <button class="btn-manager-reject" data-expense-id="${expense.id}" title="Reject Expense">Reject</button>
+            <button id="btnManagerApprove" data-expense-id="${expense.id}" title="Approve Expense">Approve</button>
+            <button id="btnManagerReject" data-expense-id="${expense.id}" title="Reject Expense">Reject</button>
           `
               : ""
           }
