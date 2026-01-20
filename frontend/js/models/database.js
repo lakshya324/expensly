@@ -16,7 +16,7 @@ class DatabaseManager {
 
       request.onsuccess = () => {
         this.db = request.result;
-        console.log("✅ IndexedDB initialized");
+        console.log("IndexedDB initialized");
         resolve(this.db);
       };
 
@@ -24,7 +24,7 @@ class DatabaseManager {
         const db = event.target.result;
         const oldVersion = event.oldVersion;
 
-        console.log(`📦 Upgrading DB from v${oldVersion} to v${INDEXED_DB_CONFIG.version}`);
+        console.log(`Upgrading DB from v${oldVersion} to v${INDEXED_DB_CONFIG.version}`);
 
         //* ORGANIZATIONS STORE
         if (!db.objectStoreNames.contains("organizations")) {
@@ -63,7 +63,7 @@ class DatabaseManager {
         //   ticketStore.createIndex("financeApproval.reviewedBy", "financeApproval.reviewedBy", {
         //     unique: false,
         //   });
-        ticketStore.createIndex("org_deptartment", ["orgId", "department"], { unique: false });
+        ticketStore.createIndex("org_department", ["orgId", "department"], { unique: false });
           console.log("Created: tickets store");
         }
 
@@ -83,7 +83,7 @@ class DatabaseManager {
           console.log("Created: receipts store");
         }
 
-        console.log("✅ Database schema updated");
+        console.log("Database schema updated");
       };
     });
 

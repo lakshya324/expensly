@@ -119,7 +119,7 @@ export class TicketStore {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(["tickets"], "readonly");
       const store = transaction.objectStore("tickets");
-      const index = store.index("org_deptartment");
+      const index = store.index("org_department");
       const request = index.getAll([user.orgId, user.department]);
       request.onsuccess = () => {
         const allTickets = request.result;
