@@ -8,6 +8,10 @@ export function getExpenseFormData() {
   };
 }
 
+export function clearExpenseForm() {
+  document.getElementById("expense-form").reset();
+}
+
 export function populateExpenseForm(data) {
   document.getElementById("expense-title").value = data.title || "";
   document.getElementById("expense-amount").value = data.amount || "";
