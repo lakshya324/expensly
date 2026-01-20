@@ -111,7 +111,8 @@ body {
     background: #555;
 }
 
-.status-indicator.connected .led {
+.status-indicator.connected .led,
+.status-indicator.healthy .led {
     background: #00ff00;
 }
 
