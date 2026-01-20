@@ -68,3 +68,34 @@ export async function setupData() {
     console.error("Failed to load tag data:", error);
   }
 }
+
+export async function setupWorker() {
+  const workerBtn = document.getElementById("btn-generate-report");
+  const downloadBtn = document.getElementById("btn-download-report");
+  const worker = new Worker("js/utils/worker.js");
+
+  workerBtn.addEventListener("click", () => {
+    workerBtn.disabled = true;
+    workerBtn.textContent = "Generating...";
+
+    worker.postMessage({ type: "run" });
+  });
+
+  worker.onmessage = (e) => {
+    if (e.data.type === "done") {
+      downloadBtn.style.display = "block";
+      
+      workerBtn.textContent = "Generate Quarterly Report";
+      workerBtn.disabled = false;
+
+      const reportData = e.data.payload;
+      const blob = new Blob([reportData], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      downloadBtn.href = url;
+      downloadBtn.download = `quarterly_report_${Date.now()}.json`;
+
+      console.log("Report generation completed");
+    }
+  };
+}
