@@ -7,6 +7,7 @@ import { OfflineQueue } from "../models/offlineQueue.store.js";
 import { ReceiptStore } from "../models/receipt.store.js";
 import { TicketStore } from "../models/ticket.store.js";
 import { UserPreferenceLocal } from "../storage/local.js";
+import { FormDraftSession } from "../storage/session.js";
 import { ticketDomManager } from "../ui/center/ticket.component.js";
 import { clearExpenseForm, getExpenseFormData } from "../ui/left/form.js";
 import {
@@ -57,6 +58,7 @@ export async function handleTicketFormSubmit(event) {
     document.getElementById("expense-form").reset();
     document.getElementById("receipt-preview").innerHTML = "";
     clearExpenseForm();
+    FormDraftSession.clearDraft();
 
     AppState.currentReceiptUrl = null;
     AppState.currentReceiptFile = null;
