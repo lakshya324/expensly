@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Expensly</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- header -->
+    <header class="header">
+        <div class="container">
+            <div class="left">
+                <h1>Expensly</h1>
+                <span>by Lakshya Sharma</span>
+            </div>
+
+            <div class="center">
+                <!-- currency dropdown -->
+                <div>
+                    <label for="currencySelect">Currency:</label>
+                    <select id="currencySelect" class="currency-dropdown">
+                        <!-- TODO: populate options realtime -->
+                        <option value="USD">USD ($)</option>
+                        <option value="INR">INR (₹)</option>
+                    </select>
+                </div>
+
+                <!-- user info -->
+                <div>
+                    <span class="user-name">Loading...</span>
+                    <span class="user-dept"></span>
+                </div>
+            </div>
+
+            <div class="right">
+                <!-- status indicators -->
+                <div class="status-matrix">
+                    <div class="status-indicator" id="status-ws" title="WebSocket">
+                        <span class="led"></span>
+                        <span class="label">WS</span>
+                    </div>
+                    <div class="status-indicator" id="status-sse" title="Server-Sent Events">
+                        <span class="led"></span>
+                        <span class="label">SSE</span>
+                    </div>
+                    <div class="status-indicator" id="status-lp" title="Long Polling">
+                        <span class="led"></span>
+                        <span class="label">LP</span>
+                    </div>
+                    <div class="status-indicator" id="status-sp" title="Short Polling">
+                        <span class="led"></span>
+                        <span class="label">SP</span>
+                    </div>
+                </div>
+
+                <!-- offline badge -->
+                <div class="offline-badge" id="offline-badge">
+                    <span class="count" id="queue-count">0</span>
+                    <span class="label">Pending Sync</span>
+                </div>
+
+                <!-- diagnostic button -->
+                <button class="btn-diagnostic" id="btn-diagnostic" title="Event Loop Diagnostic">
+                    Diagnostic
+                </button>
+
+                <!-- logout button -->
+                <button class="btn-logout" id="logoutBtn" title="Logout">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+
+        <!-- admin panel -->
+        <!-- <aside class="sidebar-left admin-panel" id="adminPanel" style="display: none;"> -->
+        <aside class="sidebar-left admin-panel" id="adminPanel">
+            <h2>User Management</h2>
+
+            <!-- add user form -->
+            <div class="panel-section">
+                <h3>Add New User</h3>
+                <form id="add-user-form" class="add-user-form">
+                    <div class="form-group">
+                        <label for="user-name">Full Name</label>
+                        <input type="text" id="user-name" placeholder="John Doe" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="user-email">Email</label>
+                        <input type="email" id="user-email" placeholder="john@company.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="user-password">Password</label>
+                        <input type="password" id="user-password" placeholder="Enter password" required minlength="6">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="user-department">Department</label>
+                        <select id="user-department" required>
+                            <!-- TODO: populate dynamically -->
+                            <option value="">Select Department</option>
+                            <option value="Finance">Finance</option>
+                            <option value="IT">IT</option>
+                            <option value="Sales">Sales</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="HR">HR</option>
+                            <option value="Operations">Operations</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="user-manager">Manager (Optional)</label>
+                        <select id="user-manager">
+                            <option value="">No Manager</option>
+                            <!-- populated dynamically -->
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn-submit">Add User</button>
+                </form>
+            </div>
+
+            <!-- list of users -->
+            <div class="panel-section">
+                <h3>All Users</h3>
+                <div class="users-list" id="usersList">
+                    <p class="empty-state">No users yet. Add your first user above.</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- expense form sidebar -->
+        <aside class="sidebar-left" id="expensePanel" style="display: none;">
+            <!-- <aside class="sidebar-left" id="expensePanel"> -->
+            <h2>Expense Submission</h2>
+
+            <!-- Expense Form -->
+            <form id="expense-form" class="expense-form">
+                <div class="form-group">
+                    <label for="expense-title">Title</label>
+                    <input type="text" id="expense-title" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="expense-amount">Amount</label>
+                    <div class="amount-input-group">
+                        <input type="number" id="expense-amount" step="1" min="0" required>
+                        <span class="user-currency"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="expense-desc">Description</label>
+                    <textarea id="expense-desc" rows="3" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="expense-tags">Tags (comma-separated)</label>
+                    <input type="text" id="expense-tags" placeholder="#Travel, #ClientDinner">
+                    <small>Available tags: <span id="available-tags"></span></small>
+                </div>
+
+                <!-- receipt upload -->
+                <div class="form-group">
+                    <label>Receipt</label>
+                    <div class="drop-zone" id="drop-zone">
+                        <p>Drop receipt here or click to browse</p>
+                        <input type="file" id="receipt-file" accept="image/*,.pdf" hidden>
+                    </div>
+                    <div id="receipt-preview" class="receipt-preview"></div>
+                </div>
+
+                <button type="submit" class="btn-submit">Submit Expense</button>
+                <button type="button" class="btn-clear" id="btn-clear-draft">Clear Draft</button>
+            </form>
+
+            <!-- budget -->
+            <div class="budget-section">
+                <h3>Department Budget</h3>
+                <div id="budget-grid" class="budget-grid"></div>
+            </div>
+        </aside>
+
+        <!-- expense list -->
+        <main class="main-content">
+            <div class="content-header">
+                <h2>Expense List</h2>
+                <div class="content-actions">
+                    <select id="filter-dept">
+                        <option value="">All Departments</option>
+                    </select>
+                    <select id="filter-tag">
+                        <option value="">All Tags</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- expense container -->
+            <div id="expense-list" class="expense-list">
+                <p class="empty-state">No expenses yet. Submit your first expense!</p>
+            </div>
+        </main>
+
+        <!-- eight side -->
+        <aside class="sidebar-right">
+            <h2>Audit Center</h2>
+
+            <!-- audit log -->
+            <div class="audit-section">
+                <h3>Live Audit Feed</h3>
+                <div id="audit-log" class="audit-log">
+                    <p class="log-entry">Connecting to audit feed...</p>
+                </div>
+            </div>
+
+            <!-- exchange rates -->
+            <div class="exchange-section">
+                <h3>Exchange Rates</h3>
+                <div id="exchange-rates" class="exchange-rates">
+                    <p>Loading rates...</p>
+                </div>
+            </div>
+
+            <!-- report generator -->
+            <div class="report-section">
+                <h3>Tax Report Generator</h3>
+                <button id="btn-generate-report" class="btn-submit">
+                    Generate Quarterly Report
+                </button>
+                <button id="btn-download-report" class="btn-submit" style="display: none;">
+                    Download Report
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- footer -->
+    <footer class="footer">
+        <p>Expensly |
+            Organization: <span class="org-name"></span> |
+            User: <span class="user-name"></span> |
+            Department: <span class="user-dept"></span> |
+            Currency: <span class="user-currency"></span>
+        </p>
+    </footer>
+
+    <!-- javascript files -->
+    <!-- <script src="js/storage.js"></script>
+    <script src="js/dataStructures.js"></script>
+    <script src="js/communication.js"></script>
+    <script src="js/dom.js"></script>
+    <script src="js/main.js"></script> -->
+
+    <script defer type="module" src="js/main.js"></script>
+    <script type="module">
+        import { AuthManager } from './js/auth.js';
+        import { UserSession } from './js/storage/session.js';
+        import { UserPreferenceLocal } from './js/storage/local.js';
+
+        if (!UserSession.isLoggedIn()) {
+            window.location.href = 'login.html';
+        } else {
+            const session = UserSession.get();
+            console.log('User session:', session);
+            document.addEventListener('DOMContentLoaded', () => {
+                const userNameElements = document.getElementsByClassName('user-name');
+                Array.from(userNameElements).forEach(element => {
+                    element.textContent = session.name;
+                });
+                const userDeptElements = document.getElementsByClassName('user-dept');
+                Array.from(userDeptElements).forEach(element => {
+                    element.textContent = session.department || 'No Dept';
+                });
+                const orgNameElements = document.getElementsByClassName('org-name');
+                Array.from(orgNameElements).forEach(element => {
+                    element.textContent = session.orgName;
+                });
+
+                // currency
+                const currencyPref = UserPreferenceLocal.getCurrency();
+                const userCurrencyElements = document.getElementsByClassName('user-currency');
+                Array.from(userCurrencyElements).forEach(element => {
+                    element.textContent = currencyPref;
+                });
+                document.getElementById('currencySelect').value = currencyPref;
+
+                document.getElementById('currencySelect').addEventListener('change', (e) => {
+                    const newCurrency = e.target.value;
+                    UserPreferenceLocal.set({ currency: newCurrency });
+                    window.location.reload();
+                });
+
+                // Logout handler
+                document.getElementById('logoutBtn').addEventListener('click', () => {
+                    if (confirm('Are you sure you want to logout?')) {
+                        UserSession.clear();
+                        window.location.href = 'login.html';
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+
+</html>
