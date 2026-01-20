@@ -10,6 +10,7 @@ import {
 import { renderUsersListForAdmin } from "../ui/left/admin.component.js";
 import { renderAvailableTags, renderBudgetGrid } from "../ui/left/user.component.js";
 import { handleReceiptFile } from "./receipt.js";
+import { handleTicketFormSubmit } from "./ticket.js";
 
 export async function setupExpenseForm() {
 
@@ -25,7 +26,7 @@ export async function setupExpenseForm() {
     console.log("Draft loaded:", draft);
   }
 
-  form.addEventListener("submit", handleFormSubmit);
+  form.addEventListener("submit", handleTicketFormSubmit);
 
   // autosave draft (debounced)
   let draftTimeout;
