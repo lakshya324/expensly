@@ -1,3 +1,4 @@
+import { AppState } from "../data/state.js";
 import { UserSession } from "../storage/session.js";
 import { dbManager } from "./database.js";
 
@@ -15,14 +16,14 @@ export class TicketStore {
       const ticket = {
         id: ticketData.id || "ticket_" + crypto.randomUUID(),
         title: ticketData.title,
-        submittedBy: ticketData.submittedBy,
-        orgId: ticketData.orgId,
+        submittedBy: user.userId,
+        orgId: user.orgId,
         amount: parseFloat(ticketData.amount),
         currency: ticketData.currency,
-        department: ticketData.department,
+        department: user.department,
         description: ticketData.description,
         tags: ticketData.tags || [],
-        receiptUrl: ticketData.receiptUrl || null,
+        receiptUrl: ticketData.receiptUrl || AppState.currentReceiptUrl || null,
         timestamp: new Date().toISOString(),
 
         // approvals
@@ -125,9 +126,9 @@ export class TicketStore {
         const allTickets = request.result;
         const filteredTickets = allTickets.filter((ticket) => {
           return (
-            ticket.submittedBy === user.id ||
+            ticket.submittedBy === user.userId ||
             (ticket.managerApproval &&
-              ticket.managerApproval.reviewedBy === user.id)
+              ticket.managerApproval.reviewedBy === user.userId)
           );
         });
         resolve(filteredTickets);
