@@ -87,7 +87,7 @@ export async function addTicketToIDB(ticket, receiptFile = null) {
 
     // Add to state and render
     AppState.tickets.push(ticket);
-    ticketDomManager.renderExpenses();
+    await ticketDomManager.renderExpenses();
 
     // Start long polling for approval
     startApprovalPolling(ticket.id);
@@ -132,15 +132,21 @@ function startApprovalPolling(expenseId) {
 
   approvalPoller.startPolling(
     expenseId,
-    (result) => {
+    async (result) => {
       console.log("Approval received:", result);
-      alert(`Expense ${expenseId} ${result.status} by ${result.approver}`);
+      // alert(`Expense ${expenseId} ${result.status} by ${result.approver}`);
+
+      if(result.status === "pending") {
+        // todo: restart polling
+        console.log("Expense still pending:", expenseId);
+        return;
+      }
 
       // Update expense status
       const expense = AppState.tickets.find((e) => e.id === expenseId);
       if (expense) {
         expense.status = result.status;
-        domManager.renderExpenses(AppState.tickets);
+        await ticketDomManager.renderExpenses();
       }
     },
     (error) => {
