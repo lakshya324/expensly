@@ -41,7 +41,7 @@ async function initApp() {
     setupCommunicationCallbacks();
 
     // setup middle expense list
-    ticketDomManager.initEventDelegation();
+    await ticketDomManager.initEventDelegation();
 
     // setup offline queue badge
     await updateQueueBadge();
