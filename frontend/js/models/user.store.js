@@ -1,5 +1,6 @@
 import { DEPARTMENTS } from "../config/env.config.js";
 import { UserSession } from "../storage/session.js";
+import { hashPassword } from "../utils/encode.js";
 import { dbManager } from "./database.js";
 
 export class UserStore {
@@ -21,14 +22,15 @@ export class UserStore {
       throw new Error("Unauthorized to create user");
     }
 
+    const hashedPassword = await hashPassword(userData.password);
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(["users"], "readwrite");
       const store = transaction.objectStore("users");
 
-      const user = {
+      const newUser = {
         id: "user_" + crypto.randomUUID(),
         email: userData.email,
-        password: userData.password,
+        password: hashedPassword,
         name: userData.name,
         department: userData.department,
         managerId: userData.managerId || null,
@@ -36,11 +38,11 @@ export class UserStore {
         createdAt: new Date().toISOString(),
       };
 
-      const request = store.add(user);
+      const request = store.add(newUser);
 
       request.onsuccess = () => {
-        console.log("User created:", user.email);
-        resolve(user);
+        console.log("User created:", newUser.email);
+        resolve(newUser);
       };
       request.onerror = () => reject(request.error);
     });
