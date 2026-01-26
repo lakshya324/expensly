@@ -9,6 +9,7 @@ import { TicketStore } from "../models/ticket.store.js";
 import { UserPreferenceLocal } from "../storage/local.js";
 import { FormDraftSession } from "../storage/session.js";
 import { ticketDomManager } from "../ui/center/ticket.component.js";
+import { updateQueueBadge } from "../ui/header/queueBadge.component.js";
 import { clearExpenseForm, getExpenseFormData } from "../ui/left/form.js";
 import {
   renderAvailableTags,

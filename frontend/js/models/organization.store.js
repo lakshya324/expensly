@@ -55,4 +55,16 @@ export class OrganizationStore {
       request.onerror = () => reject(request.error);
     });
   }
+
+  static async getAllOrganizations() {
+    const db = await dbManager.getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(["organizations"], "readonly");
+      const store = transaction.objectStore("organizations");
+      const request = store.getAll();
+
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  }
 }

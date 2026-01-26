@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin - Expensly</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f1f5f9;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+        }
+
+        .header h1 {
+            color: #3b82f6;
+            font-size: 28px;
+        }
+
+        .header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header .user-info span {
+            color: #94a3b8;
+        }
+
+        .header button {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .header button:hover {
+            background: #dc2626;
+        }
+
+        .section {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .section h2 {
+            color: #cbd5e1;
+            font-size: 20px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 10px;
+        }
+
+        .create-org-form {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .form-group label {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            padding: 10px;
+            background: #334155;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            color: #f1f5f9;
+            font-size: 14px;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #475569;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #334155;
+        }
+
+        .org-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .org-card {
+            background: #334155;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .org-info h3 {
+            color: #f1f5f9;
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+
+        .org-info p {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        .org-meta {
+            display: flex;
+            gap: 20px;
+            margin-top: 8px;
+        }
+
+        .org-meta span {
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .error {
+            background: #991b1b;
+            color: #fecaca;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .success {
+            background: #065f46;
+            color: #a7f3d0;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>🔐 Super Admin Panel</h1>
+                <p style="color: #64748b; margin-top: 5px;">Expensly Platform Management</p>
+            </div>
+            <div class="user-info">
+                <span id="adminEmail"></span>
+                <button id="logoutBtn">Logout</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Create New Organization</h2>
+            <div id="message"></div>
+            <form id="createOrgForm" class="create-org-form">
+                <div class="form-group">
+                    <label for="orgName">Organization Name</label>
+                    <input type="text" id="orgName" placeholder="e.g., Acme Corporation" required>
+                </div>
+                <div class="form-group">
+                    <label for="adminEmail">Admin Email</label>
+                    <input type="email" id="adminEmail" placeholder="admin@company.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="adminPassword">Admin Password</label>
+                    <input type="password" id="adminPassword" placeholder="Minimum 6 characters" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input type="password" id="confirmPassword" placeholder="Re-enter password" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Create Organization</button>
+                    <button type="button" class="btn btn-secondary" id="resetFormBtn">Reset</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Existing Organizations</h2>
+            <div id="orgList" class="org-list">
+                <!-- Organizations will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { AuthManager } from './js/auth.js';
+        import { UserSession } from './js/storage/session.js';
+        import { OrganizationStore } from './js/models/organization.store.js';
+
+        // Check if user is super admin
+        const session = UserSession.get();
+        if (!session || !session.isSuperAdmin) {
+            location.href = 'login.html';
+        }
+
+        document.getElementById('adminEmail').textContent = session.email;
+
+        const messageBox = document.getElementById('message');
+        const orgListContainer = document.getElementById('orgList');
+
+        function showMessage(msg, type = 'error') {
+            messageBox.innerHTML = `<div class="${type}">${msg}</div>`;
+            setTimeout(() => {
+                messageBox.innerHTML = '';
+            }, 5000);
+        }
+
+        async function loadOrganizations() {
+            try {
+                const organizations = await OrganizationStore.getAllOrganizations();
+                
+                if (organizations.length === 0) {
+                    orgListContainer.innerHTML = `
+                        <div class="empty-state">
+                            <svg fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+                            </svg>
+                            <p>No organizations yet. Create your first organization above.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                orgListContainer.innerHTML = organizations.map(org => `
+                    <div class="org-card">
+                        <div class="org-info">
+                            <h3>${org.name}</h3>
+                            <p>Admin: ${org.adminEmail}</p>
+                            <div class="org-meta">
+                                <span>ID: ${org.id}</span>
+                                <span>Created: ${new Date(org.createdAt).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load organizations:', error);
+                showMessage('Failed to load organizations');
+            }
+        }
+
+        document.getElementById('createOrgForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const orgName = document.getElementById('orgName').value.trim();
+            const adminEmail = document.getElementById('adminEmail').value.trim();
+            const adminPassword = document.getElementById('adminPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (!orgName || !adminEmail || !adminPassword) {
+                showMessage('Please fill in all fields');
+                return;
+            }
+
+            if (adminPassword.length < 6) {
+                showMessage('Password must be at least 6 characters');
+                return;
+            }
+
+            if (adminPassword !== confirmPassword) {
+                showMessage('Passwords do not match');
+                return;
+            }
+
+            try {
+                await AuthManager.createOrganization(orgName, adminEmail, adminPassword);
+                showMessage('Organization created successfully!', 'success');
+                document.getElementById('createOrgForm').reset();
+                await loadOrganizations();
+            } catch (error) {
+                showMessage(error.message);
+            }
+        });
+
+        document.getElementById('resetFormBtn').addEventListener('click', () => {
+            document.getElementById('createOrgForm').reset();
+            messageBox.innerHTML = '';
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            UserSession.clear();
+            location.href = 'login.html';
+        });
+
+        // Load organizations on page load
+        loadOrganizations();
+    </script>
+</body>
+
+</html>
