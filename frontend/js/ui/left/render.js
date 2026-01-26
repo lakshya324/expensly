@@ -11,7 +11,7 @@ export async function renderLeftPanelUI() {
     adminPanel.style.display = "block";
     expensePanel.style.display = "none";
 
-    setupAdminAddUserForm();
+    await setupAdminAddUserForm();
   } else {
     // Show expense submission panel
     adminPanel.style.display = "none";

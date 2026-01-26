@@ -71,11 +71,12 @@ export async function setupExpenseForm() {
   renderAvailableTags();
 }
 
-export function setupAdminAddUserForm() {
+export async function setupAdminAddUserForm() {
   //Todo: add draft feature
   const addUserForm = document.getElementById("add-user-form");
   const departmentSelect = document.getElementById("user-department");
   const managerSelect = document.getElementById("user-manager");
+  await renderUsersListForAdmin();
 
   // dynamic manager dropdown based on dept
   departmentSelect.addEventListener("change", async () => {
@@ -102,7 +103,7 @@ export function setupAdminAddUserForm() {
     try {
       const newUser = await UserStore.createUser(userData);
       AppState.users.push(newUser);
-      renderUsersListForAdmin();
+      await renderUsersListForAdmin();
       addUserForm.reset();
 
       // Show success message

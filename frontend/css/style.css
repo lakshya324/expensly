@@ -654,12 +654,13 @@ h3 {
     font-weight: 600;
 }
 
+/*
 .panel-section p {
     text-align: center;
     color: #888;
     font-style: italic;
     padding: 32px;
-}
+} */
 
 .users-list {
     display: flex;
@@ -675,43 +676,57 @@ h3 {
     border: 1px solid #0f3460;
     border-radius: 5px;
     padding: 16px;
+    margin-bottom: 12px;
 }
 
 .user-card:hover {
     border-color: #00adb5;
 }
 
-.user-card.user-info-row {
+.user-info-row {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 13px;
+    margin-bottom: 10px;
 }
 
-.user-card.user-info-row.user-main h4 {
+.user-main h4 {
     color: #eee;
     font-size: 16px;
-    margin-bottom: 3px;
+    margin-bottom: 4px;
+    font-weight: 600;
 }
 
-.user-card.user-info-row.user-main.user-email {
-    color: #888;
-    font-size: 14px;
+.user-email {
+    color: #64748b;
+    font-size: 13px;
+    font-style: italic;
+    opacity: 0.9;
+    padding: 5px;
 }
 
-.user-card.user-info-row.user-role-badge {
-    font-size: 12px;
-    padding: 4px 8px;
+.user-dept-badge {
+    font-size: 11px;
+    padding: 4px 10px;
+    background: #0f3460;
+    border: 1px solid #00adb5;
+    border-radius: 4px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #3b82f6;
+    color: #00adb5;
 }
 
-.user-card.user-details {
+.user-details {
     display: flex;
     gap: 16px;
-    margin-bottom: 13px;
-    font-size: 14px;
-    color: #aaa;
+    font-size: 13px;
+    color: #94a3b8;
+    padding-top: 8px;
+    border-top: 1px solid #0f3460;
+}
+
+.user-details strong {
+    color: #00adb5;
+    font-weight: 600;
 }

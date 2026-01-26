@@ -1,39 +1,44 @@
-import { AppState } from "../../data/state.js";
+import { UserStore } from "../../models/user.store.js";
 
-export function renderUsersListForAdmin() {
+export async function renderUsersListForAdmin() {
   const usersList = document.getElementById("usersList");
+  const users = await UserStore.getAllUsers();
 
-  if (AppState.users.length === 0) {
+  if (users.length === 0) {
     usersList.innerHTML =
       '<p class="empty-state">No users yet. Add your first user above.</p>';
     return;
   }
 
-  usersList.innerHTML = AppState.users
+  const userMap = {};
+  users.forEach(user => {
+    userMap[user.id] = user.name;
+  });
+
+  usersList.innerHTML = users
     .map(
-      (user) => `
+      (user) => {
+        const managerName = user.managerId ? userMap[user.managerId] || 'Unknown' : null;
+        
+        return `
     <div class="user-card" data-user-id="${user.id}">
       <div class="user-info-row">
         <div class="user-main">
           <h4>${user.name}</h4>
           <p class="user-email">${user.email}</p>
         </div>
-        <span class="user-dept-badge">${
-        user.department
-      }</span>
+        <span class="user-dept-badge">${user.department}</span>
       </div>
       <div class="user-details">
         ${
-          user.managerId
-            ? `<span>Manager: ${user.managerId.substring(
-                0,
-                8
-              )}...</span>`
-            : '<span>No Manager</span>'
+          managerName
+            ? `<span>Manager: <strong>${managerName}</strong></span>`
+            : '<span>No Manager Assigned</span>'
         }
       </div>
     </div>
-  `
+  `;
+      }
     )
     .join("");
 }
