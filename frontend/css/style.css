@@ -475,6 +475,27 @@ h3 {
     color: #00ff00;
 }
 
+.expense-status {
+    padding: 3px 10px;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #222;
+    text-transform: uppercase;
+}
+.expense-status.status-pending {
+    background: orange;
+}
+.expense-status.status-manager_approved{
+    background: lightgreen;
+}
+.expense-status.status-approved {
+    background: green;
+}
+.expense-status.status-rejected {
+    background: red;
+}
+
 .expense-dept {
     padding: 3px 10px;
     background: #0f3460;
