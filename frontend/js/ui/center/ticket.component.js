@@ -1,6 +1,7 @@
-import { exchangeRateStream } from "../../communication/connect.js";
+import { exchangeRateStream, auditFeedSocket } from "../../communication/connect.js";
 import { AppState } from "../../data/state.js";
 import { TicketStore } from "../../models/ticket.store.js";
+import { UserStore } from "../../models/user.store.js";
 import { UserPreferenceLocal } from "../../storage/local.js";
 import { CURRENCY, getCurrencySymbol } from "../../utils/currency.js";
 
@@ -54,6 +55,10 @@ class TicketDomManager {
           },
           status: "approved",
         });
+        
+        // Broadcast status change via WebSocket
+        auditFeedSocket.updateTicketStatus(expenseId, "approved");
+        
         AppState.tickets = await TicketStore.getAllTickets();
         await this.renderExpenses();
         console.log("Finance approve clicked for", expenseId);
@@ -82,6 +87,10 @@ class TicketDomManager {
           },
           status: "rejected",
         });
+        
+        // broadcast status change
+        auditFeedSocket.updateTicketStatus(expenseId, "rejected");
+        
         AppState.tickets = await TicketStore.getAllTickets();
         await this.renderExpenses();
         console.log("Finance reject clicked for", expenseId);
@@ -114,6 +123,10 @@ class TicketDomManager {
           },
           status: "manager_approved",
         });
+        
+        // broadcast status change
+        auditFeedSocket.updateTicketStatus(expenseId, "manager_approved");
+        
         AppState.tickets = await TicketStore.getAllTickets();
         await this.renderExpenses();
         console.log("Manager approve clicked for", expenseId);
@@ -143,6 +156,10 @@ class TicketDomManager {
           },
           status: "rejected",
         });
+        
+        // broadcast status change
+        auditFeedSocket.updateTicketStatus(expenseId, "rejected");
+        
         AppState.tickets = await TicketStore.getAllTickets();
         await this.renderExpenses();
         console.log("Manager reject clicked for", expenseId);
@@ -180,7 +197,7 @@ class TicketDomManager {
     return this.auditNotesMap.has(element);
   }
 
-  createExpenseCard(expense) {
+  async createExpenseCard(expense) {
     const user = AppState.currentUser;
     const card = document.createElement("div");
     card.className = "expense-card";
@@ -202,6 +219,14 @@ class TicketDomManager {
       )} ${expense.amount.toFixed(2)})`;
     }
 
+    // Check if current user is the manager of the ticket submitter
+    let isManager = false;
+    const submittedBy = expense.submittedBy;
+    if (submittedBy && expense.status === "pending") {
+      const submitter = await UserStore.getUserById(submittedBy);
+      isManager = submitter && submitter.managerId === user.userId;
+    }
+
     card.innerHTML = `
       <div class="expense-header">
         <div class="expense-info">
@@ -213,7 +238,7 @@ class TicketDomManager {
         </div>
         <div class="expense-actions">
           ${
-            user.isFinance & (expense.status === "manager_approved")
+            user.isFinance && (expense.status === "manager_approved")
               ? `
             <button id="btnFinanceApprove" data-expense-id="${expense.id}" title="Approve Expense">Approve</button>
             <button id="btnFinanceReject" data-expense-id="${expense.id}" title="Reject Expense">Reject</button>
@@ -221,9 +246,7 @@ class TicketDomManager {
               : ""
           }
           ${
-            expense.managerApproval &&
-            expense.managerApproval.reviewedBy === user.id &&
-            expense.status === "pending"
+            isManager
               ? `
             <button id="btnManagerApprove" data-expense-id="${expense.id}" title="Approve Expense">Approve</button>
             <button id="btnManagerReject" data-expense-id="${expense.id}" title="Reject Expense">Reject</button>
@@ -258,15 +281,14 @@ class TicketDomManager {
 
     this.expenseListContainer.innerHTML = "";
 
-    // const expenses = AppState.tickets; // todo: check it is update when edit
     const expenses = await TicketStore.getAllTickets();
 
     console.log("Rendering expenses:", expenses.length);
 
-    expenses.forEach((expense) => {
-      const card = this.createExpenseCard(expense);
+    for (const expense of expenses) {
+      const card = await this.createExpenseCard(expense);
       this.expenseListContainer.appendChild(card);
-    });
+    }
 
     console.log(`Rendered ${expenses.length} expenses`);
   }
