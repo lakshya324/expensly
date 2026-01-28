@@ -81,8 +81,6 @@ export class ExchangeRateStream {
   }
 
   convert(amount, fromCurrency, toCurrency) {
-    console.log(`${amount} ${fromCurrency} -> ${toCurrency}`);
-    console.log("Current Rates:", this.currentRates[fromCurrency], this.currentRates[toCurrency]);
     if (!CURRENCY.includes(fromCurrency)) {
       throw new Error("Unsupported fromCurrency: " + fromCurrency);
     }
