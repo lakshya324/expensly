@@ -55,8 +55,9 @@ export function setupCommunicationCallbacks() {
   });
 
   // sse
-  exchangeRateStream.onRatesUpdate((rates) => {
+  exchangeRateStream.onRatesUpdate(async (rates) => {
     renderExchangeRates(rates);
+    await ticketDomManager.updatePricesOnCurrencyChange();
   });
 
   // status change handler (for all communication types)

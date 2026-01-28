@@ -237,9 +237,13 @@ class TicketDomManager {
 
     card.innerHTML = `
       <div class="expense-header">
-        <div class="expense-info">
+        <div class="expense-info" data-expense-id="${expense.id}">
           <span class="expense-title">${expense.title}</span>
-          <span class="expense-amount">${displayAmount} | ${
+          <span class="expense-amount">${displayAmount}</span>
+          <span class="expense-status status-${
+            expense.status
+          }">
+          ${
             expense.status
           }</span>
           <span class="expense-dept">${expense.department}</span>
@@ -270,9 +274,10 @@ class TicketDomManager {
         ).toLocaleDateString()}</p>
         <p><strong>Tags:</strong> ${expense.tags.join(", ")}</p>
         <p><strong>Status:</strong> ${expense.status}</p>
+        <div class="receipt-preview">
         ${
           receiptUrl
-            ? `<img src="${receiptUrl}" alt="Receipt" class="receipt-preview">`
+            ? `<img src="${receiptUrl}" alt="Receipt">`
             : ""
         }
       </div>
@@ -289,7 +294,8 @@ class TicketDomManager {
 
     this.expenseListContainer.innerHTML = "";
 
-    const expenses = await TicketStore.getAllTickets();
+    const raw = await TicketStore.getAllTickets();
+    const expenses = raw.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
     console.log("Rendering expenses:", expenses.length);
 
@@ -300,6 +306,39 @@ class TicketDomManager {
 
     console.log(`Rendered ${expenses.length} expenses`);
   }
-}
 
+  async updatePricesOnCurrencyChange() {
+    //todo: optimize this later (take compont and update prices only)
+    const raw = await TicketStore.getAllTickets();
+    const expenses = raw.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    for (const expense of expenses) {
+      const card = this.expenseListContainer.querySelector(
+        `.expense-info[data-expense-id="${expense.id}"]`,
+      );
+      if (card) {
+        const amountElem = card.querySelector(".expense-amount");
+        if (amountElem) {
+          const userCurrency = UserPreferenceLocal.getCurrency();
+          const expenseCurrency = expense.currency || CURRENCY[0];
+
+          let displayAmount = "";
+          if (expenseCurrency === userCurrency) {
+            displayAmount = `${getCurrencySymbol(
+              expenseCurrency,
+            )} ${expense.amount.toFixed(2)}`;
+          } else {
+            displayAmount = `${getCurrencySymbol(userCurrency)} ${exchangeRateStream
+              .convert(expense.amount, expenseCurrency, userCurrency)
+              .toFixed(2)} (${getCurrencySymbol(
+              expenseCurrency,
+            )} ${expense.amount.toFixed(2)})`;
+
+            amountElem.textContent = displayAmount;
+          }
+        }
+      }
+    }
+  }
+}
 export const ticketDomManager = new TicketDomManager();
