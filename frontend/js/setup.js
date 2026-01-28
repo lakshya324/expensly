@@ -5,8 +5,11 @@ import {
   healthChecker,
 } from "./communication/connect.js";
 import { budgetTracker } from "./data/budget.js";
+import { AppState } from "./data/state.js";
 import { tagManager } from "./data/tags.js";
 import { dbManager } from "./models/database.js";
+import { TicketStore } from "./models/ticket.store.js";
+import { ticketDomManager } from "./ui/center/ticket.component.js";
 import {
   addAuditLogEntry,
   renderExchangeRates,
@@ -29,6 +32,26 @@ export function setupCommunicationCallbacks() {
     if (data.type === "audit") {
       addAuditLogEntry(data);
     }
+  });
+
+  // ws ticket status changes
+  auditFeedSocket.onTicketStatusChange(async (data) => {
+    console.log(`Ticket status update received: ${data.ticketId} -> ${data.status}`);
+    
+    // const ticket = AppState.tickets.find(t => t.id === data.ticketId);
+    const ticket = await TicketStore.getTicketById(data.ticketId);
+    if (ticket) {
+      ticket.status = data.status;
+      await TicketStore.updateTicket(ticket.id, { status: data.status });
+    }
+    
+    // todo: remove appState dependency
+    AppState.tickets = await TicketStore.getAllTickets();
+    
+    // rerendering
+    await ticketDomManager.renderExpenses();
+    
+    console.log(`UI updated for ticket ${data.ticketId}`);
   });
 
   // sse
