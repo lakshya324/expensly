@@ -11,6 +11,28 @@ const wss = new WebSocketServer({ server });
 app.use(cors());
 app.use(express.json());
 
+// Shared array for ticket status updates
+const ticketStatusUpdates = [];
+const MAX_UPDATES = 100; // Limit array size
+
+// Helper function to add status update
+function addStatusUpdate(ticketId, status) {
+  const update = {
+    ticketId,
+    status,
+    timestamp: new Date().toISOString(),
+  };
+  
+  ticketStatusUpdates.push(update);
+  
+  // Keep array size manageable
+  if (ticketStatusUpdates.length > MAX_UPDATES) {
+    ticketStatusUpdates.shift();
+  }
+  
+  return update;
+}
+
 //dummy
 const departments = ["Sales", "IT", "Marketing", "HR", "Finance"];
 const actions = ["submitted", "approved", "rejected", "flagged"];
@@ -18,9 +40,10 @@ const users = ["Pranav", "Sneha", "Amit", "Riya", "Karan", "Anjali"];
 const currencies = ["USD", "EUR", "GBP", "JPY", "INR", "CAD"];
 
 // sp
-app.get("/health", (req, res) => {
-  res.json({
-    status: "healthy", //todo: true or false
+app.get("/api/health", (req, res) => {
+  return res.json({
+    success: true,
+    message: "Expensly Backend is running",
     timestamp: new Date().toISOString(),
   });
 });
@@ -57,17 +80,51 @@ app.get("/api/exchange-rates", (req, res) => {
 
 // lp
 app.get("/api/expenses/:id/approval", (req, res) => {
-  console.log("Long poll started for:", req.params.id);
+  const ticketId = req.params.id;
+  console.log("Long poll started for:", ticketId);
 
-  const delay = Math.floor(Math.random() * 20000) + 5000; // 5-25 sec
-
-  setTimeout(() => {
-    res.status(200).json({
-      expenseId: req.params.id,
-      status: "pending", //todo
-      timestamp: new Date().toISOString(),
+  // Check if there's already an update for this ticket
+  const existingUpdate = ticketStatusUpdates.find(u => u.ticketId === ticketId);
+  
+  if (existingUpdate) {
+    console.log("Returning existing update for:", ticketId);
+    return res.status(200).json({
+      expenseId: ticketId,
+      status: existingUpdate.status,
+      timestamp: existingUpdate.timestamp,
     });
-  }, delay);
+  }
+
+  // Otherwise, wait for an update with timeout
+  const timeout = 30000; // 30 sec max wait
+  const startTime = Date.now();
+  
+  const checkInterval = setInterval(() => {
+    const update = ticketStatusUpdates.find(u => u.ticketId === ticketId);
+    
+    if (update) {
+      clearInterval(checkInterval);
+      console.log("Update found for:", ticketId);
+      res.status(200).json({
+        expenseId: ticketId,
+        status: update.status,
+        timestamp: update.timestamp,
+      });
+    } else if (Date.now() - startTime >= timeout) {
+      clearInterval(checkInterval);
+      console.log("Long poll timeout for:", ticketId);
+      res.status(200).json({
+        expenseId: ticketId,
+        status: "pending",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }, 500);
+  
+  req.on("close", () => {
+    clearInterval(checkInterval);
+    console.log("Long poll connection closed for:", ticketId);
+  });
 });
 
 // universal 200 api
@@ -83,7 +140,7 @@ app.use((req, res) => {
 
 // ws
 wss.on("connection", (socket) => {
-  console.log(`Client connected: ${socket.id}`);
+  console.log(`Client connected`);
 
   const auditInterval = setInterval(() => {
     const event = {
@@ -99,7 +156,7 @@ wss.on("connection", (socket) => {
     socket.send(JSON.stringify(event));
   }, Math.floor(Math.random() * 4000) + 4000); // 4-8 sec
 
-  // ping pong
+  // ping pong and ticket status updates
   socket.on("message", (message) => {
     try {
       const data = JSON.parse(message);
@@ -108,14 +165,42 @@ wss.on("connection", (socket) => {
           JSON.stringify({ type: "pong", timestamp: new Date().toISOString() })
         );
       }
+      // Handle ticket status updates from client
+      else if (data.type === "update_ticket_status") {
+        const update = addStatusUpdate(data.ticketId, data.status);
+        console.log(`Ticket update: ${data.ticketId} -> ${data.status}`);
+        
+        // Broadcast to all connected clients
+        wss.clients.forEach((client) => {
+          if (client.readyState === 1) { // OPEN
+            client.send(JSON.stringify({
+              type: "ticket_status_change",
+              ticketId: update.ticketId,
+              status: update.status,
+              timestamp: update.timestamp,
+            }));
+
+            // also sending for live audit
+            client.send(JSON.stringify({
+              type: "audit",
+              action: update.status,
+              department: "N/A",
+              user: "N/A",
+              amount: 0,
+              currency: "N/A",
+              timestamp: new Date().toISOString(),
+            }));
+          }
+        });
+      }
     } catch (error) {
       console.error("Error parsing WebSocket message:", error);
     }
   });
 
-  socket.on("disconnect", () => {
+  socket.on("close", () => {
     clearInterval(auditInterval);
-    console.log(`Client disconnected: ${socket.id}`);
+    console.log(`Client disconnected`);
   });
 });
 
