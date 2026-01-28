@@ -6,6 +6,7 @@ import { tagManager } from "../data/tags.js";
 import { OfflineQueue } from "../models/offlineQueue.store.js";
 import { ReceiptStore } from "../models/receipt.store.js";
 import { TicketStore } from "../models/ticket.store.js";
+import { UserStore } from "../models/user.store.js";
 import { UserPreferenceLocal } from "../storage/local.js";
 import { FormDraftSession } from "../storage/session.js";
 import { ticketDomManager } from "../ui/center/ticket.component.js";
@@ -15,6 +16,7 @@ import {
   renderAvailableTags,
   renderBudgetGrid,
 } from "../ui/left/user.component.js";
+import { getCurrencyApprovalThreshold } from "./currency.js";
 
 export async function handleTicketFormSubmit(event) {
   event.preventDefault();
@@ -29,6 +31,12 @@ export async function handleTicketFormSubmit(event) {
 
   const currentCurrency = UserPreferenceLocal.getCurrency();
 
+  // check manager approval is needed
+  const user = await UserStore.getUser();
+  const threshold = getCurrencyApprovalThreshold(currentCurrency);
+  const amountExceedsThreshold = parseFloat(formData.amount) > threshold;
+  const needsManagerApproval = user.managerId && amountExceedsThreshold;
+
   const ticket = {
     id: "ticket_" + crypto.randomUUID(),
     title: formData.title,
@@ -37,8 +45,23 @@ export async function handleTicketFormSubmit(event) {
     description: formData.description,
     tags: tags,
     timestamp: Date.now(),
-    status: "pending",
+    status: needsManagerApproval ? "pending" : "manager_approved",
     receiptFile: AppState.currentReceiptFile,
+    managerApproval: needsManagerApproval
+      ? {
+          required: true,
+          approved: false,
+          reviewedBy: user.managerId,
+          reviewedAt: null,
+          comments: null,
+        }
+      : null,
+    financeApproval: {
+      approved: false,
+      reviewedBy: null,
+      reviewedAt: null,
+      comments: null,
+    },
   };
 
   try {
