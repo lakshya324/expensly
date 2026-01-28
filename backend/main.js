@@ -41,7 +41,7 @@ const currencies = ["USD", "EUR", "GBP", "JPY", "INR", "CAD"];
 
 // sp
 app.get("/api/health", (req, res) => {
-  return res.json({
+  res.status(200).json({
     success: true,
     message: "Expensly Backend is running",
     timestamp: new Date().toISOString(),
@@ -104,7 +104,7 @@ app.get("/api/expenses/:id/approval", (req, res) => {
     
     if (update) {
       clearInterval(checkInterval);
-      console.log("Update found for:", ticketId);
+      console.log("LP > Update found for:", ticketId);
       res.status(200).json({
         expenseId: ticketId,
         status: update.status,
@@ -112,18 +112,18 @@ app.get("/api/expenses/:id/approval", (req, res) => {
       });
     } else if (Date.now() - startTime >= timeout) {
       clearInterval(checkInterval);
-      console.log("Long poll timeout for:", ticketId);
+      console.log("LP > Long poll timeout for:", ticketId);
       res.status(200).json({
         expenseId: ticketId,
         status: "pending",
         timestamp: new Date().toISOString(),
       });
     }
-  }, 500);
+  }, 500); // 500ms
   
   req.on("close", () => {
     clearInterval(checkInterval);
-    console.log("Long poll connection closed for:", ticketId);
+    console.log("LP > Long poll connection closed for:", ticketId);
   });
 });
 
