@@ -1,3 +1,4 @@
+import { auditFeedSocket } from "../communication/connect.js";
 import { AppState } from "../data/state.js";
 import { UserSession } from "../storage/session.js";
 import { dbManager } from "./database.js";
@@ -27,24 +28,26 @@ export class TicketStore {
         timestamp: new Date().toISOString(),
 
         // approvals
-        managerApproval: user.managerId
-          ? {
-              required: true,
-              approved: false,
-              reviewedBy: user.managerId,
-              reviewedAt: null,
-              comments: null,
-            }
-          : null,
+        managerApproval: ticketData.managerApproval
+          ? ticketData.managerApproval
+          : user.managerId
+            ? {
+                required: true,
+                approved: false,
+                reviewedBy: user.managerId,
+                reviewedAt: null,
+                comments: null,
+              }
+            : null,
 
-        financeApproval: {
+        financeApproval: ticketData.financeApproval || {
           approved: false,
           reviewedBy: null,
           reviewedAt: null,
           comments: null,
         },
 
-        status: "pending",
+        status: ticketData.status || "pending",
         //ENUM: 'pending', 'manager_approved', 'approved', 'rejected'
       };
 
@@ -52,6 +55,10 @@ export class TicketStore {
 
       request.onsuccess = () => {
         console.log("Ticket created:", ticket.id);
+
+        // sending it to server
+        auditFeedSocket.updateTicketStatus(ticket.id, ticket.status);
+
         resolve(ticket);
       };
       request.onerror = () => reject(request.error);
@@ -78,15 +85,7 @@ export class TicketStore {
         const ticket = request.result;
 
         // Check access permissions
-        if (
-          ticket.orgId !== user.orgId ||
-          (ticket.submittedBy !== user.id &&
-            !(user.isAdmin || user.isFinance) &&
-            !(
-              ticket.managerApproval &&
-              ticket.managerApproval.reviewedBy === user.id
-            ))
-        ) {
+        if (ticket.orgId !== user.orgId) {
           reject(new Error("Unauthorized access to ticket"));
           return;
         }
