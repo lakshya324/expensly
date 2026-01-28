@@ -11,7 +11,6 @@ export function getCurrencySymbol(currency) {
   return symbols[currency] || "$";
 }
 
-//TODO: use in future when manager logic is added
 export function getCurrencyApprovalThreshold(currency) {
   if (!CURRENCY.includes(currency)) {
     currency = CURRENCY[0]; // default
