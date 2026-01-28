@@ -49,7 +49,7 @@ class TicketDomManager {
         await TicketStore.updateTicket(expenseId, {
           financeApproval: {
             approved: true,
-            reviewedBy: AppState.currentUser.id,
+            reviewedBy: AppState.currentUser.userId,
             reviewedAt: Date.now(),
             comments: null,
           },
@@ -81,7 +81,7 @@ class TicketDomManager {
         await TicketStore.updateTicket(expenseId, {
           financeApproval: {
             approved: false,
-            reviewedBy: AppState.currentUser.id,
+            reviewedBy: AppState.currentUser.userId,
             reviewedAt: Date.now(),
             comments: null,
           },
@@ -117,7 +117,7 @@ class TicketDomManager {
           managerApproval: {
             required: true,
             approved: true,
-            reviewedBy: AppState.currentUser.id,
+            reviewedBy: AppState.currentUser.userId,
             reviewedAt: Date.now(),
             comments: null,
           },
@@ -150,7 +150,7 @@ class TicketDomManager {
           managerApproval: {
             required: true,
             approved: false,
-            reviewedBy: AppState.currentUser.id,
+            reviewedBy: AppState.currentUser.userId,
             reviewedAt: Date.now(),
             comments: null,
           },
