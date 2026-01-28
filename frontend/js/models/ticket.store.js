@@ -24,7 +24,7 @@ export class TicketStore {
         department: user.department,
         description: ticketData.description,
         tags: ticketData.tags || [],
-        receiptUrl: ticketData.receiptUrl || AppState.currentReceiptUrl || null,
+        // receiptUrl: ticketData.receiptUrl || AppState.currentReceiptUrl || null,
         timestamp: new Date().toISOString(),
 
         // approvals

@@ -1,5 +1,9 @@
-import { exchangeRateStream, auditFeedSocket } from "../../communication/connect.js";
+import {
+  exchangeRateStream,
+  auditFeedSocket,
+} from "../../communication/connect.js";
 import { AppState } from "../../data/state.js";
+import { ReceiptStore } from "../../models/receipt.store.js";
 import { TicketStore } from "../../models/ticket.store.js";
 import { UserStore } from "../../models/user.store.js";
 import { UserPreferenceLocal } from "../../storage/local.js";
@@ -55,10 +59,10 @@ class TicketDomManager {
           },
           status: "approved",
         });
-        
+
         // Broadcast status change via WebSocket
         auditFeedSocket.updateTicketStatus(expenseId, "approved");
-        
+
         AppState.tickets = await TicketStore.getAllTickets();
         await this.renderExpenses();
         console.log("Finance approve clicked for", expenseId);
@@ -87,10 +91,10 @@ class TicketDomManager {
           },
           status: "rejected",
         });
-        
+
         // broadcast status change
         auditFeedSocket.updateTicketStatus(expenseId, "rejected");
-        
+
         AppState.tickets = await TicketStore.getAllTickets();
         await this.renderExpenses();
         console.log("Finance reject clicked for", expenseId);
@@ -123,10 +127,10 @@ class TicketDomManager {
           },
           status: "manager_approved",
         });
-        
+
         // broadcast status change
         auditFeedSocket.updateTicketStatus(expenseId, "manager_approved");
-        
+
         AppState.tickets = await TicketStore.getAllTickets();
         await this.renderExpenses();
         console.log("Manager approve clicked for", expenseId);
@@ -156,10 +160,10 @@ class TicketDomManager {
           },
           status: "rejected",
         });
-        
+
         // broadcast status change
         auditFeedSocket.updateTicketStatus(expenseId, "rejected");
-        
+
         AppState.tickets = await TicketStore.getAllTickets();
         await this.renderExpenses();
         console.log("Manager reject clicked for", expenseId);
@@ -209,13 +213,13 @@ class TicketDomManager {
     let displayAmount = "";
     if (expenseCurrency === userCurrency) {
       displayAmount = `${getCurrencySymbol(
-        expenseCurrency
+        expenseCurrency,
       )} ${expense.amount.toFixed(2)}`;
     } else {
       displayAmount = `${getCurrencySymbol(userCurrency)} ${exchangeRateStream
         .convert(expense.amount, expenseCurrency, userCurrency)
         .toFixed(2)} (${getCurrencySymbol(
-        expenseCurrency
+        expenseCurrency,
       )} ${expense.amount.toFixed(2)})`;
     }
 
@@ -227,18 +231,22 @@ class TicketDomManager {
       isManager = submitter && submitter.managerId === user.userId;
     }
 
+    // checking for recept
+    const receipt = await ReceiptStore.getReceipt(expense.id);
+    const receiptUrl = receipt ? URL.createObjectURL(receipt.blob) : null;
+
     card.innerHTML = `
       <div class="expense-header">
         <div class="expense-info">
           <span class="expense-title">${expense.title}</span>
           <span class="expense-amount">${displayAmount} | ${
-      expense.status
-    }</span>
+            expense.status
+          }</span>
           <span class="expense-dept">${expense.department}</span>
         </div>
         <div class="expense-actions">
           ${
-            user.isFinance && (expense.status === "manager_approved")
+            user.isFinance && expense.status === "manager_approved"
               ? `
             <button id="btnFinanceApprove" data-expense-id="${expense.id}" title="Approve Expense">Approve</button>
             <button id="btnFinanceReject" data-expense-id="${expense.id}" title="Reject Expense">Reject</button>
@@ -258,13 +266,13 @@ class TicketDomManager {
       <div class="expense-details" style="display: none;">
         <p><strong>Description:</strong> ${expense.description}</p>
         <p><strong>Date:</strong> ${new Date(
-          expense.timestamp
+          expense.timestamp,
         ).toLocaleDateString()}</p>
         <p><strong>Tags:</strong> ${expense.tags.join(", ")}</p>
         <p><strong>Status:</strong> ${expense.status}</p>
         ${
-          expense.receiptUrl
-            ? `<img src="${expense.receiptUrl}" alt="Receipt" class="receipt-preview">`
+          receiptUrl
+            ? `<img src="${receiptUrl}" alt="Receipt" class="receipt-preview">`
             : ""
         }
       </div>
