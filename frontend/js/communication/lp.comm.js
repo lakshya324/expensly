@@ -19,17 +19,22 @@ export class ApprovalPoller {
   }
 
   poll(expenseId, onApproval, onError) {
-    if (!this.activePolls.has(expenseId)) {
-      return; // Polling was cancelled
+    if (this.activePolls.has(expenseId)) {
+      return; // polling already active
     }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(
       () => controller.abort(),
-      LP_CONFIG.pollInterval
+      LP_CONFIG.pollInterval,
     );
 
-    this.activePolls.set(expenseId, { controller, timeoutId, onApproval, onError });
+    this.activePolls.set(expenseId, {
+      controller,
+      timeoutId,
+      onApproval,
+      onError,
+    });
 
     fetch(`${this.baseUrl}/expenses/${expenseId}/approval`, {
       signal: controller.signal,
@@ -43,31 +48,37 @@ export class ApprovalPoller {
       .then((data) => {
         console.log("Ticket status response:", data);
         clearTimeout(timeoutId);
-        
-        if (data.status !== "pending") {
-          // Status changed, notify and stop polling
+
+        if (data.status === "approved" || data.status === "rejected") {
+          // stop polling
           this.activePolls.delete(expenseId);
           this.updateStatus("idle");
           if (onApproval) {
             onApproval(data);
           }
         } else {
-          // Still pending, continue polling
+          // continue polling
           const pollData = this.activePolls.get(expenseId);
           if (pollData) {
-            setTimeout(() => this.poll(expenseId, pollData.onApproval, pollData.onError), 1000);
+            setTimeout(
+              () => this.poll(expenseId, pollData.onApproval, pollData.onError),
+              1000,
+            );
           }
         }
       })
       .catch((error) => {
         clearTimeout(timeoutId);
-        
+
         if (error.name === "AbortError") {
           console.log("Long poll request timeout, retrying...");
           // continue polling after timeout
           const pollData = this.activePolls.get(expenseId);
           if (pollData) {
-            setTimeout(() => this.poll(expenseId, pollData.onApproval, pollData.onError), 1000);
+            setTimeout(
+              () => this.poll(expenseId, pollData.onApproval, pollData.onError),
+              1000,
+            );
           }
         } else {
           console.error("Long poll error:", error);
