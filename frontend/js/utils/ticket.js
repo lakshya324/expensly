@@ -116,7 +116,17 @@ export async function addTicketToIDB(ticket, receiptFile = null) {
     await ticketDomManager.renderExpenses();
 
     // Start long polling for approval
-    startApprovalPolling(ticket.id);
+    approvalPoller.startPolling(
+      ticket.id,
+      async (result) => {
+        console.log("LP > Approval received:", result);
+        // alert(`Expense ${expenseId} ${result.status} by ${result.approver}`);
+        await ticketDomManager.renderExpenses();
+      },
+      (error) => {
+        console.error("Approval polling failed:", error);
+      },
+    );
 
     console.log("Expense Added to IDB:", ticket.id);
   } catch (error) {
@@ -151,32 +161,4 @@ export async function submitTicketToServer(ticket) {
   console.log("Server response:", result);
 
   return result;
-}
-
-function startApprovalPolling(expenseId) {
-  console.log("Starting approval polling for:", expenseId);
-
-  approvalPoller.startPolling(
-    expenseId,
-    async (result) => {
-      console.log("Approval received:", result);
-      // alert(`Expense ${expenseId} ${result.status} by ${result.approver}`);
-
-      if(result.status === "pending") {
-        // todo: restart polling
-        console.log("Expense still pending:", expenseId);
-        return;
-      }
-
-      // Update expense status
-      const expense = AppState.tickets.find((e) => e.id === expenseId);
-      if (expense) {
-        expense.status = result.status;
-        await ticketDomManager.renderExpenses();
-      }
-    },
-    (error) => {
-      console.error("Approval polling failed:", error);
-    }
-  );
 }
