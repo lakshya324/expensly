@@ -8,6 +8,7 @@ export class AuditFeedSocket {
     this.heartbeatInterval = null;
     this.onMessageCallback = null;
     this.onStatusChangeCallback = null;
+    this.onTicketStatusChangeCallback = null;
     this.isConnected = false;
   }
 
@@ -29,6 +30,15 @@ export class AuditFeedSocket {
 
           if (data.type === "pong") {
             console.log("<- Heartbeat pong received");
+            return;
+          }
+
+          // Handle ticket status change messages
+          if (data.type === "ticket_status_change") {
+            console.log(`Ticket ${data.ticketId} status changed to ${data.status}`);
+            if (this.onTicketStatusChangeCallback) {
+              this.onTicketStatusChangeCallback(data);
+            }
             return;
           }
 
@@ -111,6 +121,33 @@ export class AuditFeedSocket {
   //TODO: use in LEDs for shwoing status
   onStatusChange(callback) {
     this.onStatusChangeCallback = callback;
+  }
+
+  // Set ticket status change callback
+  onTicketStatusChange(callback) {
+    this.onTicketStatusChangeCallback = callback;
+  }
+
+  // Send ticket status update
+  updateTicketStatus(ticketId, status) {
+    if (!ticketId || !status) {
+      console.error(`Cannot update ticket status: ticketId="${ticketId}", status="${status}"`);
+      console.error('Usage: updateTicketStatus(ticketId, status)');
+      console.error('Example: updateTicketStatus("T123", "approved")');
+      return;
+    }
+
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.send({
+        type: "update_ticket_status",
+        ticketId,
+        status,
+        timestamp: new Date().toISOString()
+      });
+      console.log(`Sent ticket status update: ${ticketId} -> ${status}`);
+    } else {
+      console.warn("Cannot send ticket update: WebSocket not connected");
+    }
   }
 
   send(data) {
