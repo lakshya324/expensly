@@ -410,6 +410,7 @@ h3 {
 .content-actions {
     display: flex;
     gap: 8px;
+    /* justify-content: flex-end; */
 }
 
 .content-actions select {
@@ -459,11 +460,12 @@ h3 {
     border-color: #00ff00;
 } */
 
-/* TODO: see if it required */
+
 .expense-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    /* align-items: center; */
+    flex-direction: column;
 }
 
 .expense-info {
@@ -510,6 +512,7 @@ h3 {
 .expense-actions {
     display: flex;
     gap: 8px;
+    justify-content: flex-end;
 }
 
 .expense-actions button {
