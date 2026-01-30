@@ -1,4 +1,5 @@
 import { API_BASE, LP_CONFIG } from "../config/env.config.js";
+import { ticketDomManager } from "../ui/center/ticket.component.js";
 
 export class ApprovalPoller {
   constructor() {
@@ -19,9 +20,9 @@ export class ApprovalPoller {
   }
 
   poll(expenseId, onApproval, onError) {
-    if (this.activePolls.has(expenseId)) {
-      return; // polling already active
-    }
+    // if (this.activePolls.has(expenseId)) {
+    //   return; // polling already active
+    // }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(
@@ -46,8 +47,10 @@ export class ApprovalPoller {
         return response.json();
       })
       .then((data) => {
-        console.log("Ticket status response:", data);
+        console.log("LP > Ticket status response:", data);
         clearTimeout(timeoutId);
+
+        // ticketDomManager.renderExpenseById(expenseId);
 
         if (data.status === "approved" || data.status === "rejected") {
           // stop polling
