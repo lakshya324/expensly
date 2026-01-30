@@ -70,7 +70,7 @@ export async function handleTicketFormSubmit(event) {
       await submitTicketToServer(ticket);
 
       await addTicketToIDB(ticket, AppState.currentReceiptFile);
-      alert("Ticket submitted successfully");
+      // alert("Ticket submitted successfully");
     } else {
       console.log("Offline: adding to queue");
       await OfflineQueue.add(ticket, AppState.currentReceiptFile);
@@ -113,7 +113,7 @@ export async function addTicketToIDB(ticket, receiptFile = null) {
 
     // Add to state and render
     AppState.tickets.push(ticket);
-    await ticketDomManager.renderExpenses();
+    await ticketDomManager.addExpense(ticket);
 
     // Start long polling for approval
     approvalPoller.startPolling(
@@ -121,7 +121,7 @@ export async function addTicketToIDB(ticket, receiptFile = null) {
       async (result) => {
         console.log("LP > Approval received:", result);
         // alert(`Expense ${expenseId} ${result.status} by ${result.approver}`);
-        await ticketDomManager.renderExpenses();
+        // await ticketDomManager.renderExpenses();
       },
       (error) => {
         console.error("Approval polling failed:", error);
