@@ -188,7 +188,7 @@ body {
     max-width: 1800px;
     margin: 16px auto;
     padding: 0 16px;
-    min-height: calc(100vh - 180px);
+    /* min-height: calc(100vh - 180px); */
 }
 
 .sidebar-left,
@@ -196,6 +196,7 @@ body {
     background: #16213e;
     padding: 24px;
     overflow-y: auto;
+    max-height: calc(100vh - 180px);
 }
 
 h2 {
@@ -289,6 +290,7 @@ h3 {
     max-width: 100%;
     max-height: 150px;
     border-radius: 5px;
+    color: #eee;
     border: 1px solid #0f3460;
 }
 
@@ -395,6 +397,7 @@ h3 {
 .main-content {
     background: #16213e;
     padding: 24px;
+    max-height: calc(100vh - 180px);
 }
 
 .content-header {
@@ -620,6 +623,7 @@ h3 {
 .footer {
     background: #16213e;
     border-top: 1px solid #0f3460;
+    width: 100%;
     padding: 16px 32px;
     text-align: center;
     color: #888;
