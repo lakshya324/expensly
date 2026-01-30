@@ -83,11 +83,15 @@ app.get("/api/expenses/:id/approval", (req, res) => {
   const ticketId = req.params.id;
   console.log("Long poll started for:", ticketId);
 
-  // Check if there's already an update for this ticket
-  const existingUpdate = ticketStatusUpdates.find(u => u.ticketId === ticketId);
+  // check for ticket status update and deleting it aswell
+  const existingUpdateIndex = ticketStatusUpdates.findIndex(u => u.ticketId === ticketId);
   
-  if (existingUpdate) {
+  if (existingUpdateIndex !== -1) {
     console.log("Returning existing update for:", ticketId);
+
+    const existingUpdate = ticketStatusUpdates[existingUpdateIndex];
+    ticketStatusUpdates.splice(existingUpdateIndex, 1); // Remove the update after returning
+    
     return res.status(200).json({
       expenseId: ticketId,
       status: existingUpdate.status,
