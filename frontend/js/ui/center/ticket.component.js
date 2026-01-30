@@ -64,7 +64,7 @@ class TicketDomManager {
         auditFeedSocket.updateTicketStatus(expenseId, "approved");
 
         AppState.tickets = await TicketStore.getAllTickets();
-        await this.renderExpenses();
+        await this.renderExpenseById(expenseId);
         console.log("Finance approve clicked for", expenseId);
       } else if (target.id === "btnFinanceReject") {
         target.disabled = true;
@@ -96,7 +96,7 @@ class TicketDomManager {
         auditFeedSocket.updateTicketStatus(expenseId, "rejected");
 
         AppState.tickets = await TicketStore.getAllTickets();
-        await this.renderExpenses();
+        await this.renderExpenseById(expenseId);
         console.log("Finance reject clicked for", expenseId);
       }
 
@@ -132,7 +132,7 @@ class TicketDomManager {
         auditFeedSocket.updateTicketStatus(expenseId, "manager_approved");
 
         AppState.tickets = await TicketStore.getAllTickets();
-        await this.renderExpenses();
+        await this.renderExpenseById(expenseId);
         console.log("Manager approve clicked for", expenseId);
       } else if (target.id === "btnManagerReject") {
         target.disabled = true;
@@ -165,7 +165,7 @@ class TicketDomManager {
         auditFeedSocket.updateTicketStatus(expenseId, "rejected");
 
         AppState.tickets = await TicketStore.getAllTickets();
-        await this.renderExpenses();
+        await this.renderExpenseById(expenseId);
         console.log("Manager reject clicked for", expenseId);
       }
 
@@ -240,12 +240,8 @@ class TicketDomManager {
         <div class="expense-info" data-expense-id="${expense.id}">
           <span class="expense-title">${expense.title}</span>
           <span class="expense-amount">${displayAmount}</span>
-          <span class="expense-status status-${
-            expense.status
-          }">
-          ${
-            expense.status
-          }</span>
+          <span class="expense-status status-${expense.status}">
+          ${expense.status}</span>
           <span class="expense-dept">${expense.department}</span>
         </div>
         <div class="expense-actions">
@@ -274,13 +270,11 @@ class TicketDomManager {
         ).toLocaleDateString()}</p>
         <p><strong>Tags:</strong> ${expense.tags.join(", ")}</p>
         <p><strong>Status:</strong> ${expense.status}</p>
-        <div class="receipt-preview">
         ${
           receiptUrl
-            ? `<img src="${receiptUrl}" alt="Receipt">`
+            ? `<a href="${receiptUrl}" class="receipt-preview" target="_blank"><img src="${receiptUrl}" alt="${receipt.blob.name || "Receipt"}"></a>`
             : ""
         }
-      </div>
     `;
 
     return card;
@@ -295,7 +289,9 @@ class TicketDomManager {
     this.expenseListContainer.innerHTML = "";
 
     const raw = await TicketStore.getAllTickets();
-    const expenses = raw.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const expenses = raw.sort(
+      (a, b) => new Date(b.timestamp) - new Date(a.timestamp),
+    );
 
     console.log("Rendering expenses:", expenses.length);
 
@@ -307,10 +303,39 @@ class TicketDomManager {
     console.log(`Rendered ${expenses.length} expenses`);
   }
 
+  async renderExpenseById(expenseId) {
+    if (!this.expenseListContainer) {
+      console.error("Container not initialized");
+      return;
+    }
+
+    const expense = await TicketStore.getTicketById(expenseId);
+    if (!expense) {
+      console.error("Expense not found:", expenseId);
+      return;
+    }
+
+    const card = await this.createExpenseCard(expense);
+    const existingCard = this.expenseListContainer.querySelector(
+      `.expense-info[data-expense-id="${expenseId}"]`,
+    )?.parentElement;
+
+    if (existingCard) {
+      this.expenseListContainer.replaceChild(card, existingCard);
+      console.log("Re-rendered expense:", expenseId);
+    } else {
+      // this.expenseListContainer.appendChild(card);
+      // console.log("Appended new expense:", expenseId);
+      // todo: helps in pagination later
+    }
+  }
+
   async updatePricesOnCurrencyChange() {
     //todo: optimize this later (take compont and update prices only)
     const raw = await TicketStore.getAllTickets();
-    const expenses = raw.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const expenses = raw.sort(
+      (a, b) => new Date(b.timestamp) - new Date(a.timestamp),
+    );
 
     for (const expense of expenses) {
       const card = this.expenseListContainer.querySelector(
