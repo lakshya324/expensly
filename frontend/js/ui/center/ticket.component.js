@@ -330,6 +330,17 @@ class TicketDomManager {
     }
   }
 
+  async addExpense(expense) {
+    if (!this.expenseListContainer) {
+      console.error("Container not initialized");
+      return;
+    }
+
+    const card = await this.createExpenseCard(expense);
+    this.expenseListContainer.prepend(card);
+    console.log("Added new expense to DOM:", expense.id);
+  }
+
   async updatePricesOnCurrencyChange() {
     //todo: optimize this later (take compont and update prices only)
     const raw = await TicketStore.getAllTickets();
