@@ -136,7 +136,7 @@ export function setupCommunicationCallbacks() {
 
     // Check if the updated user is the current user
     const currentUser = await UserSession.get();
-    if (currentUser && currentUser.id === data.userId) {
+    if (currentUser && currentUser.userId === data.userId) {
       alert("Your account has been updated. Please log in again.");
       UserSession.clear();
       window.location.href = "login.html";
@@ -150,7 +150,7 @@ export function setupCommunicationCallbacks() {
 
     // Check if the deleted user is the current user
     const currentUser = await UserSession.get();
-    if (currentUser && currentUser.id === data.userId) {
+    if (currentUser && currentUser.userId === data.userId) {
       alert("Your account has been deleted. You will be logged out.");
       UserSession.clear();
       window.location.href = "login.html";
