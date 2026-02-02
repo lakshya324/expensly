@@ -171,7 +171,7 @@ class TicketDomManager {
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
-        const expense = AppState.tickets.find((e) => e.id === expenseId);
+        const expense = await TicketStore.getTicketById(expenseId);
 
         if (!expense) {
           console.error("Expense not found:", expenseId);
@@ -203,7 +203,7 @@ class TicketDomManager {
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
-        const expense = AppState.tickets.find((e) => e.id === expenseId);
+        const expense = await TicketStore.getTicketById(expenseId);
 
         if (!expense) {
           console.error("Expense not found:", expenseId);
@@ -238,7 +238,7 @@ class TicketDomManager {
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
-        const expense = AppState.tickets.find((e) => e.id === expenseId);
+        const expense = await TicketStore.getTicketById(expenseId);
 
         if (!expense) {
           console.error("Expense not found:", expenseId);
@@ -271,7 +271,7 @@ class TicketDomManager {
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
-        const expense = AppState.tickets.find((e) => e.id === expenseId);
+        const expense = await TicketStore.getTicketById(expenseId);
 
         if (!expense) {
           console.error("Expense not found:", expenseId);
@@ -305,7 +305,7 @@ class TicketDomManager {
       //! Actions for edit, delete, flag
       else if (target.id === "btnEdit") {
         const expenseId = target.getAttribute("data-expense-id");
-        const expense = AppState.tickets.find((e) => e.id === expenseId);
+        const expense = await TicketStore.getTicketById(expenseId);
         if (expense) {
           this.openEditModal(expense);
         }
@@ -314,7 +314,7 @@ class TicketDomManager {
 
         if (confirm("Are you sure you want to delete this ticket?")) {
           try {
-            const expense = AppState.tickets.find((e) => e.id === expenseId);
+            const expense = await TicketStore.getTicketById(expenseId);
 
             // Delete from store
             await TicketStore.deleteTicket(expenseId);
@@ -373,8 +373,6 @@ class TicketDomManager {
             `Ticket flag toggled: ${expenseId} -> ${newFlaggedState}`,
           );
         }
-
-
       }
 
       //* smart expand/collapse feat :)
@@ -561,7 +559,7 @@ class TicketDomManager {
     const card = await this.createExpenseCard(expense);
     const existingCard = this.expenseListContainer.querySelector(
       `.expense-info[data-expense-id="${expenseId}"]`,
-    )?.parentElement;
+    )?.parentElement?.parentElement;
 
     if (existingCard) {
       this.expenseListContainer.replaceChild(card, existingCard);
@@ -602,7 +600,6 @@ class TicketDomManager {
     )?.parentElement?.parentElement;
 
     if (existingCard) {
-      console.log("parent", existingCard);
       if (flagged) {
         existingCard.classList.add("flagged");
         existingCard
@@ -620,9 +617,15 @@ class TicketDomManager {
     }
   }
 
-  async addExpense(expense) {
+  async addExpenseById(expenseId) {
     if (!this.expenseListContainer) {
       console.error("Container not initialized");
+      return;
+    }
+    
+    const expense = await TicketStore.getTicketById(expenseId);
+    if (!expense) {
+      console.error("Expense not found:", expenseId);
       return;
     }
 
