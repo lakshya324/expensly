@@ -1,44 +1,30 @@
-import { UserStore } from "../../models/user.store.js";
+import { renderBudgetGrid } from "./common.component.js";
 
-export async function renderUsersListForAdmin() {
-  const usersList = document.getElementById("usersList");
-  const users = await UserStore.getAllUsers();
+export async function renderAdminLeftPanel() {
+  const adminPanel = document.getElementById("adminPanel");
+  
+  adminPanel.innerHTML = `
+    <h2>Admin Panel</h2>
+    
+    <!-- Navigation to user management -->
+    <div class="panel-section">
+      <button class="btn-navigate" id="manageUsersBtn">
+        Manage Users
+      </button>
+    </div>
 
-  if (users.length === 0) {
-    usersList.innerHTML =
-      '<p class="empty-state">No users yet. Add your first user above.</p>';
-    return;
-  }
-
-  const userMap = {};
-  users.forEach(user => {
-    userMap[user.id] = user.name;
-  });
-
-  usersList.innerHTML = users
-    .map(
-      (user) => {
-        const managerName = user.managerId ? userMap[user.managerId] || 'Unknown' : null;
-        
-        return `
-    <div class="user-card" data-user-id="${user.id}">
-      <div class="user-info-row">
-        <div class="user-main">
-          <h4>${user.name}</h4>
-          <p class="user-email">${user.email}</p>
-        </div>
-        <span class="user-dept-badge">${user.department}</span>
-      </div>
-      <div class="user-details">
-        ${
-          managerName
-            ? `<span>Manager: <strong>${managerName}</strong></span>`
-            : '<span>No Manager Assigned</span>'
-        }
-      </div>
+    <!-- Department Budgets -->
+    <div class="panel-section">
+      <h3>Department Budgets</h3>
+      <div class="budget-grid" id="budget-grid"></div>
     </div>
   `;
-      }
-    )
-    .join("");
+
+  // Render budget grid
+  await renderBudgetGrid();
+
+  // Add navigation handler
+  document.getElementById("manageUsersBtn").addEventListener("click", () => {
+    window.location.href = "admin-users.html";
+  });
 }
