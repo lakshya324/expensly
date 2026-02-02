@@ -192,4 +192,33 @@ export class UserStore {
       request.onerror = () => reject(request.error);
     });
   }
+
+  static async deleteUser(userId) {
+    const db = await dbManager.getDB();
+    const user = await UserSession.get();
+    if (!user || !user.isAdmin) {
+      throw new Error("Unauthorized to delete user");
+    }
+
+    const targetUser = await this.getUserById(userId);
+    if (!targetUser) {
+      throw new Error("User not found");
+    }
+
+    if (targetUser.orgId !== user.orgId) {
+      throw new Error("Unauthorized to delete user from different organization");
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(["users"], "readwrite");
+      const store = transaction.objectStore("users");
+      const request = store.delete(userId);
+
+      request.onsuccess = () => {
+        console.log("User deleted:", userId);
+        resolve(true);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
 }

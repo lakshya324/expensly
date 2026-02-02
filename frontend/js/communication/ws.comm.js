@@ -13,6 +13,8 @@ export class AuditFeedSocket {
     this.onTicketDeleteCallback = null;
     this.onTicketFlagCallback = null;
     this.onNewTicketCallback = null;
+    this.onUserUpdateCallback = null;
+    this.onUserDeleteCallback = null;
     this.isConnected = false;
   }
 
@@ -78,6 +80,24 @@ export class AuditFeedSocket {
             console.log(`New ticket created: ${data.ticketId}`);
             if (this.onNewTicketCallback) {
               this.onNewTicketCallback(data);
+            }
+            return;
+          }
+
+          // Handle user update messages
+          if (data.type === "user_update") {
+            console.log(`User ${data.userId} updated`);
+            if (this.onUserUpdateCallback) {
+              this.onUserUpdateCallback(data);
+            }
+            return;
+          }
+
+          // Handle user delete messages
+          if (data.type === "user_delete") {
+            console.log(`User ${data.userId} deleted`);
+            if (this.onUserDeleteCallback) {
+              this.onUserDeleteCallback(data);
             }
             return;
           }
@@ -186,6 +206,16 @@ export class AuditFeedSocket {
   // Set new ticket callback
   onNewTicket(callback) {
     this.onNewTicketCallback = callback;
+  }
+
+  // Set user update callback
+  onUserUpdate(callback) {
+    this.onUserUpdateCallback = callback;
+  }
+
+  // Set user delete callback
+  onUserDelete(callback) {
+    this.onUserDeleteCallback = callback;
   }
 
   // Send ticket status update

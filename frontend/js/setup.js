@@ -9,6 +9,7 @@ import { AppState } from "./data/state.js";
 import { tagManager } from "./data/tags.js";
 import { dbManager } from "./models/database.js";
 import { TicketStore } from "./models/ticket.store.js";
+import { UserSession } from "./storage/session.js";
 import { ticketDomManager } from "./ui/center/ticket.component.js";
 import {
   addAuditLogEntry,
@@ -127,6 +128,34 @@ export function setupCommunicationCallbacks() {
     await ticketDomManager.addExpenseById(data.ticketId);
 
     console.log(`UI updated for new ticket ${data.ticketId}`);
+  });
+
+  // ws user update
+  auditFeedSocket.onUserUpdate(async (data) => {
+    console.log(`User update received: ${data.userId}`);
+
+    // Check if the updated user is the current user
+    const currentUser = await UserSession.get();
+    if (currentUser && currentUser.id === data.userId) {
+      alert("Your account has been updated. Please log in again.");
+      UserSession.clear();
+      window.location.href = "login.html";
+      return;
+    }
+  });
+
+  // ws user delete
+  auditFeedSocket.onUserDelete(async (data) => {
+    console.log(`User delete received: ${data.userId}`);
+
+    // Check if the deleted user is the current user
+    const currentUser = await UserSession.get();
+    if (currentUser && currentUser.id === data.userId) {
+      alert("Your account has been deleted. You will be logged out.");
+      UserSession.clear();
+      window.location.href = "login.html";
+      return;
+    }
   });
 
   //! SSE
