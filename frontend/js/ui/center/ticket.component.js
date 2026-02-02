@@ -559,7 +559,7 @@ class TicketDomManager {
     const card = await this.createExpenseCard(expense);
     const existingCard = this.expenseListContainer.querySelector(
       `.expense-info[data-expense-id="${expenseId}"]`,
-    )?.parentElement?.parentElement;
+    )?.closest(".expense-card");
 
     if (existingCard) {
       this.expenseListContainer.replaceChild(card, existingCard);
@@ -579,7 +579,7 @@ class TicketDomManager {
 
     const existingCard = this.expenseListContainer.querySelector(
       `.expense-info[data-expense-id="${expenseId}"]`,
-    )?.parentElement?.parentElement;
+    )?.closest(".expense-card");
 
     if (existingCard) {
       this.expenseListContainer.removeChild(existingCard);
@@ -597,7 +597,7 @@ class TicketDomManager {
 
     const existingCard = this.expenseListContainer.querySelector(
       `.expense-info[data-expense-id="${expenseId}"]`,
-    )?.parentElement?.parentElement;
+    )?.closest(".expense-card");
 
     if (existingCard) {
       if (flagged) {
