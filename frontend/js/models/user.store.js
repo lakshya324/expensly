@@ -146,27 +146,47 @@ export class UserStore {
     });
   }
 
-  static async updateUser(updates) {
+  static async updateUser(updates, userId = null) {
     const db = await dbManager.getDB();
     const user = await UserSession.get();
     if (!user) {
       throw new Error("No active user session");
     }
-    const userId = user.userId;
-    return new Promise(async (resolve, reject) => {
-      const user = await this.getUserById(userId);
-      if (!user) {
-        reject(new Error("User not found"));
-        return;
-      }
+    let updateUserId = user.userId;
 
+    if (userId && userId !== user.userId && user.isAdmin) {
+      console.log("Admin updating user:", userId);
+      // Admin updating another user
+      const targetUser = await this.getUserById(userId);
+      if (!targetUser) {
+        throw new Error("User not found");
+      }
+      if (targetUser.orgId !== user.orgId) {
+        throw new Error("Unauthorized to update user");
+      }
+      updateUserId = targetUser.id;
+    }
+
+    if (updates.department && !DEPARTMENTS.includes(updates.department)) {
+      throw new Error("Invalid department");
+    }
+    if (updates.password) {
+      updates.password = await hashPassword(updates.password);
+    }
+    
+    const updateTarget = await this.getUserById(updateUserId);
+    if (!updateTarget) {
+      throw new Error("User not found for update");
+    }
+
+    return new Promise(async (resolve, reject) => {
       const transaction = db.transaction(["users"], "readwrite");
       const store = transaction.objectStore("users");
-      const updatedUser = { ...user, ...updates };
+      const updatedUser = { ...updateTarget, ...updates };
       const request = store.put(updatedUser);
 
       request.onsuccess = () => {
-        console.log("User updated:", userId);
+        console.log("User updated:", updateUserId);
         resolve(updatedUser);
       };
       request.onerror = () => reject(request.error);
