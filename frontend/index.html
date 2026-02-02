@@ -77,62 +77,8 @@
     <div class="main-container">
 
         <!-- admin panel -->
-        <!-- <aside class="sidebar-left admin-panel" id="adminPanel" style="display: none;"> -->
-        <aside class="sidebar-left admin-panel" id="adminPanel">
-            <h2>User Management</h2>
-
-            <!-- add user form -->
-            <div class="panel-section">
-                <h3>Add New User</h3>
-                <form id="add-user-form" class="add-user-form">
-                    <div class="form-group">
-                        <label for="user-name">Full Name</label>
-                        <input type="text" id="user-name" placeholder="John Doe" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="user-email">Email</label>
-                        <input type="email" id="user-email" placeholder="john@company.com" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="user-password">Password</label>
-                        <input type="password" id="user-password" placeholder="Enter password" required minlength="6">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="user-department">Department</label>
-                        <select id="user-department" required>
-                            <!-- TODO: populate dynamically -->
-                            <option value="">Select Department</option>
-                            <option value="Finance">Finance</option>
-                            <option value="IT">IT</option>
-                            <option value="Sales">Sales</option>
-                            <option value="Marketing">Marketing</option>
-                            <option value="HR">HR</option>
-                            <option value="Operations">Operations</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="user-manager">Manager (Optional)</label>
-                        <select id="user-manager">
-                            <option value="">No Manager</option>
-                            <!-- populated dynamically -->
-                        </select>
-                    </div>
-
-                    <button type="submit" class="btn-submit">Add User</button>
-                </form>
-            </div>
-
-            <!-- list of users -->
-            <div class="panel-section">
-                <h3>All Users</h3>
-                <div class="users-list" id="usersList">
-                    <p class="empty-state">No users yet. Add your first user above.</p>
-                </div>
-            </div>
+        <aside class="sidebar-left admin-panel" id="adminPanel" style="display: none;">
+            <!-- Content will be dynamically rendered by admin.component.js -->
         </aside>
 
         <!-- expense form sidebar -->
@@ -252,14 +198,8 @@
         </p>
     </footer>
 
-    <!-- javascript files -->
-    <!-- <script src="js/storage.js"></script>
-    <script src="js/dataStructures.js"></script>
-    <script src="js/communication.js"></script>
-    <script src="js/dom.js"></script>
-    <script src="js/main.js"></script> -->
-
     <script defer type="module" src="js/main.js"></script>
+    <script defer type="module" src="js/utils/worker.js"></script>
     <script type="module">
         import { AuthManager } from './js/auth.js';
         import { UserSession } from './js/storage/session.js';
@@ -277,7 +217,7 @@
                 });
                 const userDeptElements = document.getElementsByClassName('user-dept');
                 Array.from(userDeptElements).forEach(element => {
-                    element.textContent = session.department || 'No Dept';
+                    element.textContent = session.department || session.orgName;
                 });
                 const orgNameElements = document.getElementsByClassName('org-name');
                 Array.from(orgNameElements).forEach(element => {
