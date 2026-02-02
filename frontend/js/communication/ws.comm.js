@@ -9,6 +9,10 @@ export class AuditFeedSocket {
     this.onMessageCallback = null;
     this.onStatusChangeCallback = null;
     this.onTicketStatusChangeCallback = null;
+    this.onTicketUpdateCallback = null;
+    this.onTicketDeleteCallback = null;
+    this.onTicketFlagCallback = null;
+    this.onNewTicketCallback = null;
     this.isConnected = false;
   }
 
@@ -38,6 +42,42 @@ export class AuditFeedSocket {
             console.log(`Ticket ${data.ticketId} status changed to ${data.status}`);
             if (this.onTicketStatusChangeCallback) {
               this.onTicketStatusChangeCallback(data);
+            }
+            return;
+          }
+
+          // Handle ticket update messages
+          if (data.type === "ticket_update") {
+            console.log(`Ticket ${data.ticketId} updated`);
+            if (this.onTicketUpdateCallback) {
+              this.onTicketUpdateCallback(data);
+            }
+            return;
+          }
+
+          // Handle ticket delete messages
+          if (data.type === "ticket_delete") {
+            console.log(`Ticket ${data.ticketId} deleted`);
+            if (this.onTicketDeleteCallback) {
+              this.onTicketDeleteCallback(data);
+            }
+            return;
+          }
+
+          // Handle ticket flag messages
+          if (data.type === "ticket_flag") {
+            console.log(`Ticket ${data.ticketId} flag: ${data.flagged}`);
+            if (this.onTicketFlagCallback) {
+              this.onTicketFlagCallback(data);
+            }
+            return;
+          }
+
+          // Handle new ticket messages
+          if (data.type === "new_ticket") {
+            console.log(`New ticket created: ${data.ticketId}`);
+            if (this.onNewTicketCallback) {
+              this.onNewTicketCallback(data);
             }
             return;
           }
@@ -128,6 +168,26 @@ export class AuditFeedSocket {
     this.onTicketStatusChangeCallback = callback;
   }
 
+  // Set ticket update callback
+  onTicketUpdate(callback) {
+    this.onTicketUpdateCallback = callback;
+  }
+
+  // Set ticket delete callback
+  onTicketDelete(callback) {
+    this.onTicketDeleteCallback = callback;
+  }
+
+  // Set ticket flag callback
+  onTicketFlag(callback) {
+    this.onTicketFlagCallback = callback;
+  }
+
+  // Set new ticket callback
+  onNewTicket(callback) {
+    this.onNewTicketCallback = callback;
+  }
+
   // Send ticket status update
   updateTicketStatus(ticketId, status) {
     if (!ticketId || !status) {
@@ -147,6 +207,65 @@ export class AuditFeedSocket {
       console.log(`Sent ticket status update: ${ticketId} -> ${status}`);
     } else {
       console.warn("Cannot send ticket update: WebSocket not connected");
+    }
+  }
+
+  // Send ticket data update (edit)
+  sendTicketUpdate(ticketId, updatedData) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.send({
+        type: "ticket_update",
+        ticketId,
+        updatedData,
+        timestamp: new Date().toISOString()
+      });
+      console.log(`Sent ticket update: ${ticketId}`);
+    } else {
+      console.warn("Cannot send ticket update: WebSocket not connected");
+    }
+  }
+
+  // Send ticket delete
+  sendTicketDelete(ticketId) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.send({
+        type: "ticket_delete",
+        ticketId,
+        timestamp: new Date().toISOString()
+      });
+      console.log(`Sent ticket delete: ${ticketId}`);
+    } else {
+      console.warn("Cannot send ticket delete: WebSocket not connected");
+    }
+  }
+
+  // Send ticket flag toggle
+  sendTicketFlag(ticketId, flagged) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.send({
+        type: "ticket_flag",
+        ticketId,
+        flagged,
+        timestamp: new Date().toISOString()
+      });
+      console.log(`Sent ticket flag: ${ticketId} -> ${flagged}`);
+    } else {
+      console.warn("Cannot send ticket flag: WebSocket not connected");
+    }
+  }
+
+  // Send new ticket notification
+  sendNewTicket(ticketId, ticketData) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.send({
+        type: "new_ticket",
+        ticketId,
+        ticketData,
+        timestamp: new Date().toISOString()
+      });
+      console.log(`Sent new ticket: ${ticketId}`);
+    } else {
+      console.warn("Cannot send new ticket: WebSocket not connected");
     }
   }
 
