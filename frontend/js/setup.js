@@ -122,6 +122,20 @@ export function setupCommunicationCallbacks() {
   auditFeedSocket.onNewTicket(async (data) => {
     console.log(`New ticket received: ${data.ticketId}`);
 
+    // validating ticket details
+    const ticket = await TicketStore.getTicketById(data.ticketId);
+    if (!ticket) {
+      console.warn("Ticket not found in store:", data.ticketId);
+      return;
+    }
+
+    // Check if the ticket was created by the current user
+    const currentUser = await UserSession.get();
+    if (ticket.submittedBy === currentUser.userId) {
+      console.log(`Skipping own ticket: ${data.ticketId}`);
+      return;
+    }
+
     // Refresh tickets from store //TODO: remove appState dependency
     // AppState.tickets = await TicketStore.getAllTickets();
 
