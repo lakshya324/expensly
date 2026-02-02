@@ -49,6 +49,8 @@ export class TicketStore {
 
         status: ticketData.status || "pending",
         //ENUM: 'pending', 'manager_approved', 'approved', 'rejected'
+        
+        flagged: ticketData.flagged || false,
       };
 
       const request = store.add(ticket);
@@ -57,7 +59,10 @@ export class TicketStore {
         console.log("Ticket created:", ticket.id);
 
         // sending it to server
-        auditFeedSocket.updateTicketStatus(ticket.id, ticket.status);
+        // auditFeedSocket.updateTicketStatus(ticket.id, ticket.status);
+        
+        // broadcast new ticket to all clients
+        auditFeedSocket.sendNewTicket(ticket.id, ticket);
 
         resolve(ticket);
       };
