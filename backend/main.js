@@ -197,6 +197,69 @@ wss.on("connection", (socket) => {
           }
         });
       }
+      // Handle ticket update (edit)
+      else if (data.type === "ticket_update") {
+        console.log(`Ticket edit: ${data.ticketId}`);
+        
+        // Broadcast to all connected clients
+        wss.clients.forEach((client) => {
+          if (client.readyState === 1) {
+            client.send(JSON.stringify({
+              type: "ticket_update",
+              ticketId: data.ticketId,
+              updatedData: data.updatedData,
+              timestamp: data.timestamp,
+            }));
+          }
+        });
+      }
+      // Handle ticket delete
+      else if (data.type === "ticket_delete") {
+        console.log(`Ticket delete: ${data.ticketId}`);
+        
+        // Broadcast to all connected clients
+        wss.clients.forEach((client) => {
+          if (client.readyState === 1) {
+            client.send(JSON.stringify({
+              type: "ticket_delete",
+              ticketId: data.ticketId,
+              timestamp: data.timestamp,
+            }));
+          }
+        });
+      }
+      // Handle ticket flag
+      else if (data.type === "ticket_flag") {
+        console.log(`Ticket flag: ${data.ticketId} -> ${data.flagged}`);
+        
+        // Broadcast to all connected clients
+        wss.clients.forEach((client) => {
+          if (client.readyState === 1) {
+            client.send(JSON.stringify({
+              type: "ticket_flag",
+              ticketId: data.ticketId,
+              flagged: data.flagged,
+              timestamp: data.timestamp,
+            }));
+          }
+        });
+      }
+      // Handle new ticket
+      else if (data.type === "new_ticket") {
+        console.log(`New ticket: ${data.ticketId}`);
+        
+        // Broadcast to all connected clients
+        wss.clients.forEach((client) => {
+          if (client.readyState === 1) {
+            client.send(JSON.stringify({
+              type: "new_ticket",
+              ticketId: data.ticketId,
+              ticketData: data.ticketData,
+              timestamp: data.timestamp,
+            }));
+          }
+        });
+      }
     } catch (error) {
       console.error("Error parsing WebSocket message:", error);
     }
