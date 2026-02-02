@@ -625,6 +625,16 @@ class TicketDomManager {
       return;
     }
 
+    // Check if expense already exists in DOM
+    const existingCard = this.expenseListContainer.querySelector(
+      `.expense-info[data-expense-id="${expenseId}"]`,
+    )?.parentElement?.parentElement;
+
+    if (existingCard) {
+      // console.warn("Expense already exists in DOM:", expenseId);
+      return;
+    }
+
     const card = await this.createExpenseCard(expense);
     this.expenseListContainer.prepend(card);
     console.log("Added new expense to DOM:", expense.id);
