@@ -58,9 +58,9 @@ class TicketDomManager {
               <label>Tags (comma separated)</label>
               <input type="text" id="edit-tags">
             </div>
-            <div class="form-actions">
-              <button type="button" id="modal-cancel" class="btn-secondary">Cancel</button>
-              <button type="submit" class="btn-primary">Save Changes</button>
+            <div class="modal-actions">
+              <button type="submit" class="btn-submit">Save Changes</button>
+              <button type="button" class="btn-clear" id="cancelEditBtn">Cancel</button>
             </div>
           </form>
         </div>
@@ -76,7 +76,7 @@ class TicketDomManager {
       .getElementById("modal-close")
       .addEventListener("click", () => this.closeEditModal());
     document
-      .getElementById("modal-cancel")
+      .getElementById("cancelEditBtn")
       .addEventListener("click", () => this.closeEditModal());
     document
       .getElementById("edit-ticket-form")
@@ -602,14 +602,10 @@ class TicketDomManager {
     if (existingCard) {
       if (flagged) {
         existingCard.classList.add("flagged");
-        existingCard
-          .querySelector('#btnFlag')
-          .textContent = "Unflag";
+        existingCard.querySelector("#btnFlag").textContent = "Unflag";
       } else {
         existingCard.classList.remove("flagged");
-        existingCard
-          .querySelector('#btnFlag')
-          .textContent = "Flag";
+        existingCard.querySelector("#btnFlag").textContent = "Flag";
       }
       console.log(`Flagged state updated for expense ${expenseId}: ${flagged}`);
     } else {
@@ -622,7 +618,7 @@ class TicketDomManager {
       console.error("Container not initialized");
       return;
     }
-    
+
     const expense = await TicketStore.getTicketById(expenseId);
     if (!expense) {
       console.error("Expense not found:", expenseId);
