@@ -107,7 +107,7 @@ export async function renderUsersTable() {
           <td>
             <div class="action-buttons">
               <button class="btn-edit" data-user-id="${user.id}">Edit</button>
-              <button class="btn-delete" data-user-id="${user.id}" ${user.isAdmin ? "disabled" : ""}>Delete</button>
+              <button class="btn-delete" data-user-id="${user.id}">Delete</button>
             </div>
           </td>
         </tr>
@@ -235,14 +235,17 @@ export async function setupEditUserModal() {
       // Update in AppState
       const userIndex = AppState.users.findIndex((u) => u.id === userId);
       if (userIndex !== -1) {
-        AppState.users[userIndex] = { ...AppState.users[userIndex], ...updatedData };
+        AppState.users[userIndex] = {
+          ...AppState.users[userIndex],
+          ...updatedData,
+        };
       }
 
       await renderUsersTable();
       modal.style.display = "none";
       editForm.reset();
 
-    //   alert("User updated successfully!");
+      //   alert("User updated successfully!");
 
       // Sync with backend
       await fetch(API_BASE + `/users/${userId}`, {
@@ -274,7 +277,7 @@ async function deleteUser(userId) {
 
   if (
     !confirm(
-      `Are you sure you want to delete ${user.name}? This action cannot be undone.`
+      `Are you sure you want to delete ${user.name}? This action cannot be undone.`,
     )
   ) {
     return;
