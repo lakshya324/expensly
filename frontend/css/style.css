@@ -659,7 +659,7 @@ h3 {
 
 /* admin panel */
 .admin-panel {
-    max-height: calc(100vh - 100px);
+    /* max-height: calc(100vh - 100px); */
     overflow-y: auto;
 }
 
@@ -794,6 +794,12 @@ h3 {
     margin: 0;
 }
 
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
 .close-btn {
     background: none;
     border: none;
@@ -873,4 +879,227 @@ h3 {
 
 .btn-secondary:hover {
     background: #1a4d7a;
+}
+
+/* ========================================
+   USER MANAGEMENT PAGE STYLES
+   ======================================== */
+
+/* User Management Container */
+.user-management-container {
+    min-height: calc(100vh - 150px);
+    padding: 30px 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.user-management-content {
+    background: #16213e;
+    padding: 30px;
+    border-radius: 8px;
+}
+
+.user-management-content h2 {
+    font-size: 24px;
+    color: #00adb5;
+    margin-bottom: 30px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #0f3460;
+}
+
+.user-management-content h3 {
+    font-size: 18px;
+    color: #eee;
+    margin-bottom: 20px;
+}
+
+/* User Management Sections */
+.user-mgmt-section {
+    background: #1a1a2e;
+    padding: 25px;
+    border-radius: 6px;
+    margin-bottom: 30px;
+    border: 1px solid #0f3460;
+}
+
+/* Form Row Layout */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.form-row .form-group {
+    margin-bottom: 0;
+}
+
+/* Users Table */
+.users-table-container {
+    overflow-x: auto;
+    border-radius: 6px;
+    border: 1px solid #0f3460;
+}
+
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #1a1a2e;
+}
+
+.users-table thead {
+    background: #0f3460;
+}
+
+.users-table th {
+    padding: 15px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+    color: #00adb5;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.users-table td {
+    padding: 15px;
+    border-top: 1px solid #0f3460;
+    font-size: 14px;
+}
+
+.users-table tbody tr {
+    transition: background-color 0.2s;
+}
+
+.users-table tbody tr:hover {
+    background: #16213e;
+}
+
+.users-table .empty-state {
+    text-align: center;
+    padding: 30px;
+    color: #888;
+}
+
+/* User Name Cell */
+.user-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-badge {
+    background: #e74c3c;
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.dept-badge {
+    background: #0f3460;
+    color: #00adb5;
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-edit,
+.btn-delete {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+.btn-edit {
+    background: #00adb5;
+    color: #fff;
+}
+
+.btn-edit:hover {
+    background: #008c94;
+}
+
+.btn-delete {
+    background: #e74c3c;
+    color: #fff;
+}
+
+.btn-delete:hover {
+    background: #c0392b;
+}
+
+.btn-delete:disabled {
+    background: #555;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* Back Button */
+.btn-back {
+    padding: 8px 16px;
+    background: #0f3460;
+    color: #eee;
+    border: 1px solid #00adb5;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-back:hover {
+    background: #1a4d7a;
+    border-color: #008c94;
+}
+
+/* Navigate Button (Admin Panel) */
+.btn-navigate {
+    width: 100%;
+    padding: 15px 20px;
+    background: #00adb5;
+    color: #fff;
+    border: 2px solid #00adb5;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.btn-navigate:hover {
+    background: #fff;
+    color: #00adb5;
+
+}
+
+/* Footer */
+.footer {
+    background: #16213e;
+    border-top: 2px solid #0f3460;
+    padding: 20px;
+    text-align: center;
+    margin-top: auto;
+}
+
+.footer p {
+    color: #888;
+    font-size: 14px;
 }
