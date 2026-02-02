@@ -628,7 +628,7 @@ class TicketDomManager {
     // Check if expense already exists in DOM
     const existingCard = this.expenseListContainer.querySelector(
       `.expense-info[data-expense-id="${expenseId}"]`,
-    )?.parentElement?.parentElement;
+    );
 
     if (existingCard) {
       // console.warn("Expense already exists in DOM:", expenseId);
