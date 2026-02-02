@@ -22,14 +22,14 @@ function addStatusUpdate(ticketId, status) {
     status,
     timestamp: new Date().toISOString(),
   };
-  
+
   ticketStatusUpdates.push(update);
-  
+
   // Keep array size manageable
   if (ticketStatusUpdates.length > MAX_UPDATES) {
     ticketStatusUpdates.shift();
   }
-  
+
   return update;
 }
 
@@ -84,14 +84,16 @@ app.get("/api/expenses/:id/approval", (req, res) => {
   console.log("Long poll started for:", ticketId);
 
   // check for ticket status update and deleting it aswell
-  const existingUpdateIndex = ticketStatusUpdates.findIndex(u => u.ticketId === ticketId);
-  
+  const existingUpdateIndex = ticketStatusUpdates.findIndex(
+    (u) => u.ticketId === ticketId,
+  );
+
   if (existingUpdateIndex !== -1) {
     console.log("Returning existing update for:", ticketId);
 
     const existingUpdate = ticketStatusUpdates[existingUpdateIndex];
     ticketStatusUpdates.splice(existingUpdateIndex, 1); // Remove the update after returning
-    
+
     return res.status(200).json({
       expenseId: ticketId,
       status: existingUpdate.status,
@@ -102,10 +104,10 @@ app.get("/api/expenses/:id/approval", (req, res) => {
   // Otherwise, wait for an update with timeout
   const timeout = 30000; // 30 sec max wait
   const startTime = Date.now();
-  
+
   const checkInterval = setInterval(() => {
-    const update = ticketStatusUpdates.find(u => u.ticketId === ticketId);
-    
+    const update = ticketStatusUpdates.find((u) => u.ticketId === ticketId);
+
     if (update) {
       clearInterval(checkInterval);
       console.log("LP > Update found for:", ticketId);
@@ -124,11 +126,58 @@ app.get("/api/expenses/:id/approval", (req, res) => {
       });
     }
   }, 500); // 500ms
-  
+
   req.on("close", () => {
     clearInterval(checkInterval);
     console.log("LP > Long poll connection closed for:", ticketId);
   });
+});
+
+//* Admin Side APIs
+
+// Edit user
+app.put("/api/admin/users/:id", (req, res) => {
+  const userId = req.params.id;
+  const updates = req.body;
+
+  // propgate to all ws clients
+  wss.clients.forEach((client) => {
+    if (client.readyState === 1) {
+      // OPEN
+      client.send(
+        JSON.stringify({
+          type: "user_update",
+          userId,
+          timestamp: new Date().toISOString(),
+        }),
+      );
+    }
+  });
+
+  console.log("Received user edit for:", userId, updates);
+  return res.status(200).json({ message: "User edited successfully" });
+});
+
+// Delete user
+app.delete("/api/admin/users/:id", (req, res) => {
+  const userId = req.params.id;
+
+  // propgate to all ws clients
+  wss.clients.forEach((client) => {
+    if (client.readyState === 1) {
+      // OPEN
+      client.send(
+        JSON.stringify({
+          type: "user_delete",
+          userId,
+          timestamp: new Date().toISOString(),
+        }),
+      );
+    }
+  });
+
+  console.log("Received user delete for:", userId);
+  return res.status(200).json({ message: "User deleted successfully" });
 });
 
 // universal 200 api
@@ -146,19 +195,22 @@ app.use((req, res) => {
 wss.on("connection", (socket) => {
   console.log(`Client connected`);
 
-  const auditInterval = setInterval(() => {
-    const event = {
-      type: "audit",
-      action: actions[Math.floor(Math.random() * actions.length)],
-      department: departments[Math.floor(Math.random() * departments.length)],
-      user: users[Math.floor(Math.random() * users.length)],
-      amount: (Math.random() * 5000 + 100).toFixed(2),
-      currency: currencies[Math.floor(Math.random() * currencies.length)],
-      timestamp: new Date().toISOString(),
-    };
+  const auditInterval = setInterval(
+    () => {
+      const event = {
+        type: "audit",
+        action: actions[Math.floor(Math.random() * actions.length)],
+        department: departments[Math.floor(Math.random() * departments.length)],
+        user: users[Math.floor(Math.random() * users.length)],
+        amount: (Math.random() * 5000 + 100).toFixed(2),
+        currency: currencies[Math.floor(Math.random() * currencies.length)],
+        timestamp: new Date().toISOString(),
+      };
 
-    socket.send(JSON.stringify(event));
-  }, Math.floor(Math.random() * 4000) + 4000); // 4-8 sec
+      socket.send(JSON.stringify(event));
+    },
+    Math.floor(Math.random() * 4000) + 4000,
+  ); // 4-8 sec
 
   // ping pong and ticket status updates
   socket.on("message", (message) => {
@@ -166,97 +218,110 @@ wss.on("connection", (socket) => {
       const data = JSON.parse(message);
       if (data.type === "ping") {
         socket.send(
-          JSON.stringify({ type: "pong", timestamp: new Date().toISOString() })
+          JSON.stringify({ type: "pong", timestamp: new Date().toISOString() }),
         );
       }
       // Handle ticket status updates from client
       else if (data.type === "update_ticket_status") {
         const update = addStatusUpdate(data.ticketId, data.status);
         console.log(`Ticket update: ${data.ticketId} -> ${data.status}`);
-        
+
         // Broadcast to all connected clients
         wss.clients.forEach((client) => {
-          if (client.readyState === 1) { // OPEN
-            client.send(JSON.stringify({
-              type: "ticket_status_change",
-              ticketId: update.ticketId,
-              status: update.status,
-              timestamp: update.timestamp,
-            }));
+          if (client.readyState === 1) {
+            // OPEN
+            client.send(
+              JSON.stringify({
+                type: "ticket_status_change",
+                ticketId: update.ticketId,
+                status: update.status,
+                timestamp: update.timestamp,
+              }),
+            );
 
             // also sending for live audit
-            client.send(JSON.stringify({
-              type: "audit",
-              action: update.status,
-              department: "N/A",
-              user: "N/A",
-              amount: 0,
-              currency: "N/A",
-              timestamp: new Date().toISOString(),
-            }));
+            client.send(
+              JSON.stringify({
+                type: "audit",
+                action: update.status,
+                department: "N/A",
+                user: "N/A",
+                amount: 0,
+                currency: "N/A",
+                timestamp: new Date().toISOString(),
+              }),
+            );
           }
         });
       }
       // Handle ticket update (edit)
       else if (data.type === "ticket_update") {
         console.log(`Ticket edit: ${data.ticketId}`);
-        
+
         // Broadcast to all connected clients
         wss.clients.forEach((client) => {
           if (client.readyState === 1) {
-            client.send(JSON.stringify({
-              type: "ticket_update",
-              ticketId: data.ticketId,
-              updatedData: data.updatedData,
-              timestamp: data.timestamp,
-            }));
+            client.send(
+              JSON.stringify({
+                type: "ticket_update",
+                ticketId: data.ticketId,
+                updatedData: data.updatedData,
+                timestamp: data.timestamp,
+              }),
+            );
           }
         });
       }
       // Handle ticket delete
       else if (data.type === "ticket_delete") {
         console.log(`Ticket delete: ${data.ticketId}`);
-        
+
         // Broadcast to all connected clients
         wss.clients.forEach((client) => {
           if (client.readyState === 1) {
-            client.send(JSON.stringify({
-              type: "ticket_delete",
-              ticketId: data.ticketId,
-              timestamp: data.timestamp,
-            }));
+            client.send(
+              JSON.stringify({
+                type: "ticket_delete",
+                ticketId: data.ticketId,
+                timestamp: data.timestamp,
+              }),
+            );
           }
         });
       }
       // Handle ticket flag
       else if (data.type === "ticket_flag") {
         console.log(`Ticket flag: ${data.ticketId} -> ${data.flagged}`);
-        
+
         // Broadcast to all connected clients
         wss.clients.forEach((client) => {
           if (client.readyState === 1) {
-            client.send(JSON.stringify({
-              type: "ticket_flag",
-              ticketId: data.ticketId,
-              flagged: data.flagged,
-              timestamp: data.timestamp,
-            }));
+            client.send(
+              JSON.stringify({
+                type: "ticket_flag",
+                ticketId: data.ticketId,
+                flagged: data.flagged,
+                timestamp: data.timestamp,
+              }),
+            );
           }
         });
       }
       // Handle new ticket
       else if (data.type === "new_ticket") {
         console.log(`New ticket: ${data.ticketId}`);
-        
+
         // Broadcast to all connected clients
         wss.clients.forEach((client) => {
           if (client.readyState === 1) {
-            client.send(JSON.stringify({
-              type: "new_ticket",
-              ticketId: data.ticketId,
-              ticketData: data.ticketData,
-              timestamp: data.timestamp,
-            }));
+            client.send(
+              JSON.stringify({
+                type: "new_ticket",
+                ticketId: data.ticketId,
+                ticketData: data.ticketData,
+                timestamp: data.timestamp,
+              }),
+            );
           }
         });
       }

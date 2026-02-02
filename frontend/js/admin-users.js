@@ -53,7 +53,7 @@ export async function setupAdminUsersPage() {
       alert(`User ${newUser.name} created successfully!`);
 
       // Sync with backend
-      await fetch(API_BASE + "/users", {
+      await fetch(API_BASE + "/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userData),
@@ -248,7 +248,7 @@ export async function setupEditUserModal() {
       //   alert("User updated successfully!");
 
       // Sync with backend
-      await fetch(API_BASE + `/users/${userId}`, {
+      await fetch(API_BASE + `/admin/users/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedData),
@@ -292,8 +292,8 @@ async function deleteUser(userId) {
     await renderUsersTable();
     alert("User deleted successfully!");
 
-    // Sync with backend
-    await fetch(API_BASE + `/users/${userId}`, {
+    // Sync with backend 
+    await fetch(API_BASE + `/admin/users/${userId}`, {
       method: "DELETE",
     });
   } catch (error) {
