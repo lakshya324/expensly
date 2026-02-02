@@ -15,7 +15,7 @@ import { clearExpenseForm, getExpenseFormData } from "../ui/left/form.js";
 import {
   renderAvailableTags,
   renderBudgetGrid,
-} from "../ui/left/user.component.js";
+} from "../ui/left/common.component.js";
 import { getCurrencyApprovalThreshold } from "./currency.js";
 
 export async function handleTicketFormSubmit(event) {
