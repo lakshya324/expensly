@@ -202,11 +202,15 @@ export async function setupWorker() {
   const downloadBtn = document.getElementById("btn-download-report");
   const worker = new Worker("js/utils/worker.js");
 
-  workerBtn.addEventListener("click", () => {
+  workerBtn.addEventListener("click", async () => {
     workerBtn.disabled = true;
     workerBtn.textContent = "Generating...";
 
-    worker.postMessage({ type: "run" });
+    // Fetch all tickets from the store
+    const tickets = await TicketStore.getAllTickets();
+    
+    // Send tickets to worker for processing
+    worker.postMessage({ type: "run", tickets });
   });
 
   worker.onmessage = (e) => {
@@ -221,7 +225,8 @@ export async function setupWorker() {
       const url = URL.createObjectURL(blob);
 
       downloadBtn.href = url;
-      downloadBtn.download = `quarterly_report_${Date.now()}.json`;
+      const dateStr = new Date().toISOString().split('T')[0];
+      downloadBtn.download = `expenses_export_${dateStr}.json`;
 
       console.log("Report generation completed");
     }
