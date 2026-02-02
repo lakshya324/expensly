@@ -443,22 +443,19 @@ h3 {
     border: 1px solid #0f3460;
     border-radius: 5px;
     padding: 16px;
-    /* position: relative; */
 }
 
-/* .expense-card:hover {
+.expense-card:hover {
     border-color: #00adb5;
 }
 
-// cando: add/remove flag on expenses
 .expense-card.flagged {
     border-color: #ffaa00;
-    background: #1a1a2e;
 }
 
 .expense-card.expanded {
     border-color: #00ff00;
-} */
+}
 
 
 .expense-header {
@@ -512,7 +509,8 @@ h3 {
 .expense-actions {
     display: flex;
     gap: 8px;
-    justify-content: flex-end;
+    justify-content: space-between;
+    margin-top: 6px;
 }
 
 .expense-actions button {
@@ -757,4 +755,122 @@ h3 {
 .user-details strong {
     color: #00adb5;
     font-weight: 600;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background-color: #16213e;
+    border: 2px solid #00adb5;
+    border-radius: 8px;
+    padding: 20px;
+    width: 90%;
+    max-width: 500px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #0f3460;
+    padding-bottom: 10px;
+}
+
+.modal-header h3 {
+    color: #00adb5;
+    margin: 0;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #eee;
+    font-size: 28px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    color: #ff0000;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #aaa;
+    font-weight: 600;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 8px;
+    background: #1a1a2e;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    color: #eee;
+    font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #00adb5;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.btn-primary,
+.btn-secondary {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.btn-primary {
+    background: #00adb5;
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: #008c94;
+}
+
+.btn-secondary {
+    background: #0f3460;
+    color: #eee;
+}
+
+.btn-secondary:hover {
+    background: #1a4d7a;
 }
