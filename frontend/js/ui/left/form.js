@@ -19,21 +19,3 @@ export function populateExpenseForm(data) {
   document.getElementById("expense-desc").value = data.description || "";
   document.getElementById("expense-tags").value = data.tags || "";
 }
-
-export function getAdminAddUserFormData() {
-  return {
-    name: document.getElementById("user-name").value,
-    email: document.getElementById("user-email").value,
-    password: document.getElementById("user-password").value,
-    department: document.getElementById("user-department").value,
-    managerId: document.getElementById("user-manager").value || null,
-  };
-}
-
-export function populateAdminAddUserForm(data) {
-  document.getElementById("user-name").value = data.name || "";
-  document.getElementById("user-email").value = data.email || "";
-  document.getElementById("user-password").value = data.password || "";
-  document.getElementById("user-department").value = data.department || "";
-  document.getElementById("user-manager").value = data.managerId || "";
-}
