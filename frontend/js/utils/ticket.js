@@ -43,6 +43,7 @@ export async function handleTicketFormSubmit(event) {
     amount: formData.amount,
     currency: currentCurrency, // Storeing user currency
     description: formData.description,
+    department: user.department,
     tags: tags,
     timestamp: Date.now(),
     status: needsManagerApproval ? "pending" : "manager_approved",
@@ -113,7 +114,7 @@ export async function addTicketToIDB(ticket, receiptFile = null) {
 
     // Add to state and render
     AppState.tickets.push(ticket);
-    await ticketDomManager.addExpense(ticket);
+    await ticketDomManager.addExpenseById(ticket.id);
 
     // Start long polling for approval
     approvalPoller.startPolling(
