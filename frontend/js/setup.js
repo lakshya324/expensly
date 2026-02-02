@@ -27,7 +27,7 @@ export async function setupDB() {
 }
 
 export function setupCommunicationCallbacks() {
-  // ws
+  //! ws
   auditFeedSocket.onMessage((data) => {
     if (data.type === "audit") {
       addAuditLogEntry(data);
@@ -36,25 +36,100 @@ export function setupCommunicationCallbacks() {
 
   // ws ticket status changes
   auditFeedSocket.onTicketStatusChange(async (data) => {
-    console.log(`Ticket status update received: ${data.ticketId} -> ${data.status}`);
-    
+    console.log(
+      `Ticket status update received: ${data.ticketId} -> ${data.status}`,
+    );
+
     // const ticket = AppState.tickets.find(t => t.id === data.ticketId);
     const ticket = await TicketStore.getTicketById(data.ticketId);
     if (ticket) {
       ticket.status = data.status;
       await TicketStore.updateTicket(ticket.id, { status: data.status });
     }
-    
+
     // todo: remove appState dependency
     AppState.tickets = await TicketStore.getAllTickets();
-    
+
     // rerendering
     await ticketDomManager.renderExpenses();
-    
+
     console.log(`UI updated for ticket ${data.ticketId}`);
   });
 
-  // sse
+  // ws ticket updates (edit)
+  auditFeedSocket.onTicketUpdate(async (data) => {
+    console.log(`Ticket update received: ${data.ticketId}`);
+
+    const ticket = await TicketStore.getTicketById(data.ticketId);
+    if (ticket) {
+      await TicketStore.updateTicket(data.ticketId, data.updatedData);
+
+      // Update local state
+      const ticketIndex = AppState.tickets.findIndex(
+        (t) => t.id === data.ticketId,
+      );
+      if (ticketIndex !== -1) {
+        AppState.tickets[ticketIndex] = {
+          ...AppState.tickets[ticketIndex],
+          ...data.updatedData,
+        };
+      }
+
+      // Re-render the specific card
+      await ticketDomManager.renderExpenseById(data.ticketId);
+      console.log(`UI updated for edited ticket ${data.ticketId}`);
+    }
+  });
+
+  // ws ticket delete
+  auditFeedSocket.onTicketDelete(async (data) => {
+    console.log(`Ticket delete received: ${data.ticketId}`);
+
+    // Remove from local state
+    AppState.tickets = AppState.tickets.filter((t) => t.id !== data.ticketId);
+
+    // Remove card from DOM
+    await ticketDomManager.deleteExpenseById(data.ticketId);
+
+    console.log(`UI updated for deleted ticket ${data.ticketId}`);
+  });
+
+  // ws ticket flag
+  auditFeedSocket.onTicketFlag(async (data) => {
+    console.log(`Ticket flag received: ${data.ticketId} -> ${data.flagged}`);
+
+    const ticket = await TicketStore.getTicketById(data.ticketId);
+    if (ticket) {
+      await TicketStore.updateTicket(data.ticketId, { flagged: data.flagged });
+
+      // Update local state //TODO: remove appState dependency
+      const ticketIndex = AppState.tickets.findIndex(
+        (t) => t.id === data.ticketId,
+      );
+      if (ticketIndex !== -1) {
+        AppState.tickets[ticketIndex].flagged = data.flagged;
+      }
+
+      // Re-render the specific card
+      await ticketDomManager.flagExpenseById(data.ticketId, data.flagged);
+
+      console.log(`UI updated for flagged ticket ${data.ticketId}`);
+    }
+  });
+
+  // ws new ticket
+  auditFeedSocket.onNewTicket(async (data) => {
+    console.log(`New ticket received: ${data.ticketId}`);
+
+    // Refresh tickets from store //TODO: remove appState dependency
+    // AppState.tickets = await TicketStore.getAllTickets();
+
+    await ticketDomManager.addExpenseById(data.ticketId);
+
+    console.log(`UI updated for new ticket ${data.ticketId}`);
+  });
+
+  //! SSE
   exchangeRateStream.onRatesUpdate(async (rates) => {
     renderExchangeRates(rates);
     await ticketDomManager.updatePricesOnCurrencyChange();
@@ -65,16 +140,16 @@ export function setupCommunicationCallbacks() {
     updateStatusIndicator(type, status);
   };
 
-  // ws: connected, error, disconnected, reconnecting, failed
+  //* ws: connected, error, disconnected, reconnecting, failed
   auditFeedSocket.onStatusChange(statusCallback);
 
-  // sse: connected, error, reconnecting, disconnected
+  //* sse: connected, error, reconnecting, disconnected
   exchangeRateStream.onStatusChange(statusCallback);
 
-  // lp: polling, idle, timeout, error, cancelled
+  //* lp: polling, idle, timeout, error, cancelled
   approvalPoller.onStatusChange(statusCallback);
 
-  // sp: healthy, unhealthy
+  //* sp: healthy, unhealthy
   healthChecker.onStatusChange(statusCallback);
 }
 
@@ -108,7 +183,7 @@ export async function setupWorker() {
   worker.onmessage = (e) => {
     if (e.data.type === "done") {
       downloadBtn.style.display = "block";
-      
+
       workerBtn.textContent = "Generate Quarterly Report";
       workerBtn.disabled = false;
 
