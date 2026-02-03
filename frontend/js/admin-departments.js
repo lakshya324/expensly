@@ -12,9 +12,29 @@ import { dbManager } from "./models/database.js";
 export async function setupDepartmentsPage() {
   const addDepartmentForm = document.getElementById("add-department-form");
   const resetBtn = document.getElementById("form-reset-btn");
+  const deptNameInput = document.getElementById("dept-name");
+  const deptBudgetInput = document.getElementById("dept-budget");
 
   // Initial render
   await renderDepartmentsTable();
+
+  // Real-time validation for department name
+  deptNameInput.addEventListener("input", () => {
+    validateDepartmentName();
+  });
+
+  deptNameInput.addEventListener("blur", () => {
+    validateDepartmentName();
+  });
+
+  // Real-time validation for budget
+  deptBudgetInput.addEventListener("input", () => {
+    validateBudget();
+  });
+
+  deptBudgetInput.addEventListener("blur", () => {
+    validateBudget();
+  });
 
   // Reset button handler
   resetBtn.addEventListener("click", () => {
@@ -308,36 +328,57 @@ function updateBudgetSummary(departments, totalBudget) {
 }
 
 /**
+ * Validate department name field
+ */
+function validateDepartmentName() {
+  const name = document.getElementById("dept-name").value.trim();
+  const errorElement = document.getElementById("dept-name-error");
+
+  if (!name) {
+    errorElement.textContent = "Department name is required";
+    return false;
+  } else if (name.length < 2) {
+    errorElement.textContent = "Name must be at least 2 characters";
+    return false;
+  } else {
+    errorElement.textContent = "";
+    return true;
+  }
+}
+
+/**
+ * Validate budget field
+ */
+function validateBudget() {
+  const budget = document.getElementById("dept-budget").value;
+  const errorElement = document.getElementById("dept-budget-error");
+
+  if (!budget) {
+    errorElement.textContent = "Budget is required";
+    return false;
+  } else if (isNaN(budget)) {
+    errorElement.textContent = "Budget must be a valid number";
+    return false;
+  } else if (budget < 0) {
+    errorElement.textContent = "Budget must be a positive number";
+    return false;
+  } else if (parseFloat(budget) > 1000000000) {
+    errorElement.textContent = "Budget cannot exceed 1 billion";
+    return false;
+  } else {
+    errorElement.textContent = "";
+    return true;
+  }
+}
+
+/**
  * Validate the form fields
  */
 function validateForm() {
-  let isValid = true;
+  const isNameValid = validateDepartmentName();
+  const isBudgetValid = validateBudget();
 
-  // Reset errors
-  document.getElementById("dept-name-error").textContent = "";
-  document.getElementById("dept-budget-error").textContent = "";
-
-  // Validate name
-  const name = document.getElementById("dept-name").value.trim();
-  if (!name) {
-    document.getElementById("dept-name-error").textContent =
-      "Department name is required";
-    isValid = false;
-  } else if (name.length < 2) {
-    document.getElementById("dept-name-error").textContent =
-      "Name must be at least 2 characters";
-    isValid = false;
-  }
-
-  // Validate budget
-  const budget = document.getElementById("dept-budget").value;
-  if (!budget || budget < 0) {
-    document.getElementById("dept-budget-error").textContent =
-      "Budget must be a positive number";
-    isValid = false;
-  }
-
-  return isValid;
+  return isNameValid && isBudgetValid;
 }
 
 /**
