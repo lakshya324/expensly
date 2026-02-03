@@ -395,8 +395,30 @@ class TicketDomManager {
         }
       }
 
+      //* Save audit note
+      else if (target.id === "btnSaveNote") {
+        event.stopPropagation();
+        const expenseId = target.getAttribute("data-expense-id");
+        const card = target.closest(".expense-card");
+        const textarea = card.querySelector(`#auditNote-${expenseId}`);
+        if (textarea && card) {
+          const noteText = textarea.value.trim();
+          if (noteText) {
+            this.setAuditNote(card, noteText);
+            this.updateNoteIndicator(card, true);
+            // alert("Audit note saved (session only)");
+          } else {
+            this.auditNotesMap.delete(card);
+            this.updateNoteIndicator(card, false);
+          }
+        }
+      }
+
       //* smart expand/collapse feat :)
-      else if (target.closest(".expense-card")) {
+      else if (
+        target.closest(".expense-card") &&
+        !target.closest(".audit-note-section")
+      ) {
         const expenseCard = target.closest(".expense-card");
         this.toggleCardExpansion(expenseCard);
       }
@@ -410,11 +432,20 @@ class TicketDomManager {
       details.style.display = isExpanded ? "none" : "block";
       expenseCard.classList.toggle("expanded", !isExpanded);
 
+      // Load existing audit note if expanding
+      if (!isExpanded && this.hasAuditNote(expenseCard)) {
+        const note = this.getAuditNote(expenseCard);
+        const expenseId = expenseCard.getAttribute("data-expense-id");
+        const textarea = expenseCard.querySelector(`#auditNote-${expenseId}`);
+        if (textarea && note) {
+          textarea.value = note;
+        }
+      }
+
       console.log("Card", isExpanded ? "collapsed" : "expanded");
     }
   }
 
-  // Todo: use audit notes
   setAuditNote(element, note) {
     this.auditNotesMap.set(element, note);
   }
@@ -425,6 +456,30 @@ class TicketDomManager {
 
   hasAuditNote(element) {
     return this.auditNotesMap.has(element);
+  }
+
+  updateNoteIndicator(card, hasNote) {
+    const header = card.querySelector(".expense-header");
+    if (header) {
+      let indicator = header.querySelector(".note-indicator");
+      if (hasNote && !indicator) {
+        const note = this.getAuditNote(card);
+        indicator = document.createElement("span");
+        indicator.className = "note-indicator";
+        indicator.textContent = "Note";
+        indicator.title = note || "Has audit note";
+
+        // Insert before expense-actions if it exists, otherwise append to header
+        const actionsContainer = header.querySelector(".action-buttons");
+        actionsContainer.prepend(indicator);
+      } else if (hasNote && indicator) {
+        // Update tooltip with latest note
+        const note = this.getAuditNote(card);
+        indicator.title = note || "Has audit note";
+      } else if (!hasNote && indicator) {
+        indicator.remove();
+      }
+    }
   }
 
   async createExpenseCard(expense) {
@@ -459,13 +514,14 @@ class TicketDomManager {
     const submittedBy = expense.submittedBy;
     let submitter = null;
     let manager = null;
-    
+
     if (submittedBy) {
       submitter = await UserStore.getUserById(submittedBy);
       if (submitter) {
         isManager =
-          expense.status === "pending" && (submitter.managerId === user.userId || user.isAdmin);
-        
+          expense.status === "pending" &&
+          (submitter.managerId === user.userId || user.isAdmin);
+
         // Fetch manager information if available
         if (submitter.managerId) {
           manager = await UserStore.getUserById(submitter.managerId);
@@ -480,7 +536,11 @@ class TicketDomManager {
     if (expense.financeApproval?.reviewedBy) {
       const reviewerId = expense.financeApproval.reviewedBy;
       if (reviewerId.startsWith("admin_")) {
-        financeReviewer = { name: "Admin", email: "ADMIN ACTION", isAdmin: true };
+        financeReviewer = {
+          name: "Admin",
+          email: "ADMIN ACTION",
+          isAdmin: true,
+        };
       } else {
         financeReviewer = await UserStore.getUserById(reviewerId);
       }
@@ -576,6 +636,16 @@ class TicketDomManager {
             ? `<a href="${receiptUrl}" class="receipt-preview" target="_blank"><img src="${receiptUrl}" alt="${receipt.blob.name || "Receipt"}"></a>`
             : ""
         }
+        <div class="audit-note-section">
+          <label for="auditNote-${expense.id}"><strong>Audit Note:</strong> (Session only)</label>
+          <textarea 
+            id="auditNote-${expense.id}" 
+            class="audit-note-input" 
+            placeholder="Add internal notes for this expense..." 
+            rows="3"
+          ></textarea>
+          <button id="btnSaveNote" class="btn-save-note" data-expense-id="${expense.id}">Save Note</button>
+        </div>
     `;
 
     return card;
@@ -625,13 +695,24 @@ class TicketDomManager {
       return;
     }
 
-    const card = await this.createExpenseCard(expense);
     const existingCard = this.expenseListContainer
       .querySelector(`.expense-info[data-expense-id="${expenseId}"]`)
       ?.closest(".expense-card");
 
+    // Preserve audit note from old card
+    const existingNote = existingCard ? this.getAuditNote(existingCard) : null;
+
+    const card = await this.createExpenseCard(expense);
+
     if (existingCard) {
       this.expenseListContainer.replaceChild(card, existingCard);
+
+      // Transfer audit note to new card
+      if (existingNote) {
+        this.setAuditNote(card, existingNote);
+        this.updateNoteIndicator(card, true);
+      }
+
       console.log("Re-rendered expense:", expenseId);
     } else {
       // this.expenseListContainer.appendChild(card);
