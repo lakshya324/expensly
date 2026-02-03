@@ -112,17 +112,20 @@ body {
 }
 
 .status-indicator.connected .led,
-.status-indicator.healthy .led {
+.status-indicator.healthy .led,
+.led.connected {
     background: #00ff00;
 }
 
 .status-indicator.error .led,
-.status-indicator.unhealthy .led {
+.status-indicator.unhealthy .led,
+.led.error {
     background: #ff0000;
 }
 
 .status-indicator.reconnecting .led,
-.status-indicator.polling .led {
+.status-indicator.polling .led,
+.led.reconnecting {
     background: #ffaa00;
 }
 
@@ -253,6 +256,27 @@ h3 {
     margin-top: 5px;
     color: #888;
     font-size: 13px;
+}
+
+/* Validation styles */
+.form-group input.invalid,
+.form-group select.invalid,
+.form-group textarea.invalid {
+    border-color: #ff4757;
+}
+
+.form-group input.valid,
+.form-group select.valid,
+.form-group textarea.valid {
+    border-color: #2ed573;
+}
+
+.error-message {
+    display: block;
+    margin-top: 5px;
+    color: #ff4757;
+    font-size: 12px;
+    min-height: 16px;
 }
 
 .amount-input-group {
@@ -504,6 +528,7 @@ h3 {
     border-radius: 5px;
     font-size: 13px;
     color: #ccc;
+    text-transform: uppercase;
 }
 
 .expense-actions {
@@ -816,10 +841,6 @@ h3 {
     color: #ff0000;
 }
 
-.form-group {
-    margin-bottom: 15px;
-}
-
 .form-group label {
     display: block;
     margin-bottom: 5px;
@@ -928,10 +949,7 @@ h3 {
     grid-template-columns: 1fr 1fr;
     gap: 20px;
     margin-bottom: 20px;
-}
-
-.form-row .form-group {
-    margin-bottom: 0;
+    margin-bottom: 0px;
 }
 
 /* Users Table */
@@ -998,6 +1016,16 @@ h3 {
     text-transform: uppercase;
 }
 
+.disabled-badge {
+    background: #95a5a6;
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
 .dept-badge {
     background: #0f3460;
     color: #00adb5;
@@ -1015,7 +1043,7 @@ h3 {
 }
 
 .btn-edit,
-.btn-delete {
+.btn-toggle-disable {
     padding: 6px 12px;
     border: none;
     border-radius: 4px;
@@ -1034,19 +1062,19 @@ h3 {
     background: #008c94;
 }
 
-.btn-delete {
-    background: #e74c3c;
-    color: #fff;
-}
-
-.btn-delete:hover {
-    background: #c0392b;
-}
-
-.btn-delete:disabled {
+.btn-edit:disabled {
     background: #555;
     cursor: not-allowed;
     opacity: 0.5;
+}
+
+.btn-toggle-disable {
+    background: #f39c12;
+    color: #fff;
+}
+
+.btn-toggle-disable:hover {
+    background: #e67e22;
 }
 
 /* Back Button */
@@ -1088,6 +1116,69 @@ h3 {
     background: #fff;
     color: #00adb5;
 
+}
+
+/* Approval Indicator */
+.approval-indicator {
+    margin-top: 12px;
+}
+
+.approval-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 15px;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1.5;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.approval-info.with-manager {
+    background: linear-gradient(135deg, rgba(0, 173, 181, 0.15) 0%, rgba(0, 173, 181, 0.05) 100%);
+    border: 1px solid rgba(0, 173, 181, 0.3);
+    color: #eee;
+}
+
+.approval-info.auto-approve {
+    background: linear-gradient(135deg, rgba(243, 156, 18, 0.15) 0%, rgba(243, 156, 18, 0.05) 100%);
+    border: 1px solid rgba(243, 156, 18, 0.3);
+    color: #eee;
+}
+
+.approval-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.approval-info.with-manager .approval-icon {
+    color: #00adb5;
+}
+
+.approval-info.auto-approve .approval-icon {
+    color: #f39c12;
+}
+
+.approval-info strong {
+    color: #00adb5;
+    font-weight: 700;
+}
+
+.approval-info.auto-approve strong {
+    color: #f39c12;
 }
 
 /* Footer */

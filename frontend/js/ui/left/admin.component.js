@@ -13,6 +13,13 @@ export async function renderAdminLeftPanel() {
       </button>
     </div>
 
+    <!-- Navigation to department management -->
+    <div class="panel-section">
+      <button class="btn-navigate" id="manageDepartmentsBtn" onclick="window.location.href='admin-departments.html'">
+        Manage Budgets & Departments
+      </button>
+    </div>
+
     <!-- Department Budgets -->
     <div class="panel-section">
       <h3>Department Budgets</h3>

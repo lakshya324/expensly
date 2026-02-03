@@ -21,6 +21,9 @@ export const LOCAL_KEYS = {
     budgetData: "expensly_budget_data",
 }
 
+// DEPRECATED: Departments are now managed per-organization
+// This constant is kept for backward compatibility but should not be used
+// Use OrganizationStore.getDepartments(orgId) instead
 export const DEPARTMENTS = [
     "Finance",
     "HR",

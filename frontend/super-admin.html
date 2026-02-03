@@ -219,7 +219,7 @@
     <div class="container">
         <div class="header">
             <div>
-                <h1>🔐 Super Admin Panel</h1>
+                <h1>Super Admin Panel</h1>
                 <p style="color: #64748b; margin-top: 5px;">Expensly Platform Management</p>
             </div>
             <div class="user-info">
@@ -237,8 +237,8 @@
                     <input type="text" id="orgName" placeholder="e.g., Acme Corporation" required>
                 </div>
                 <div class="form-group">
-                    <label for="adminEmail">Admin Email</label>
-                    <input type="email" id="adminEmail" placeholder="admin@company.com" required>
+                    <label for="newAdminEmail">Admin Email</label>
+                    <input type="email" id="newAdminEmail" placeholder="admin@company.com" required>
                 </div>
                 <div class="form-group">
                     <label for="adminPassword">Admin Password</label>
@@ -308,7 +308,7 @@
                             <h3>${org.name}</h3>
                             <p>Admin: ${org.adminEmail}</p>
                             <div class="org-meta">
-                                <span>ID: ${org.id}</span>
+                                <!-- <span>ID: ${org.id}</span> -->
                                 <span>Created: ${new Date(org.createdAt).toLocaleDateString()}</span>
                             </div>
                         </div>
@@ -324,7 +324,7 @@
             e.preventDefault();
 
             const orgName = document.getElementById('orgName').value.trim();
-            const adminEmail = document.getElementById('adminEmail').value.trim();
+            const adminEmail = document.getElementById('newAdminEmail').value.trim();
             const adminPassword = document.getElementById('adminPassword').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
 

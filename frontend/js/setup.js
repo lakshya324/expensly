@@ -11,6 +11,7 @@ import { dbManager } from "./models/database.js";
 import { TicketStore } from "./models/ticket.store.js";
 import { UserSession } from "./storage/session.js";
 import { ticketDomManager } from "./ui/center/ticket.component.js";
+import { renderBudgetGrid } from "./ui/left/common.component.js";
 import {
   addAuditLogEntry,
   renderExchangeRates,
@@ -43,9 +44,19 @@ export function setupCommunicationCallbacks() {
 
     // const ticket = AppState.tickets.find(t => t.id === data.ticketId);
     const ticket = await TicketStore.getTicketById(data.ticketId);
+    console.log("Fetched ticket for status update:", ticket);
     if (ticket) {
+      const oldStatus = ticket.status;
       ticket.status = data.status;
       await TicketStore.updateTicket(ticket.id, { status: data.status });
+
+      // Update budget when ticket is approved
+      if (data.status === "approved") {
+        // budgetTracker.addExpense(ticket.amount);
+        budgetTracker.addExpenseToDepartment(ticket.department, ticket.amount);
+        await renderBudgetGrid();
+        console.log(`Budget updated: Added ${ticket.amount} for approved ticket ${data.ticketId}`);
+      }
     }
 
     // todo: remove appState dependency
@@ -158,14 +169,14 @@ export function setupCommunicationCallbacks() {
     }
   });
 
-  // ws user delete
-  auditFeedSocket.onUserDelete(async (data) => {
-    console.log(`User delete received: ${data.userId}`);
+  // ws user disable
+  auditFeedSocket.onUserDisable(async (data) => {
+    console.log(`User disable received: ${data.userId}, isDisabled: ${data.isDisabled}`);
 
-    // Check if the deleted user is the current user
+    // Check if the disabled user is the current user
     const currentUser = await UserSession.get();
-    if (currentUser && currentUser.userId === data.userId) {
-      alert("Your account has been deleted. You will be logged out.");
+    if (currentUser && currentUser.userId === data.userId && data.isDisabled) {
+      alert("Your account has been disabled. You will be logged out.");
       UserSession.clear();
       window.location.href = "login.html";
       return;
@@ -176,6 +187,9 @@ export function setupCommunicationCallbacks() {
   exchangeRateStream.onRatesUpdate(async (rates) => {
     renderExchangeRates(rates);
     await ticketDomManager.updatePricesOnCurrencyChange();
+    // Update budget grid with new exchange rates
+    const { renderBudgetGrid } = await import("./ui/left/common.component.js");
+    await renderBudgetGrid();
   });
 
   // status change handler (for all communication types)
@@ -198,7 +212,7 @@ export function setupCommunicationCallbacks() {
 
 export async function setupData() {
   try {
-    budgetTracker.initialize();
+    await budgetTracker.initialize();
     console.log("Budget data loaded");
   } catch (error) {
     console.error("Failed to load budget data:", error);

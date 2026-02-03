@@ -158,9 +158,10 @@ app.put("/api/admin/users/:id", (req, res) => {
   return res.status(200).json({ message: "User edited successfully" });
 });
 
-// Delete user
-app.delete("/api/admin/users/:id", (req, res) => {
+// Disable/Enable user
+app.patch("/api/admin/users/:id/disable", (req, res) => {
   const userId = req.params.id;
+  const { isDisabled } = req.body;
 
   // propgate to all ws clients
   wss.clients.forEach((client) => {
@@ -168,16 +169,17 @@ app.delete("/api/admin/users/:id", (req, res) => {
       // OPEN
       client.send(
         JSON.stringify({
-          type: "user_delete",
+          type: "user_disable",
           userId,
+          isDisabled,
           timestamp: new Date().toISOString(),
         }),
       );
     }
   });
 
-  console.log("Received user delete for:", userId);
-  return res.status(200).json({ message: "User deleted successfully" });
+  console.log(`Received user ${isDisabled ? 'disable' : 'enable'} for:`, userId);
+  return res.status(200).json({ message: `User ${isDisabled ? 'disabled' : 'enabled'} successfully` });
 });
 
 // universal 200 api

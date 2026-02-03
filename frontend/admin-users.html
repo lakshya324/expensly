@@ -76,21 +76,29 @@
     <!-- main content -->
     <div class="user-management-container">
         <div class="user-management-content">
-            <h2>User Management</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">User Management</h2>
+                <button class="btn-back" onclick="window.location.href='admin-departments.html'">
+                    Manage Departments
+                </button>
+            </div>
 
             <!-- add user form -->
             <div class="user-mgmt-section">
-                <h3>Add New User</h3>
+                <h3 id="form-title">Add New User</h3>
                 <form id="add-user-form" class="add-user-form">
+                    <input type="hidden" id="edit-user-id">
                     <div class="form-row">
                         <div class="form-group">
                             <label for="user-name">Full Name</label>
                             <input type="text" id="user-name" placeholder="Lakshya Sharma" required>
+                            <span class="error-message" id="user-name-error"></span>
                         </div>
 
                         <div class="form-group">
                             <label for="user-email">Email</label>
                             <input type="email" id="user-email" placeholder="lakshya@expensly.com" required>
+                            <span class="error-message" id="user-email-error"></span>
                         </div>
                     </div>
 
@@ -99,19 +107,16 @@
                             <label for="user-password">Password</label>
                             <input type="password" id="user-password" placeholder="Enter password" required
                                 minlength="6">
+                            <span class="error-message" id="user-password-error"></span>
                         </div>
 
                         <div class="form-group">
                             <label for="user-department">Department</label>
                             <select id="user-department" required>
                                 <option value="">Select Department</option>
-                                <option value="Finance">Finance</option>
-                                <option value="IT">IT</option>
-                                <option value="Sales">Sales</option>
-                                <option value="Marketing">Marketing</option>
-                                <option value="HR">HR</option>
-                                <option value="Operations">Operations</option>
+                                <!-- Departments populated dynamically from org -->
                             </select>
+                            <span class="error-message" id="user-department-error"></span>
                         </div>
                     </div>
 
@@ -121,9 +126,11 @@
                             <select id="user-manager">
                                 <option value="">No Manager</option>
                             </select>
+                            <div class="approval-indicator" id="approval-indicator"></div>
                         </div>
                         <div class="form-group">
-                            <button type="submit" class="btn-submit">Add User</button>
+                            <button type="submit" class="btn-submit" id="form-submit-btn">Add User</button>
+                            <button type="button" class="btn-clear" id="form-reset-btn">Reset</button>
                         </div>
                     </div>
                 </form>
@@ -152,50 +159,7 @@
                 </div>
             </div>
 
-            <!-- edit user modal -->
-            <div id="editUserModal" class="modal" style="display: none;">
-                <div class="modal-content">
-                    <h3>Edit User</h3>
-                    <form id="edit-user-form">
-                        <input type="hidden" id="edit-user-id">
 
-                        <div class="form-group">
-                            <label for="edit-user-name">Full Name</label>
-                            <input type="text" id="edit-user-name" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="edit-user-email">Email</label>
-                            <input type="email" id="edit-user-email" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="edit-user-department">Department</label>
-                            <select id="edit-user-department" required>
-                                <option value="">Select Department</option>
-                                <option value="Finance">Finance</option>
-                                <option value="IT">IT</option>
-                                <option value="Sales">Sales</option>
-                                <option value="Marketing">Marketing</option>
-                                <option value="HR">HR</option>
-                                <option value="Operations">Operations</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="edit-user-manager">Manager (Optional)</label>
-                            <select id="edit-user-manager">
-                                <option value="">No Manager</option>
-                            </select>
-                        </div>
-
-                        <div class="modal-actions">
-                            <button type="submit" class="btn-submit">Save Changes</button>
-                            <button type="button" class="btn-clear" id="cancelEditBtn">Cancel</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -212,8 +176,7 @@
         import { AppState } from './js/data/state.js';
         import {
             setupAdminUsersPage,
-            renderUsersTable,
-            setupEditUserModal
+            renderUsersTable
         } from './js/admin-users.js';
 
         if (!UserSession.isLoggedIn()) {

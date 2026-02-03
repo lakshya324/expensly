@@ -72,6 +72,9 @@ export class AuthManager {
       throw new Error("Invalid credentials");
     }
 
+    // Fetch org departments
+    const departments = await OrganizationStore.getDepartments(org.id);
+
     const adminId = "admin_" + org.id;
     const session = {
       userId: adminId,
@@ -81,6 +84,8 @@ export class AuthManager {
       managerId: null,
       orgId: org.id,
       orgName: org.name,
+      orgDepartments: departments,
+      orgTotalBudget: org.totalBudget || 0,
       loginTime: new Date().toISOString(),
       isAdmin: true,
       isFinance: false,
@@ -107,6 +112,10 @@ export class AuthManager {
       throw new Error("User not found. Please contact your administrator.");
     }
 
+    if (user.isDisabled) {
+      throw new Error("Your account has been disabled. Please contact your administrator.");
+    }
+
     const hashedpassword = await hashPassword(password);
     if (user.password !== hashedpassword) {
       throw new Error("Invalid credentials");
@@ -118,6 +127,9 @@ export class AuthManager {
       throw new Error("Organization not found. Please contact support.");
     }
 
+    // Fetch org departments
+    const departments = await OrganizationStore.getDepartments(user.orgId);
+
     const session = {
       userId: user.id,
       email: user.email,
@@ -126,6 +138,8 @@ export class AuthManager {
       managerId: user.managerId || null,
       orgId: user.orgId,
       orgName: org.name,
+      orgDepartments: departments,
+      orgTotalBudget: org.totalBudget || 0,
       loginTime: new Date().toISOString(),
       isAdmin: false,
       isFinance: user.department === "Finance",

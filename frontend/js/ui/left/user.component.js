@@ -3,6 +3,7 @@ import { renderAvailableTags, renderBudgetGrid } from "./common.component.js";
 import { getExpenseFormData, populateExpenseForm } from "./form.js";
 import { handleReceiptFile } from "../../utils/receipt.js";
 import { handleTicketFormSubmit } from "../../utils/ticket.js";
+import { setupExpenseValidation, clearExpenseValidation } from "../../utils/expenseValidation.js";
 
 export async function renderUserLeftPanel() {
 
@@ -10,6 +11,9 @@ export async function renderUserLeftPanel() {
   const dropZone = document.getElementById("drop-zone");
   const fileInput = document.getElementById("receipt-file");
   const clearDraftBtn = document.getElementById("btn-clear-draft");
+
+  // Setup validation
+  setupExpenseValidation();
 
   // load draft if exists
   if (FormDraftSession.hasDraft()) {
@@ -45,6 +49,7 @@ export async function renderUserLeftPanel() {
       AppState.currentReceiptFile = null;
       AppState.currentReceiptUrl = null;
       document.getElementById("receipt-preview").innerHTML = "";
+      clearExpenseValidation();
       console.log("Draft cleared");
     }
   });

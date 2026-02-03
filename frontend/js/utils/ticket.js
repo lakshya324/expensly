@@ -17,9 +17,15 @@ import {
   renderBudgetGrid,
 } from "../ui/left/common.component.js";
 import { getCurrencyApprovalThreshold } from "./currency.js";
+import { validateExpenseForm, clearExpenseValidation } from "./expenseValidation.js";
 
 export async function handleTicketFormSubmit(event) {
   event.preventDefault();
+
+  // Validate form before submission
+  if (!validateExpenseForm()) {
+    return;
+  }
 
   const formData = getExpenseFormData();
 
@@ -84,6 +90,7 @@ export async function handleTicketFormSubmit(event) {
     document.getElementById("receipt-preview").innerHTML = "";
     clearExpenseForm();
     FormDraftSession.clearDraft();
+    clearExpenseValidation();
 
     AppState.currentReceiptUrl = null;
     AppState.currentReceiptFile = null;
@@ -109,8 +116,9 @@ export async function addTicketToIDB(ticket, receiptFile = null) {
       await ReceiptStore.storeReceipt(ticket.id, receiptFile);
     }
 
-    budgetTracker.addExpense(ticket.amount);
-    await renderBudgetGrid();
+    // Budget is only added when ticket is approved, not when created
+    // budgetTracker.addExpense(ticket.amount);
+    // await renderBudgetGrid();
 
     // Add to state and render
     AppState.tickets.push(ticket);

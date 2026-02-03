@@ -1,4 +1,4 @@
-import { DEPARTMENTS } from "../config/env.config.js";
+import { OrganizationStore } from "./organization.store.js";
 import { UserSession } from "../storage/session.js";
 import { hashPassword } from "../utils/encode.js";
 import { dbManager } from "./database.js";
@@ -13,15 +13,20 @@ export class UserStore {
     ) {
       throw new Error("Incomplete user data");
     }
-    if (!DEPARTMENTS.includes(userData.department)) {
-      throw new Error("Invalid department");
-    }
-    const db = await dbManager.getDB();
+    
     const user = await UserSession.get();
     if (!user || !user.isAdmin) {
       throw new Error("Unauthorized to create user");
     }
 
+    // Validate department exists in org
+    const departments = await OrganizationStore.getDepartments(user.orgId);
+    const validDepartment = departments.find(d => d.name === userData.department);
+    if (!validDepartment) {
+      throw new Error("Invalid department. Department does not exist in organization.");
+    }
+
+    const db = await dbManager.getDB();
     const hashedPassword = await hashPassword(userData.password);
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(["users"], "readwrite");
@@ -35,6 +40,7 @@ export class UserStore {
         department: userData.department,
         managerId: userData.managerId || null,
         orgId: user.orgId,
+        isDisabled: false,
         createdAt: new Date().toISOString(),
       };
 
@@ -102,9 +108,18 @@ export class UserStore {
   }
 
   static async getUsersByDepartment(department) {
-    if (!DEPARTMENTS.includes(department)) {
-      throw new Error("Invalid department");
+    const user = await UserSession.get();
+    if (!user || !user.orgId) {
+      throw new Error("No active user session");
     }
+    
+    // Validate department exists in org
+    const departments = await OrganizationStore.getDepartments(user.orgId);
+    const validDepartment = departments.find(d => d.name === department);
+    if (!validDepartment) {
+      throw new Error("Invalid department. Department does not exist in organization.");
+    }
+    
     const allUsers = await this.getAllUsers();
     return allUsers.filter((user) => user.department === department);
   }
@@ -167,9 +182,15 @@ export class UserStore {
       updateUserId = targetUser.id;
     }
 
-    if (updates.department && !DEPARTMENTS.includes(updates.department)) {
-      throw new Error("Invalid department");
+    // Validate department if being updated
+    if (updates.department) {
+      const departments = await OrganizationStore.getDepartments(user.orgId);
+      const validDepartment = departments.find(d => d.name === updates.department);
+      if (!validDepartment) {
+        throw new Error("Invalid department. Department does not exist in organization.");
+      }
     }
+    
     if (updates.password) {
       updates.password = await hashPassword(updates.password);
     }
@@ -193,11 +214,11 @@ export class UserStore {
     });
   }
 
-  static async deleteUser(userId) {
+  static async toggleDisableUser(userId) {
     const db = await dbManager.getDB();
     const user = await UserSession.get();
     if (!user || !user.isAdmin) {
-      throw new Error("Unauthorized to delete user");
+      throw new Error("Unauthorized to disable/enable user");
     }
 
     const targetUser = await this.getUserById(userId);
@@ -206,17 +227,19 @@ export class UserStore {
     }
 
     if (targetUser.orgId !== user.orgId) {
-      throw new Error("Unauthorized to delete user from different organization");
+      throw new Error("Unauthorized to disable/enable user from different organization");
     }
+
+    const updatedUser = { ...targetUser, isDisabled: !targetUser.isDisabled };
 
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(["users"], "readwrite");
       const store = transaction.objectStore("users");
-      const request = store.delete(userId);
+      const request = store.put(updatedUser);
 
       request.onsuccess = () => {
-        console.log("User deleted:", userId);
-        resolve(true);
+        console.log(`User ${updatedUser.isDisabled ? 'disabled' : 'enabled'}:`, userId);
+        resolve(updatedUser);
       };
       request.onerror = () => reject(request.error);
     });

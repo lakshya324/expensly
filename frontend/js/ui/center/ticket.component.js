@@ -183,6 +183,16 @@ class TicketDomManager {
           return;
         }
 
+        // Check if budget would go negative
+        const departmentBudget = budgetTracker.getBudget(expense.department);
+        if (departmentBudget && departmentBudget.remaining < expense.amount) {
+          alert(
+            `Cannot approve: Insufficient budget. Remaining: ${departmentBudget.currency} ${departmentBudget.remaining.toFixed(2)}, Required: ${expense.currency} ${expense.amount}`,
+          );
+          target.disabled = false;
+          return;
+        }
+
         await TicketStore.updateTicket(expenseId, {
           financeApproval: {
             approved: true,
@@ -439,7 +449,8 @@ class TicketDomManager {
     const submittedBy = expense.submittedBy;
     if (submittedBy && expense.status === "pending") {
       const submitter = await UserStore.getUserById(submittedBy);
-      isManager = submitter && submitter.managerId === user.userId;
+      isManager =
+        submitter && (submitter.managerId === user.userId || user.isAdmin);
     }
 
     // checking for recept
@@ -486,7 +497,8 @@ class TicketDomManager {
         </div>
         <div class="approval-buttons">
           ${
-            user.isFinance && expense.status === "manager_approved"
+            (user.isFinance || user.isAdmin) &&
+            expense.status === "manager_approved"
               ? `
             <button id="btnFinanceApprove" data-expense-id="${expense.id}" title="Approve Expense">Approve</button>
             <button id="btnFinanceReject" data-expense-id="${expense.id}" title="Reject Expense">Reject</button>
@@ -557,9 +569,9 @@ class TicketDomManager {
     }
 
     const card = await this.createExpenseCard(expense);
-    const existingCard = this.expenseListContainer.querySelector(
-      `.expense-info[data-expense-id="${expenseId}"]`,
-    )?.closest(".expense-card");
+    const existingCard = this.expenseListContainer
+      .querySelector(`.expense-info[data-expense-id="${expenseId}"]`)
+      ?.closest(".expense-card");
 
     if (existingCard) {
       this.expenseListContainer.replaceChild(card, existingCard);
@@ -577,9 +589,9 @@ class TicketDomManager {
       return;
     }
 
-    const existingCard = this.expenseListContainer.querySelector(
-      `.expense-info[data-expense-id="${expenseId}"]`,
-    )?.closest(".expense-card");
+    const existingCard = this.expenseListContainer
+      .querySelector(`.expense-info[data-expense-id="${expenseId}"]`)
+      ?.closest(".expense-card");
 
     if (existingCard) {
       this.expenseListContainer.removeChild(existingCard);
@@ -595,9 +607,9 @@ class TicketDomManager {
       return;
     }
 
-    const existingCard = this.expenseListContainer.querySelector(
-      `.expense-info[data-expense-id="${expenseId}"]`,
-    )?.closest(".expense-card");
+    const existingCard = this.expenseListContainer
+      .querySelector(`.expense-info[data-expense-id="${expenseId}"]`)
+      ?.closest(".expense-card");
 
     if (existingCard) {
       if (flagged) {

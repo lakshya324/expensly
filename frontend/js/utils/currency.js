@@ -21,3 +21,8 @@ export function getCurrencyApprovalThreshold(currency) {
   };
   return thresholds[currency] || 100;
 }
+
+export function formatCurrency(amount, currency) {
+  const symbol = getCurrencySymbol(currency);
+  return `${symbol}${amount.toFixed(2)}`;
+}

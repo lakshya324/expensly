@@ -91,6 +91,7 @@
                 <div class="form-group">
                     <label for="expense-title">Title</label>
                     <input type="text" id="expense-title" required>
+                    <span class="error-message" id="expense-title-error"></span>
                 </div>
 
                 <div class="form-group">
@@ -99,16 +100,19 @@
                         <input type="number" id="expense-amount" step="1" min="0" required>
                         <span class="user-currency"></span>
                     </div>
+                    <span class="error-message" id="expense-amount-error"></span>
                 </div>
 
                 <div class="form-group">
                     <label for="expense-desc">Description</label>
                     <textarea id="expense-desc" rows="3" required></textarea>
+                    <span class="error-message" id="expense-desc-error"></span>
                 </div>
 
                 <div class="form-group">
-                    <label for="expense-tags">Tags (comma-separated)</label>
-                    <input type="text" id="expense-tags" placeholder="#Travel, #ClientDinner">
+                    <label for="expense-tags">Tags (comma or space separated)</label>
+                    <input type="text" id="expense-tags" placeholder="Travel Dinner or #Travel, #Dinner">
+                    <span class="error-message" id="expense-tags-error"></span>
                     <small>Available tags: <span id="available-tags"></span></small>
                 </div>
 
@@ -157,6 +161,19 @@
         <aside class="sidebar-right">
             <h2>Audit Center</h2>
 
+            <!-- report generator -->
+            <div class="report-section">
+                <h3>Tax Report Generator</h3>
+                <button id="btn-generate-report" class="btn-submit">
+                    Generate Quarterly Report
+                </button>
+                <a id="btn-download-report" href="#" download style="display: none;">
+                <button class="btn-submit">
+                    Download Report
+                </button>
+                </a>
+            </div>
+
             <!-- audit log -->
             <div class="audit-section">
                 <h3>Live Audit Feed</h3>
@@ -171,19 +188,6 @@
                 <div id="exchange-rates" class="exchange-rates">
                     <p>Loading rates...</p>
                 </div>
-            </div>
-
-            <!-- report generator -->
-            <div class="report-section">
-                <h3>Tax Report Generator</h3>
-                <button id="btn-generate-report" class="btn-submit">
-                    Generate Quarterly Report
-                </button>
-                <a id="btn-download-report" href="#" download style="display: none;">
-                <button class="btn-submit">
-                    Download Report
-                </button>
-                </a>
             </div>
         </aside>
     </div>

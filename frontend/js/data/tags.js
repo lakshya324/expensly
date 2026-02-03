@@ -67,11 +67,12 @@ class TagManager {
 
   // only for valid parse
   parseTagString(tagString) {
+    // Split by both comma and space, then clean up
     return tagString
-      .split(",")
+      .split(/[,\s]+/) // Split by comma or space (one or more)
       .map((tag) => tag.trim())
       .filter((tag) => tag.length > 0)
-      .map((tag) => (tag.startsWith("#") ? tag : `#${tag}`))
+      .map((tag) => (tag.startsWith("#") ? tag : `#${tag}`)) // Add # if missing
       .filter((tag) => this.tagRegex.test(tag));
   }
 }

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Department Management - Expensly</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- header -->
+    <header class="header">
+        <div class="container">
+            <div class="left" style="cursor: pointer;" onclick="window.location.href='index.html'">
+                <h1>Expensly</h1>
+                <span>by Lakshya Sharma</span>
+            </div>
+
+            <div class="center">
+                <!-- currency dropdown -->
+                <div>
+                    <label for="currencySelect">Currency:</label>
+                    <select id="currencySelect" class="currency-dropdown">
+                        <option value="USD">USD ($)</option>
+                        <option value="INR">INR (₹)</option>
+                    </select>
+                </div>
+
+                <!-- user info -->
+                <div>
+                    <span class="user-name">Loading...</span>
+                    <span class="user-dept"></span>
+                </div>
+            </div>
+
+            <div class="right">
+                <!-- status indicators -->
+                <div class="status-matrix">
+                    <div class="status-indicator" id="status-sse" title="Server-Sent Events">
+                        <span class="led"></span>
+                        <span class="label">SSE</span>
+                    </div>
+                </div>
+
+                <!-- diagnostic button -->
+                <button class="btn-diagnostic" id="btn-diagnostic" title="Event Loop Diagnostic">
+                    Diagnostic
+                </button>
+
+                <!-- logout button -->
+                <button class="btn-logout" id="logoutBtn" title="Logout">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- main content -->
+    <div class="user-management-container">
+        <div class="user-management-content">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Department Management</h2>
+                <button class="btn-back" onclick="window.location.href='admin-users.html'">
+                    Manage Users
+                </button>
+            </div>
+
+            <!-- add department form -->
+            <div class="user-mgmt-section">
+                <h3>Add New Department</h3>
+                <form id="add-department-form" class="add-user-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="dept-name">Department Name</label>
+                            <input type="text" id="dept-name" placeholder="e.g. Marketing, IT, HR" required>
+                            <span class="error-message" id="dept-name-error"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dept-budget">Budget (<span class="user-currency">USD</span>)</label>
+                            <input type="number" id="dept-budget" placeholder="50000" required min="0" step="1">
+                            <span class="error-message" id="dept-budget-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <button type="submit" class="btn-submit">Add Department</button>
+                        <button type="button" class="btn-clear" id="form-reset-btn">Reset</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- list of departments -->
+            <div class="user-mgmt-section">
+                <h3>All Departments</h3>
+                <div class="users-table-container">
+                    <table class="users-table" id="departmentsTable">
+                        <thead>
+                            <tr>
+                                <th>Department Name</th>
+                                <th>Budget Allocated</th>
+                                <th>Spent</th>
+                                <th>Remaining</th>
+                                <th>Usage %</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="departmentsTableBody">
+                            <tr>
+                                <td colspan="6" class="empty-state">Loading departments...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Total budget summary -->
+            <div class="user-mgmt-section">
+                <h3>Organization Budget Summary</h3>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                    <div style="background: #16213e; padding: 15px; border-radius: 6px; border: 1px solid #0f3460;">
+                        <div style="color: #aaa; font-size: 12px; margin-bottom: 5px; text-transform: uppercase;">Total
+                            Allocated</div>
+                        <div style="color: #00adb5; font-size: 20px; font-weight: 600;" id="total-allocated">$0</div>
+                    </div>
+                    <div style="background: #16213e; padding: 15px; border-radius: 6px; border: 1px solid #0f3460;">
+                        <div style="color: #aaa; font-size: 12px; margin-bottom: 5px; text-transform: uppercase;">Total
+                            Spent</div>
+                        <div style="color: #e74c3c; font-size: 20px; font-weight: 600;" id="total-spent">$0</div>
+                    </div>
+                    <div style="background: #16213e; padding: 15px; border-radius: 6px; border: 1px solid #0f3460;">
+                        <div style="color: #aaa; font-size: 12px; margin-bottom: 5px; text-transform: uppercase;">Total
+                            Remaining</div>
+                        <div style="color: #27ae60; font-size: 20px; font-weight: 600;" id="total-remaining">$0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>Expensly © 2026 - Expense Management System</p>
+        </div>
+    </footer>
+
+    <script type="module">
+        import { UserSession } from './js/storage/session.js';
+        import { UserPreferenceLocal } from './js/storage/local.js';
+        import { exchangeRateStream } from './js/communication/connect.js';
+        import {
+            setupDepartmentsPage,
+            renderDepartmentsTable,
+            updateStatusIndicator
+        } from './js/admin-departments.js';
+
+        // Check authentication
+        if (!UserSession.isLoggedIn()) {
+            window.location.href = 'login.html';
+        }
+
+        const user = UserSession.get();
+        if (!user.isAdmin) {
+            alert('Access denied. Admin privileges required.');
+            window.location.href = 'index.html';
+        }
+
+        // Display user info
+        document.querySelector('.user-name').textContent = user.name;
+        document.querySelector('.user-dept').textContent = user.orgName;
+
+        // Currency preference
+        const currencyPref = UserPreferenceLocal.getCurrency();
+        document.getElementById('currencySelect').value = currencyPref;
+
+        // Update currency display in form label
+        const userCurrencyElements = document.getElementsByClassName('user-currency');
+        Array.from(userCurrencyElements).forEach(element => {
+            element.textContent = currencyPref;
+        });
+
+        document.getElementById('currencySelect').addEventListener('change', async (e) => {
+            const newCurrency = e.target.value;
+            UserPreferenceLocal.set({ currency: newCurrency });
+
+            // Update currency display
+            Array.from(userCurrencyElements).forEach(element => {
+                element.textContent = newCurrency;
+            });
+
+            // Re-render to show converted amounts
+            await renderDepartmentsTable();
+        });
+
+        // Setup SSE for exchange rates
+        exchangeRateStream.connect();
+        exchangeRateStream.onStatusChange((type, status) => {
+            updateStatusIndicator('status-sse', status);
+        });
+
+        // Update department table when exchange rates change
+        exchangeRateStream.onRatesUpdate(async () => {
+            await renderDepartmentsTable();
+        });
+
+        // Setup department management
+        await setupDepartmentsPage();
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            exchangeRateStream.disconnect();
+        });
+
+        // Logout handler
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to logout?')) {
+                exchangeRateStream.disconnect();
+                UserSession.clear();
+                window.location.href = 'login.html';
+            }
+        });
+    </script>
+</body>
+
+</html>

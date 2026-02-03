@@ -14,7 +14,7 @@ export class AuditFeedSocket {
     this.onTicketFlagCallback = null;
     this.onNewTicketCallback = null;
     this.onUserUpdateCallback = null;
-    this.onUserDeleteCallback = null;
+    this.onUserDisableCallback = null;
     this.isConnected = false;
   }
 
@@ -93,11 +93,11 @@ export class AuditFeedSocket {
             return;
           }
 
-          // Handle user delete messages
-          if (data.type === "user_delete") {
-            console.log(`User ${data.userId} deleted`);
-            if (this.onUserDeleteCallback) {
-              this.onUserDeleteCallback(data);
+          // Handle user disable messages
+          if (data.type === "user_disable") {
+            console.log(`User Disable: ${data.userId} ${data.isDisabled ? 'disabled' : 'enabled'}`);
+            if (this.onUserDisableCallback) {
+              this.onUserDisableCallback(data);
             }
             return;
           }
@@ -213,9 +213,9 @@ export class AuditFeedSocket {
     this.onUserUpdateCallback = callback;
   }
 
-  // Set user delete callback
-  onUserDelete(callback) {
-    this.onUserDeleteCallback = callback;
+  // Set user disable callback
+  onUserDisable(callback) {
+    this.onUserDisableCallback = callback;
   }
 
   // Send ticket status update

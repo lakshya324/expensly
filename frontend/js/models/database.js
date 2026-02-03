@@ -17,6 +17,10 @@ class DatabaseManager {
       request.onsuccess = () => {
         this.db = request.result;
         console.log("IndexedDB initialized");
+        
+        // Run migration for existing organizations to add departments
+        this.migrateOrganizations();
+        
         resolve(this.db);
       };
 
@@ -95,6 +99,41 @@ class DatabaseManager {
       await this.init();
     }
     return this.db;
+  }
+
+  async migrateOrganizations() {
+    try {
+      const db = await this.getDB();
+      const transaction = db.transaction(["organizations"], "readwrite");
+      const store = transaction.objectStore("organizations");
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const organizations = request.result || [];
+        const updateTransaction = db.transaction(["organizations"], "readwrite");
+        const updateStore = updateTransaction.objectStore("organizations");
+
+        organizations.forEach(org => {
+          // Add departments if they don't exist
+          if (!org.departments || org.departments.length === 0) {
+            org.departments = [
+              {
+                id: "dept_" + crypto.randomUUID(),
+                name: "Finance",
+                budget: 50000,
+                spent: 0,
+                currency: "USD"
+              }
+            ];
+            org.totalBudget = 50000;
+            updateStore.put(org);
+            console.log(`Migrated organization: ${org.name} - Added Finance department`);
+          }
+        });
+      };
+    } catch (error) {
+      console.error("Migration error:", error);
+    }
   }
 }
 
