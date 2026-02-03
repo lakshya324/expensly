@@ -249,12 +249,12 @@ export async function setupWorker() {
       workerBtn.disabled = false;
 
       const reportData = e.data.payload;
-      const blob = new Blob([reportData], { type: "application/json" });
+      const blob = new Blob([reportData], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
 
       downloadBtn.href = url;
       const dateStr = new Date().toISOString().split('T')[0];
-      downloadBtn.download = `expenses_export_${dateStr}.json`;
+      downloadBtn.download = `expenses_export_${dateStr}.csv`;
 
       console.log("Report generation completed");
     }
