@@ -457,10 +457,33 @@ class TicketDomManager {
     // Check if current user is the manager of the ticket submitter
     let isManager = false;
     const submittedBy = expense.submittedBy;
-    if (submittedBy && expense.status === "pending") {
-      const submitter = await UserStore.getUserById(submittedBy);
-      isManager =
-        submitter && (submitter.managerId === user.userId || user.isAdmin);
+    let submitter = null;
+    let manager = null;
+    
+    if (submittedBy) {
+      submitter = await UserStore.getUserById(submittedBy);
+      if (submitter) {
+        isManager =
+          expense.status === "pending" && (submitter.managerId === user.userId || user.isAdmin);
+        
+        // Fetch manager information if available
+        if (submitter.managerId) {
+          manager = await UserStore.getUserById(submitter.managerId);
+        }
+      }
+    }
+
+    // Fetch finance approval/rejection reviewers
+    let financeReviewer = null;
+
+    // Check finance approval
+    if (expense.financeApproval?.reviewedBy) {
+      const reviewerId = expense.financeApproval.reviewedBy;
+      if (reviewerId.startsWith("admin_")) {
+        financeReviewer = { name: "Admin", email: "ADMIN ACTION", isAdmin: true };
+      } else {
+        financeReviewer = await UserStore.getUserById(reviewerId);
+      }
     }
 
     // checking for recept
@@ -531,8 +554,23 @@ class TicketDomManager {
         <p><strong>Date:</strong> ${new Date(
           expense.timestamp,
         ).toLocaleDateString()}</p>
-        <p><strong>Tags:</strong> ${expense.tags.join(", ")}</p>
+        <p><strong>Tags:</strong> ${expense.tags.join(", ") || "None"}</p>
         <p><strong>Status:</strong> ${expense.status}</p>
+        ${
+          submitter
+            ? `<p><strong>Submitted By:</strong> ${submitter.name} | ${submitter.email}</p>`
+            : ""
+        }
+        ${
+          manager
+            ? `<p><strong>Manager ${expense.managerApproval.approved ? "Approved" : "Rejected"} By:</strong> ${manager.name} | ${manager.email}</p>`
+            : ""
+        }
+        ${
+          expense.financeApproval?.reviewedBy && financeReviewer
+            ? `<p><strong>Finance ${expense.financeApproval.approved ? "Approved" : "Rejected"} By:</strong> ${financeReviewer.name} | ${financeReviewer.email}</p>`
+            : ""
+        }
         ${
           receiptUrl
             ? `<a href="${receiptUrl}" class="receipt-preview" target="_blank"><img src="${receiptUrl}" alt="${receipt.blob.name || "Receipt"}"></a>`
