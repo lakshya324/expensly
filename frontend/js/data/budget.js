@@ -22,7 +22,7 @@ class BudgetTracker {
 
     // Fetch departments from org
     const departments = await OrganizationStore.getDepartments(session.orgId);
-    
+
     if (!departments || departments.length === 0) {
       console.warn("No departments found for organization");
       return;
@@ -30,27 +30,30 @@ class BudgetTracker {
 
     // Get stored budget data from localStorage (for spent tracking)
     const storedBudgetData = BudgetLocal.get();
-    
+
     // Build budget map from org departments
     const budgetData = {};
-    departments.forEach(dept => {
+    departments.forEach((dept) => {
       // Use stored spent amount if exists, otherwise use org's spent amount
       const storedDept = storedBudgetData?.[dept.name];
-      const spent = storedDept?.spent ?? dept.spent ?? 0;
-      
+      const spent = dept.spent ?? storedDept?.spent ?? 0;
+
       budgetData[dept.name] = {
         allocated: dept.budget,
         spent: spent,
         remaining: dept.budget - spent,
-        currency: dept.currency || CURRENCY[0]
+        currency: dept.currency || CURRENCY[0],
       };
     });
 
     // Save to localStorage and budgetMap
     BudgetLocal.set(budgetData);
     this.budgetMap = new Map(Object.entries(budgetData));
-    
-    console.log("Budget initialized with org departments:", Array.from(this.budgetMap.keys()));
+
+    console.log(
+      "Budget initialized with org departments:",
+      Array.from(this.budgetMap.keys()),
+    );
   }
 
   async reloadBudgets() {
@@ -71,17 +74,17 @@ class BudgetTracker {
           allocated: exchangeRateStream.convert(
             budget.allocated,
             CURRENCY[0],
-            userCurrency
+            userCurrency,
           ),
           spent: exchangeRateStream.convert(
             budget.spent,
             CURRENCY[0],
-            userCurrency
+            userCurrency,
           ),
           remaining: exchangeRateStream.convert(
             budget.remaining,
             CURRENCY[0],
-            userCurrency
+            userCurrency,
           ),
           currency: userCurrency,
         }
@@ -97,10 +100,11 @@ class BudgetTracker {
     }
 
     const budget = this.budgetMap.get(user.department);
-    const usdAmount = userCurrency !== CURRENCY[0]
-      ? exchangeRateStream.convert(amount, userCurrency, CURRENCY[0])
-      : amount;
-    
+    const usdAmount =
+      userCurrency !== CURRENCY[0]
+        ? exchangeRateStream.convert(amount, userCurrency, CURRENCY[0])
+        : amount;
+
     budget.spent += usdAmount;
     budget.remaining = budget.allocated - budget.spent;
 
@@ -111,7 +115,7 @@ class BudgetTracker {
     this.syncSpentToOrg(user.department, usdAmount);
 
     console.log(
-      `${user.department}: Spent ${amount}, Remaining: ${budget.remaining}`
+      `${user.department}: Spent ${amount}, Remaining: ${budget.remaining}`,
     );
     return true;
   }
@@ -122,9 +126,10 @@ class BudgetTracker {
       console.warn(`Department '${department}' not found in budget map`);
       return false;
     }
-    const usdAmount = userCurrency !== CURRENCY[0]
-      ? exchangeRateStream.convert(amount, userCurrency, CURRENCY[0])
-      : amount;
+    const usdAmount =
+      userCurrency !== CURRENCY[0]
+        ? exchangeRateStream.convert(amount, userCurrency, CURRENCY[0])
+        : amount;
 
     const budget = this.budgetMap.get(department);
     budget.spent += usdAmount;
@@ -134,7 +139,7 @@ class BudgetTracker {
     BudgetLocal.set(Object.fromEntries(this.budgetMap));
 
     // Update org database
-    this.syncSpentToOrg(department, usdAmount);
+      this.syncSpentToOrg(department, usdAmount);
 
     console.log(
       `${department}: Spent ${amount}, Remaining: ${budget.remaining}`
@@ -147,9 +152,10 @@ class BudgetTracker {
     if (!this.budgetMap.has(department)) {
       return false;
     }
-    const usdAmount = userCurrency !== CURRENCY[0]
-      ? exchangeRateStream.convert(amount, userCurrency, CURRENCY[0])
-      : amount;
+    const usdAmount =
+      userCurrency !== CURRENCY[0]
+        ? exchangeRateStream.convert(amount, userCurrency, CURRENCY[0])
+        : amount;
 
     const budget = this.budgetMap.get(department);
     budget.spent = Math.max(0, budget.spent - usdAmount);
@@ -157,10 +163,10 @@ class BudgetTracker {
 
     this.budgetMap.set(department, budget);
     BudgetLocal.set(Object.fromEntries(this.budgetMap));
-    
+
     // Update org database (negative amount to subtract)
     this.syncSpentToOrg(department, -usdAmount);
-    
+
     return true;
   }
 
@@ -169,8 +175,12 @@ class BudgetTracker {
     try {
       const session = UserSession.get();
       if (!session || !session.orgId) return;
-      
-      await OrganizationStore.updateDepartmentSpent(session.orgId, departmentName, amountChange);
+
+      await OrganizationStore.updateDepartmentSpent(
+        session.orgId,
+        departmentName,
+        amountChange,
+      );
     } catch (error) {
       console.error("Failed to sync budget to org:", error);
     }
@@ -185,20 +195,35 @@ class BudgetTracker {
     const budgets = [];
     this.budgetMap.forEach((budget, department) => {
       const storedCurrency = budget.currency || CURRENCY[0];
-      
+
       // Only convert if stored currency differs from user's currency
-      const allocated = userCurrency !== storedCurrency
-        ? exchangeRateStream.convert(budget.allocated, storedCurrency, userCurrency)
-        : budget.allocated;
-      
-      const spent = userCurrency !== storedCurrency
-        ? exchangeRateStream.convert(budget.spent, storedCurrency, userCurrency)
-        : budget.spent;
-      
-      const remaining = userCurrency !== storedCurrency
-        ? exchangeRateStream.convert(budget.remaining, storedCurrency, userCurrency)
-        : budget.remaining;
-      
+      const allocated =
+        userCurrency !== storedCurrency
+          ? exchangeRateStream.convert(
+              budget.allocated,
+              storedCurrency,
+              userCurrency,
+            )
+          : budget.allocated;
+
+      const spent =
+        userCurrency !== storedCurrency
+          ? exchangeRateStream.convert(
+              budget.spent,
+              storedCurrency,
+              userCurrency,
+            )
+          : budget.spent;
+
+      const remaining =
+        userCurrency !== storedCurrency
+          ? exchangeRateStream.convert(
+              budget.remaining,
+              storedCurrency,
+              userCurrency,
+            )
+          : budget.remaining;
+
       budgets.push({
         department,
         allocated,

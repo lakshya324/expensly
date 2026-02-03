@@ -10,6 +10,7 @@ import { UserStore } from "../../models/user.store.js";
 import { UserPreferenceLocal } from "../../storage/local.js";
 import { CURRENCY, getCurrencySymbol } from "../../utils/currency.js";
 import { OrganizationStore } from "../../models/organization.store.js";
+import { renderBudgetGrid } from "../left/common.component.js";
 
 class TicketDomManager {
   constructor() {
@@ -212,6 +213,11 @@ class TicketDomManager {
           },
           status: "approved",
         });
+
+        // Update budget locally
+        budgetTracker.addExpenseToDepartment(expense.department, expense.amount);
+        await renderBudgetGrid();
+        console.log(`Budget updated: Added ${expense.amount} for approved ticket ${expenseId}`);
 
         // Broadcast status change via WebSocket
         auditFeedSocket.updateTicketStatus(expenseId, "approved");

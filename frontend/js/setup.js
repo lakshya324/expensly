@@ -53,7 +53,7 @@ export function setupCommunicationCallbacks() {
       // Update budget when ticket is approved
       if (data.status === "approved") {
         // budgetTracker.addExpense(ticket.amount);
-        budgetTracker.addExpenseToDepartment(ticket.department, ticket.amount);
+        await budgetTracker.reloadBudgets();
         await renderBudgetGrid();
         console.log(`Budget updated: Added ${ticket.amount} for approved ticket ${data.ticketId}`);
       }
