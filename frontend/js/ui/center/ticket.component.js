@@ -9,6 +9,7 @@ import { TicketStore } from "../../models/ticket.store.js";
 import { UserStore } from "../../models/user.store.js";
 import { UserPreferenceLocal } from "../../storage/local.js";
 import { CURRENCY, getCurrencySymbol } from "../../utils/currency.js";
+import { OrganizationStore } from "../../models/organization.store.js";
 
 class TicketDomManager {
   constructor() {
@@ -18,6 +19,12 @@ class TicketDomManager {
     // WeakMap to store private audit notes for DOM elements
     // todo: just added idk what to do with it... but looks cool
     this.auditNotesMap = new WeakMap();
+
+    // Filter state
+    this.filterState = {
+      view: "all", // 'all' or 'my-tickets'
+      department: "", // department name or empty for all
+    };
 
     // Create modal on initialization
     this.createEditModal();
@@ -158,6 +165,9 @@ class TicketDomManager {
       console.error("Expense list container not found");
       return;
     }
+
+    // Setup filter dropdowns
+    await this.setupFilters();
 
     // render expenses
     await this.renderExpenses();
@@ -542,11 +552,20 @@ class TicketDomManager {
     this.expenseListContainer.innerHTML = "";
 
     const raw = await TicketStore.getAllTickets();
-    const expenses = raw.sort(
+    let expenses = raw.sort(
       (a, b) => new Date(b.timestamp) - new Date(a.timestamp),
     );
 
+    // Apply filters
+    expenses = this.applyFilters(expenses);
+
     console.log("Rendering expenses:", expenses.length);
+
+    if (expenses.length === 0) {
+      this.expenseListContainer.innerHTML =
+        '<p class="empty-state">No expenses match the current filters.</p>';
+      return;
+    }
 
     for (const expense of expenses) {
       const card = await this.createExpenseCard(expense);
@@ -686,6 +705,90 @@ class TicketDomManager {
         }
       }
     }
+  }
+
+  async setupFilters() {
+    const filterView = document.getElementById("filter-view");
+    const filterDept = document.getElementById("filter-dept");
+
+    if (!filterView || !filterDept) {
+      console.error("Filter elements not found");
+      return;
+    }
+
+    // Hide "My Tickets" option for admin
+    if (AppState.currentUser?.isAdmin) {
+      filterView.style.display = "none";
+    }
+
+    // Populate department filter
+    await this.populateDepartmentFilter();
+
+    // Add event listeners
+    filterView.addEventListener("change", async (e) => {
+      this.filterState.view = e.target.value;
+      await this.renderExpenses();
+    });
+
+    filterDept.addEventListener("change", async (e) => {
+      this.filterState.department = e.target.value;
+      await this.renderExpenses();
+    });
+  }
+
+  async populateDepartmentFilter() {
+    const filterDept = document.getElementById("filter-dept");
+    if (!filterDept) return;
+
+    try {
+      const session = AppState.currentUser;
+      if (!session || !session.orgId) {
+        console.error("No organization ID found");
+        return;
+      }
+
+      const departments = await OrganizationStore.getDepartments(session.orgId);
+
+      // Clear existing options except "All Departments"
+      filterDept.innerHTML = '<option value="">All Departments</option>';
+
+      // Add department options
+      departments.forEach((dept) => {
+        const option = document.createElement("option");
+        option.value = dept.name;
+        option.textContent = dept.name.toUpperCase();
+        filterDept.appendChild(option);
+      });
+
+      console.log(
+        "Department filter populated with",
+        departments.length,
+        "departments",
+      );
+    } catch (error) {
+      console.error("Failed to populate department filter:", error);
+    }
+  }
+
+  applyFilters(expenses) {
+    const { view, department } = this.filterState;
+    let filtered = expenses;
+
+    // Apply view filter (My Tickets / All Tickets)
+    if (view === "my-tickets") {
+      filtered = filtered.filter(
+        (expense) => expense.submittedBy === AppState.currentUser?.userId,
+      );
+    }
+
+    // Apply department filter
+    if (department) {
+      filtered = filtered.filter(
+        (expense) => expense.department === department,
+      );
+    }
+
+    return filtered;
   }
 }
 export const ticketDomManager = new TicketDomManager();
