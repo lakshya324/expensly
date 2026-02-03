@@ -18,7 +18,6 @@ class TicketDomManager {
     this.editModal = null;
 
     // WeakMap to store private audit notes for DOM elements
-    // todo: just added idk what to do with it... but looks cool
     this.auditNotesMap = new WeakMap();
 
     // Filter state
