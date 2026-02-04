@@ -471,7 +471,7 @@ class TicketDomManager {
   }
 
   isConnected() {
-    return navigator.onLine && auditFeedSocket?.isConnected?.();
+    return navigator.onLine && auditFeedSocket?.isConnected;
   }
 
   showConnectionError() {
