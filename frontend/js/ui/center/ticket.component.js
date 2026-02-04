@@ -119,6 +119,11 @@ class TicketDomManager {
   async handleEditSubmit(e) {
     e.preventDefault();
 
+    if (!this.isConnected()) {
+      this.showConnectionError();
+      return;
+    }
+
     const ticketId = document.getElementById("edit-ticket-id").value;
     const updatedData = {
       title: document.getElementById("edit-title").value,
@@ -178,6 +183,11 @@ class TicketDomManager {
 
       //* Finance actions
       if (target.id === "btnFinanceApprove") {
+        if (!this.isConnected()) {
+          this.showConnectionError();
+          return;
+        }
+
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
@@ -225,6 +235,11 @@ class TicketDomManager {
         await this.renderExpenseById(expenseId);
         console.log("Finance approve clicked for", expenseId);
       } else if (target.id === "btnFinanceReject") {
+        if (!this.isConnected()) {
+          this.showConnectionError();
+          return;
+        }
+
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
@@ -260,6 +275,11 @@ class TicketDomManager {
 
       //* manager actions
       else if (target.id === "btnManagerApprove") {
+        if (!this.isConnected()) {
+          this.showConnectionError();
+          return;
+        }
+
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
@@ -293,6 +313,11 @@ class TicketDomManager {
         await this.renderExpenseById(expenseId);
         console.log("Manager approve clicked for", expenseId);
       } else if (target.id === "btnManagerReject") {
+        if (!this.isConnected()) {
+          this.showConnectionError();
+          return;
+        }
+
         target.disabled = true;
 
         const expenseId = target.getAttribute("data-expense-id");
@@ -329,12 +354,22 @@ class TicketDomManager {
 
       //! Actions for edit, delete, flag
       else if (target.id === "btnEdit") {
+        if (!this.isConnected()) {
+          this.showConnectionError();
+          return;
+        }
+
         const expenseId = target.getAttribute("data-expense-id");
         const expense = await TicketStore.getTicketById(expenseId);
         if (expense) {
           this.openEditModal(expense);
         }
       } else if (target.id === "btnDelete") {
+        if (!this.isConnected()) {
+          this.showConnectionError();
+          return;
+        }
+
         const expenseId = target.getAttribute("data-expense-id");
 
         if (confirm("Are you sure you want to delete this ticket?")) {
@@ -370,6 +405,11 @@ class TicketDomManager {
           }
         }
       } else if (target.id === "btnFlag") {
+        if (!this.isConnected()) {
+          this.showConnectionError();
+          return;
+        }
+
         const expenseId = target.getAttribute("data-expense-id");
         const expense = await TicketStore.getTicketById(expenseId);
         if (expense) {
@@ -428,6 +468,14 @@ class TicketDomManager {
         this.toggleCardExpansion(expenseCard);
       }
     });
+  }
+
+  isConnected() {
+    return navigator.onLine && auditFeedSocket?.isConnected?.();
+  }
+
+  showConnectionError() {
+    alert("Cannot perform action: You are offline or not connected to the server");
   }
 
   toggleCardExpansion(expenseCard) {
