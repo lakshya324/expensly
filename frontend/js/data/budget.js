@@ -5,11 +5,14 @@ import { OrganizationStore } from "../models/organization.store.js";
 import { CURRENCY } from "../utils/currency.js";
 import { AppState } from "./state.js";
 
-//Todo: add auto budget calculation feat based on prev expenses
-//TODO: Improve overall logic... so that it got auto update on expense status change
+
 class BudgetTracker {
   constructor() {
     this.budgetMap = new Map();
+    // Add caching for expensive operations
+    this.budgetCache = new Map(); // cache per-dept budgets
+    this.allBudgetsCache = null; // cache for all budgets
+    this.lastCurrency = null;
   }
 
   async initialize() {
@@ -50,6 +53,10 @@ class BudgetTracker {
     BudgetLocal.set(budgetData);
     this.budgetMap = new Map(Object.entries(budgetData));
 
+    // Invalidate caches
+    this.budgetCache.clear();
+    this.allBudgetsCache = null;
+
     console.log(
       "Budget initialized with org departments:",
       Array.from(this.budgetMap.keys()),
@@ -66,9 +73,17 @@ class BudgetTracker {
       console.warn(`Department '${department}' not found in budget map`);
       return null;
     }
+    
     const userCurrency = UserPreferenceLocal.getCurrency();
+    const cacheKey = `${department}-${userCurrency}`;
+    
+    // Return cached result if currency hasn't changed
+    if (this.budgetCache.has(cacheKey)) {
+      return this.budgetCache.get(cacheKey);
+    }
+    
     const budget = this.budgetMap.get(department);
-    return userCurrency !== CURRENCY[0]
+    const result = userCurrency !== CURRENCY[0]
       ? {
           ...budget,
           allocated: exchangeRateStream.convert(
@@ -89,6 +104,10 @@ class BudgetTracker {
           currency: userCurrency,
         }
       : budget;
+    
+    // Cache the result
+    this.budgetCache.set(cacheKey, result);
+    return result;
   }
 
   addExpense(amount) {
@@ -110,7 +129,8 @@ class BudgetTracker {
 
     this.budgetMap.set(user.department, budget);
     BudgetLocal.set(Object.fromEntries(this.budgetMap));
-
+    // Invalidate cache for this department
+    this.invalidateDepartmentCache(user.department);
     // Update org database
     this.syncSpentToOrg(user.department, usdAmount);
 
@@ -164,6 +184,9 @@ class BudgetTracker {
     this.budgetMap.set(department, budget);
     BudgetLocal.set(Object.fromEntries(this.budgetMap));
 
+    // Invalidate cache for this department
+    this.invalidateDepartmentCache(department);
+
     // Update org database (negative amount to subtract)
     this.syncSpentToOrg(department, -usdAmount);
 
@@ -186,12 +209,28 @@ class BudgetTracker {
     }
   }
 
+  invalidateDepartmentCache(department) {
+    // Remove all cached entries for this department
+    for (const key of this.budgetCache.keys()) {
+      if (key.startsWith(department + '-')) {
+        this.budgetCache.delete(key);
+      }
+    }
+    this.allBudgetsCache = null;
+  }
+
   getAllDepartments() {
     return Array.from(this.budgetMap.keys());
   }
 
   getAllBudgets() {
     const userCurrency = UserPreferenceLocal.getCurrency();
+    
+    // Return cached result if currency hasn't changed
+    if (this.allBudgetsCache && this.lastCurrency === userCurrency) {
+      return this.allBudgetsCache;
+    }
+    
     const budgets = [];
     this.budgetMap.forEach((budget, department) => {
       const storedCurrency = budget.currency || CURRENCY[0];
@@ -233,6 +272,11 @@ class BudgetTracker {
         percentUsed: ((budget.spent / budget.allocated) * 100).toFixed(1),
       });
     });
+    
+    // Cache the result
+    this.allBudgetsCache = budgets;
+    this.lastCurrency = userCurrency;
+    
     return budgets;
   }
 }
