@@ -1,14 +1,14 @@
 // WebSocket Server Setup
-import { WebSocketServer } from 'ws';
-import { WebSocketHandlers } from './handlers.js';
-import { 
-  DEPARTMENTS, 
-  ACTIONS, 
-  USERS, 
+import { WebSocketServer } from "ws";
+import { WebSocketHandlers } from "./handlers.js";
+import {
+  DEPARTMENTS,
+  ACTIONS,
+  USERS,
   CURRENCIES,
   WS_AUDIT_MIN_INTERVAL,
-  WS_AUDIT_MAX_INTERVAL 
-} from '../config/constants.js';
+  WS_AUDIT_MAX_INTERVAL,
+} from "../config/constants.js";
 
 export function setupWebSocket(server) {
   const wss = new WebSocketServer({ server });
@@ -17,24 +17,30 @@ export function setupWebSocket(server) {
     console.log(`Client connected`);
 
     // Send periodic audit events
-    const auditInterval = setInterval(() => {
-      const event = {
-        type: "audit",
-        action: ACTIONS[Math.floor(Math.random() * ACTIONS.length)],
-        department: DEPARTMENTS[Math.floor(Math.random() * DEPARTMENTS.length)],
-        user: USERS[Math.floor(Math.random() * USERS.length)],
-        amount: (Math.random() * 5000 + 100).toFixed(2),
-        currency: CURRENCIES[Math.floor(Math.random() * CURRENCIES.length)],
-        timestamp: new Date().toISOString(),
-      };
+    const auditInterval = setInterval(
+      () => {
+        const event = {
+          type: "audit",
+          action: ACTIONS[Math.floor(Math.random() * ACTIONS.length)],
+          department:
+            DEPARTMENTS[Math.floor(Math.random() * DEPARTMENTS.length)],
+          user: USERS[Math.floor(Math.random() * USERS.length)],
+          amount: (Math.random() * 5000 + 100).toFixed(2),
+          currency: CURRENCIES[Math.floor(Math.random() * CURRENCIES.length)],
+          timestamp: new Date().toISOString(),
+        };
 
-      socket.send(JSON.stringify(event));
-    }, Math.floor(Math.random() * (WS_AUDIT_MAX_INTERVAL - WS_AUDIT_MIN_INTERVAL)) + WS_AUDIT_MIN_INTERVAL);
+        socket.send(JSON.stringify(event));
+      },
+      Math.floor(
+        Math.random() * (WS_AUDIT_MAX_INTERVAL - WS_AUDIT_MIN_INTERVAL),
+      ) + WS_AUDIT_MIN_INTERVAL,
+    );
 
     // Handle incoming messages
     socket.on("message", (message) => {
       try {
-        const data = JSON.parse(message);
+        const data = JSON.parse(message.toString());
 
         switch (data.type) {
           case "ping":
