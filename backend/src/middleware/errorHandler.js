@@ -1,7 +1,7 @@
 // Error Handler Middleware
 // Catches all errors and returns consistent error responses
 
-import { config } from "../config/env";
+import { config } from "../config/env.js";
 
 export const errorHandler = (err, req, res, next) => {
   console.error('Error:', err);
