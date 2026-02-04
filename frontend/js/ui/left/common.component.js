@@ -6,10 +6,15 @@ import { formatCurrency } from "../../utils/currency.js";
 export async function renderBudgetGrid() {
   const currency = UserPreferenceLocal.getCurrency();
   const container = document.getElementById("budget-grid");
+  if (!container) return;
+  
   container.innerHTML = "";
 
   const budgets = budgetTracker.getAllBudgets();
 
+  // Use DocumentFragment for batch DOM append
+  const fragment = document.createDocumentFragment();
+  
   budgets.forEach((budget) => {
     const item = document.createElement("div");
     item.className = "budget-item";
@@ -22,8 +27,10 @@ export async function renderBudgetGrid() {
         <div class="budget-fill" style="width: ${budget.percentUsed}%"></div>
       </div>
     `;
-    container.appendChild(item);
+    fragment.appendChild(item);
   });
+  
+  container.appendChild(fragment);
 }
 
 export function renderAvailableTags() {
