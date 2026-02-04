@@ -70,12 +70,10 @@ export class ExchangeRateStream {
     }
   }
 
-  //Todo: use in future
   onRatesUpdate(callback) {
     this.onRatesUpdateCallback = callback;
   }
 
-  //TODO: in LEDs
   onStatusChange(callback) {
     this.onStatusChangeCallback = callback;
   }
