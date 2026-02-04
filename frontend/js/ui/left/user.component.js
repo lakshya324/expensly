@@ -1,7 +1,7 @@
 import { FormDraftSession } from "../../storage/session.js";
 import { renderAvailableTags, renderBudgetGrid } from "./common.component.js";
 import { getExpenseFormData, populateExpenseForm } from "./form.js";
-import { handleReceiptFile } from "../../utils/receipt.js";
+import { handleReceiptFile, clearReceiptPreview } from "../../utils/receipt.js";
 import { handleTicketFormSubmit } from "../../utils/ticket.js";
 import { setupExpenseValidation, clearExpenseValidation } from "../../utils/expenseValidation.js";
 
@@ -46,9 +46,7 @@ export async function renderUserLeftPanel() {
     if (confirm("Clear draft expense?")) {
       form.reset();
       FormDraftSession.clearDraft();
-      AppState.currentReceiptFile = null;
-      AppState.currentReceiptUrl = null;
-      document.getElementById("receipt-preview").innerHTML = "";
+      clearReceiptPreview();
       clearExpenseValidation();
       console.log("Draft cleared");
     }
