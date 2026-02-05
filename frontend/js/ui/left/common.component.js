@@ -20,7 +20,7 @@ export async function renderBudgetGrid() {
     item.className = "budget-item";
     item.innerHTML = `
       <div class="budget-header">
-        <span class="budget-dept">${budget.department}</span>
+        <span class="budget-dept">${budget.department.toUpperCase()}</span>
         <span class="budget-amount">${formatCurrency(budget.remaining, currency)} / ${formatCurrency(budget.allocated, currency)}</span>
       </div>
       <div class="budget-bar">
