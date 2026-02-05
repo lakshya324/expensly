@@ -103,19 +103,23 @@
         .btn-primary {
             background-color: #00adb5;
             color: #1a1a2e;
+            border: 1px solid #00adb5;
         }
 
         .btn-primary:hover:not(:disabled) {
-            background-color: #00d9e6;
+            background-color: #1a1a2e;
+            color: #00adb5;
         }
 
         .btn-success {
             background-color: #00adb5;
             color: #1a1a2e;
+            border: 1px solid #00adb5;
         }
 
         .btn-success:hover:not(:disabled) {
-            background-color: #00d9e6;
+            background-color: #1a1a2e;
+            color: #00adb5;
         }
 
         .btn:disabled {
@@ -333,7 +337,7 @@
         <div class="reports-header">
             <h1>Tax Report Generator</h1>
             <button class="btn-back" onclick="window.location.href='index.html'">
-                Back to Departments
+                Back to Dashboard
             </button>
         </div>
 
@@ -405,7 +409,8 @@
         </div>
     </div>
 
-    <script type="module">
+    <script defer type="module" src="js/reports.js"></script>
+    <script defer type="module">
         import { UserSession } from './js/storage/session.js';
         import { UserPreferenceLocal } from './js/storage/local.js';
 
@@ -415,37 +420,34 @@
             window.location.href = 'login.html';
         } else {
             console.log('User session:', session);
-            document.addEventListener('DOMContentLoaded', () => {
-                const userNameElements = document.getElementsByClassName('user-name');
-                Array.from(userNameElements).forEach(element => {
-                    element.textContent = session.name;
-                });
-                const userDeptElements = document.getElementsByClassName('user-dept');
-                Array.from(userDeptElements).forEach(element => {
-                    element.textContent = session.department || session.orgName;
-                });
+            const userNameElements = document.getElementsByClassName('user-name');
+            Array.from(userNameElements).forEach(element => {
+                element.textContent = session.name;
+            });
+            const userDeptElements = document.getElementsByClassName('user-dept');
+            Array.from(userDeptElements).forEach(element => {
+                element.textContent = session.department || session.orgName;
+            });
 
-                // currency
-                const currencyPref = UserPreferenceLocal.getCurrency();
-                document.getElementById('currencySelect').value = currencyPref;
+            // currency
+            /* const currencyPref = UserPreferenceLocal.getCurrency();
+            document.getElementById('currencySelect').value = currencyPref;
 
-                document.getElementById('currencySelect').addEventListener('change', (e) => {
-                    const newCurrency = e.target.value;
-                    UserPreferenceLocal.set({ currency: newCurrency });
-                    window.location.reload();
-                });
+            document.getElementById('currencySelect').addEventListener('change', (e) => {
+                const newCurrency = e.target.value;
+                UserPreferenceLocal.set({ currency: newCurrency });
+                window.location.reload();
+            }); */
 
-                // Logout handler
-                document.getElementById('logoutBtn').addEventListener('click', () => {
-                    if (confirm('Are you sure you want to logout?')) {
-                        UserSession.clear();
-                        window.location.href = 'login.html';
-                    }
-                });
+            // Logout handler
+            document.getElementById('logoutBtn').addEventListener('click', () => {
+                if (confirm('Are you sure you want to logout?')) {
+                    UserSession.clear();
+                    window.location.href = 'login.html';
+                }
             });
         }
     </script>
-    <script type="module" src="js/reports.js"></script>
 </body>
 
 </html>

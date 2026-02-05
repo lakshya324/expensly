@@ -40,8 +40,14 @@ function init() {
   btnGenerate.addEventListener("click", handleGenerate);
   
   // Date validation listeners
-  startDateInput.addEventListener("change", validateDates);
-  endDateInput.addEventListener("change", validateDates);
+  startDateInput.addEventListener("change", () => {
+    validateDates();
+    handlePreview();
+  });
+  endDateInput.addEventListener("change", () => {
+    validateDates();
+    handlePreview();
+  });
 }
 
 // Validate date inputs
@@ -195,7 +201,7 @@ async function displayExpenses(tickets) {
       <td>${escapeHtml(ticket.title || "Untitled")}</td>
       <td class="amount">${escapeHtml(amount)}</td>
       <td>${escapeHtml((ticket.department || "-").toUpperCase())}</td>
-      <td><span class="status-badge status-${status.toLowerCase()}">${escapeHtml(status)}</span></td>
+      <td><span class="status-badge status-${status.toLowerCase()}">${escapeHtml(status.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()))}</span></td>
       <td class="tags">${escapeHtml(tags)}</td>
       <td>${submitterInfo}</td>
     `;
