@@ -19,7 +19,7 @@ self.onmessage = async (e) => {
 function processExpenseData(tickets) {
   // CSV Headers
   const headers = [
-    'ID',
+    // 'ID',
     'Title',
     'Amount',
     'Currency',
@@ -29,21 +29,21 @@ function processExpenseData(tickets) {
     'Date',
     'Status',
     'Flagged',
-    'Submitted By',
-    'Organization ID',
+    // 'Submitted By',
+    // 'Organization ID',
     'Manager Approved',
-    'Manager Reviewer ID',
+    // 'Manager Reviewer ID',
     'Manager Approval Date',
     'Manager Comments',
     'Finance Approved',
-    'Finance Reviewer ID',
+    // 'Finance Reviewer ID',
     'Finance Approval Date',
     'Finance Comments'
   ];
 
   // Convert tickets to CSV rows
   const rows = tickets.map(ticket => [
-    escapeCSV(ticket.id),
+    // escapeCSV(ticket.id),
     escapeCSV(ticket.title),
     ticket.amount || 0,
     escapeCSV(ticket.currency || 'USD'),
@@ -53,14 +53,14 @@ function processExpenseData(tickets) {
     escapeCSV(ticket.timestamp),
     escapeCSV(ticket.status),
     ticket.flagged || false,
-    escapeCSV(ticket.submittedBy),
-    escapeCSV(ticket.orgId),
+    // escapeCSV(ticket.submittedBy),
+    // escapeCSV(ticket.orgId),
     ticket.managerApproval ? ticket.managerApproval.approved : '',
-    ticket.managerApproval ? escapeCSV(ticket.managerApproval.reviewedBy) : '',
+    // ticket.managerApproval ? escapeCSV(ticket.managerApproval.reviewedBy) : '',
     ticket.managerApproval ? escapeCSV(ticket.managerApproval.reviewedAt) : '',
     ticket.managerApproval ? escapeCSV(ticket.managerApproval.comments || '') : '',
     ticket.financeApproval ? ticket.financeApproval.approved : '',
-    ticket.financeApproval ? escapeCSV(ticket.financeApproval.reviewedBy) : '',
+    // ticket.financeApproval ? escapeCSV(ticket.financeApproval.reviewedBy) : '',
     ticket.financeApproval ? escapeCSV(ticket.financeApproval.reviewedAt) : '',
     ticket.financeApproval ? escapeCSV(ticket.financeApproval.comments || '') : ''
   ]);
