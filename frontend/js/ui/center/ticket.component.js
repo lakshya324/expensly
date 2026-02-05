@@ -17,7 +17,7 @@ class TicketDomManager {
     this.expenseListContainer = null;
     this.editModal = null;
 
-    // WeakMap to store private audit notes for DOM elements
+    // WeakMap to store temporary audit notes arrays for DOM elements (session only)
     this.auditNotesMap = new WeakMap();
 
     // Filter state
@@ -440,8 +440,8 @@ class TicketDomManager {
         }
       }
 
-      //* Save audit note
-      else if (target.id === "btnSaveNote") {
+      //* Add audit note
+      else if (target.id === "btnAddNote") {
         event.stopPropagation();
         const expenseId = target.getAttribute("data-expense-id");
         const card = target.closest(".expense-card");
@@ -449,13 +449,50 @@ class TicketDomManager {
         if (textarea && card) {
           const noteText = textarea.value.trim();
           if (noteText) {
-            this.setAuditNote(card, noteText);
-            this.updateNoteIndicator(card, true);
-            // alert("Audit note saved (session only)");
+            const currentUser = AppState.currentUser;
+            const auditNote = {
+              id: "note_" + crypto.randomUUID(),
+              text: noteText,
+              createdByName: currentUser?.name || "Unknown",
+              createdAt: new Date().toISOString(),
+            };
+            
+            // Get existing notes or create new array
+            const notes = this.getAuditNotes(card);
+            notes.push(auditNote);
+            this.setAuditNotes(card, notes);
+            
+            // Clear input
+            textarea.value = "";
+            
+            // Update note indicator and re-render notes list
+            this.updateNoteIndicator(card, notes.length);
+            this.renderAuditNotesList(card, expenseId, notes);
+            
+            console.log("Audit note added (session only):", expenseId);
           } else {
-            this.auditNotesMap.delete(card);
-            this.updateNoteIndicator(card, false);
+            alert("Please enter a note text");
           }
+        }
+      }
+
+      //* Remove audit note
+      else if (target.classList.contains("btn-remove-note")) {
+        event.stopPropagation();
+        const noteId = target.getAttribute("data-note-id");
+        const expenseId = target.getAttribute("data-expense-id");
+        const card = target.closest(".expense-card");
+        
+        if (card) {
+          const notes = this.getAuditNotes(card);
+          const filteredNotes = notes.filter((note) => note.id !== noteId);
+          this.setAuditNotes(card, filteredNotes);
+          
+          // Update note indicator and re-render notes list
+          this.updateNoteIndicator(card, filteredNotes.length);
+          this.renderAuditNotesList(card, expenseId, filteredNotes);
+          
+          console.log("Audit note removed (session only):", expenseId);
         }
       }
 
@@ -485,53 +522,63 @@ class TicketDomManager {
       details.style.display = isExpanded ? "none" : "block";
       expenseCard.classList.toggle("expanded", !isExpanded);
 
-      // Load existing audit note if expanding
-      if (!isExpanded && this.hasAuditNote(expenseCard)) {
-        const note = this.getAuditNote(expenseCard);
-        const expenseId = expenseCard.getAttribute("data-expense-id");
-        const textarea = expenseCard.querySelector(`#auditNote-${expenseId}`);
-        if (textarea && note) {
-          textarea.value = note;
-        }
-      }
-
       console.log("Card", isExpanded ? "collapsed" : "expanded");
     }
   }
 
-  setAuditNote(element, note) {
-    this.auditNotesMap.set(element, note);
+  setAuditNotes(element, notes) {
+    this.auditNotesMap.set(element, notes);
   }
 
-  getAuditNote(element) {
-    return this.auditNotesMap.get(element) || null;
+  getAuditNotes(element) {
+    return this.auditNotesMap.get(element) || [];
   }
 
-  hasAuditNote(element) {
-    return this.auditNotesMap.has(element);
-  }
-
-  updateNoteIndicator(card, hasNote) {
+  updateNoteIndicator(card, noteCount) {
     const header = card.querySelector(".expense-header");
     if (header) {
       let indicator = header.querySelector(".note-indicator");
-      if (hasNote && !indicator) {
-        const note = this.getAuditNote(card);
+      if (noteCount > 0 && !indicator) {
         indicator = document.createElement("span");
         indicator.className = "note-indicator";
-        indicator.textContent = "Note";
-        indicator.title = note || "Has audit note";
+        indicator.textContent = `${noteCount} Note${noteCount > 1 ? 's' : ''}`;
+        indicator.title = `${noteCount} audit note${noteCount > 1 ? 's' : ''} (session only)`;
 
         // Insert before expense-actions if it exists, otherwise append to header
         const actionsContainer = header.querySelector(".action-buttons");
         actionsContainer.prepend(indicator);
-      } else if (hasNote && indicator) {
-        // Update tooltip with latest note
-        const note = this.getAuditNote(card);
-        indicator.title = note || "Has audit note";
-      } else if (!hasNote && indicator) {
+      } else if (noteCount > 0 && indicator) {
+        // Update indicator
+        indicator.textContent = `${noteCount} Note${noteCount > 1 ? 's' : ''}`;
+        indicator.title = `${noteCount} audit note${noteCount > 1 ? 's' : ''} (session only)`;
+      } else if (noteCount === 0 && indicator) {
         indicator.remove();
       }
+    }
+  }
+
+  renderAuditNotesList(card, expenseId, notes) {
+    const notesListContainer = card.querySelector(".audit-notes-list");
+    const noNotesMsg = card.querySelector(".no-notes");
+    
+    if (notes.length > 0) {
+      if (noNotesMsg) noNotesMsg.style.display = "none";
+      if (notesListContainer) {
+        notesListContainer.innerHTML = notes.map(note => `
+          <div class="audit-note-item">
+            <div class="audit-note-header">
+              <span class="audit-note-author">${note.createdByName || 'Unknown'}</span>
+              <span class="audit-note-date">${new Date(note.createdAt).toLocaleString()}</span>
+            </div>
+            <div class="audit-note-text">${note.text}</div>
+            <button class="btn-remove-note" data-note-id="${note.id}" data-expense-id="${expenseId}" title="Remove Note">Remove</button>
+          </div>
+        `).join('');
+        notesListContainer.style.display = "block";
+      }
+    } else {
+      if (notesListContainer) notesListContainer.style.display = "none";
+      if (noNotesMsg) noNotesMsg.style.display = "block";
     }
   }
 
@@ -690,14 +737,18 @@ class TicketDomManager {
             : ""
         }
         <div class="audit-note-section">
-          <label for="auditNote-${expense.id}"><strong>Audit Note:</strong> (Session only)</label>
-          <textarea 
-            id="auditNote-${expense.id}" 
-            class="audit-note-input" 
-            placeholder="Add internal notes for this expense..." 
-            rows="3"
-          ></textarea>
-          <button id="btnSaveNote" class="btn-save-note" data-expense-id="${expense.id}">Save Note</button>
+          <label><strong>Audit Notes:</strong> <span style="font-size: 11px; color: #999;">(Session only - will be cleared on reload)</span></label>
+          <div class="audit-notes-list" style="display: none;"></div>
+          <p class="no-notes">No audit notes yet.</p>
+          <div class="audit-note-add">
+            <textarea 
+              id="auditNote-${expense.id}" 
+              class="audit-note-input" 
+              placeholder="Add a new audit note..." 
+              rows="3"
+            ></textarea>
+            <button id="btnAddNote" class="btn-add-note" data-expense-id="${expense.id}">Add Note</button>
+          </div>
         </div>
     `;
 
@@ -752,18 +803,31 @@ class TicketDomManager {
       .querySelector(`.expense-info[data-expense-id="${expenseId}"]`)
       ?.closest(".expense-card");
 
-    // Preserve audit note from old card
-    const existingNote = existingCard ? this.getAuditNote(existingCard) : null;
+    // Preserve session notes from old card
+    const existingNotes = existingCard ? this.getAuditNotes(existingCard) : [];
 
     const card = await this.createExpenseCard(expense);
+    
+    // Transfer notes to new card
+    if (existingNotes.length > 0) {
+      this.setAuditNotes(card, existingNotes);
+      this.updateNoteIndicator(card, existingNotes.length);
+      this.renderAuditNotesList(card, expenseId, existingNotes);
+    }
 
     if (existingCard) {
+      // Preserve expanded state
+      const wasExpanded = existingCard.classList.contains("expanded");
+      
       this.expenseListContainer.replaceChild(card, existingCard);
 
-      // Transfer audit note to new card
-      if (existingNote) {
-        this.setAuditNote(card, existingNote);
-        this.updateNoteIndicator(card, true);
+      // Restore expanded state
+      if (wasExpanded) {
+        const details = card.querySelector(".expense-details");
+        if (details) {
+          details.style.display = "block";
+          card.classList.add("expanded");
+        }
       }
 
       console.log("Re-rendered expense:", expenseId);

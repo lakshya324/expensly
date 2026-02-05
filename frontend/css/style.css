@@ -572,9 +572,88 @@ h3 {
 
 .audit-note-section label {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 10px;
     color: #00adb5;
     font-size: 14px;
+}
+
+/* Audit Notes List */
+.audit-notes-list {
+    margin-bottom: 16px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.audit-note-item {
+    background: #1a1a2e;
+    border: 1px solid #0f3460;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.audit-note-item:hover {
+    border-color: #00adb5;
+    box-shadow: 0 2px 8px rgba(0, 173, 181, 0.1);
+}
+
+.audit-note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #0f3460;
+}
+
+.audit-note-author {
+    color: #00adb5;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.audit-note-date {
+    color: #999;
+    font-size: 11px;
+}
+
+.audit-note-text {
+    color: #eee;
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+    word-wrap: break-word;
+}
+
+.btn-remove-note {
+    padding: 4px 10px;
+    background: #dc3545;
+    color: #fff;
+    border: 1px solid #c82333;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.3s ease;
+}
+
+.btn-remove-note:hover {
+    background: #c82333;
+    border-color: #bd2130;
+    transform: scale(1.05);
+}
+
+.no-notes {
+    color: #999;
+    font-size: 13px;
+    font-style: italic;
+    margin: 10px 0;
+}
+
+/* Add Note Section */
+.audit-note-add {
+    margin-top: 12px;
 }
 
 .audit-note-input {
@@ -595,7 +674,7 @@ h3 {
     border-color: #00adb5;
 }
 
-.btn-save-note {
+.btn-add-note {
     padding: 6px 12px;
     background: #0f3460;
     color: #00adb5;
@@ -606,7 +685,7 @@ h3 {
     transition: all 0.3s ease;
 }
 
-.btn-save-note:hover {
+.btn-add-note:hover {
     background: #00adb5;
     color: #fff;
 }
