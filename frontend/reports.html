@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Tax Reports - Expensly</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .reports-container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .reports-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #0f3460;
+        }
+
+        .reports-header h1 {
+            margin: 0;
+            color: #00adb5;
+            font-size: 28px;
+        }
+
+        .back-link {
+            text-decoration: none;
+            color: #00adb5;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: color 0.3s;
+        }
+
+        .back-link:hover {
+            color: #00d9e6;
+        }
+
+        .filter-section {
+            background: #16213e;
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid #0f3460;
+            margin-bottom: 20px;
+        }
+
+        .filter-section h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #00adb5;
+        }
+
+        .date-inputs {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .date-field {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .date-field label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #aaa;
+        }
+
+        .date-field input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            font-size: 14px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background-color: #00adb5;
+            color: #1a1a2e;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: #00d9e6;
+        }
+
+        .btn-success {
+            background-color: #00adb5;
+            color: #1a1a2e;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background-color: #00d9e6;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .preview-section {
+            background: #16213e;
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid #0f3460;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .preview-header h2 {
+            margin: 0;
+            color: #00adb5;
+        }
+
+        .summary-stats {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            background: #1a1a2e;
+            padding: 15px 20px;
+            border-radius: 6px;
+            border: 1px solid #0f3460;
+            font-family: monospace;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #aaa;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #00adb5;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            background: #1a1a2e;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            background: #16213e;
+            z-index: 10;
+        }
+
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #00adb5;
+            border-bottom: 2px solid #0f3460;
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #0f3460;
+            color: #eee;
+        }
+
+        tbody tr:hover {
+            background-color: #0f3460;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-pending {
+            background-color: #ffc107;
+            color: #1a1a2e;
+        }
+
+        .status-manager_approved {
+            background-color: #17a2b8;
+            color: #fff;
+        }
+
+        .status-approved {
+            background-color: #28a745;
+            color: #fff;
+        }
+
+        .status-rejected {
+            background-color: #dc3545;
+            color: #fff;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #aaa;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #aaa;
+        }
+
+        .amount {
+            font-weight: 500;
+            color: #00adb5;
+        }
+
+        .tags {
+            font-size: 12px;
+            color: #aaa;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- header -->
+    <header class="header">
+        <div class="container">
+            <div class="left" style="cursor: pointer;" onclick="window.location.href='index.html'">
+                <h1>Expensly</h1>
+                <span>by Lakshya Sharma</span>
+            </div>
+
+            <div class="center">
+                <!-- currency dropdown -->
+                <!-- <div>
+                    <label for="currencySelect">Currency:</label>
+                    <select id="currencySelect" class="currency-dropdown">
+                        <option value="USD">USD ($)</option>
+                        <option value="INR">INR (₹)</option>
+                    </select>
+                </div> -->
+
+                <!-- user info -->
+                <div>
+                    <span class="user-name">Loading...</span>
+                    <span class="user-dept"></span>
+                </div>
+            </div>
+
+            <div class="right">
+                <!-- status indicators -->
+                <!-- <div class="status-matrix">
+                    <div class="status-indicator" id="status-ws" title="WebSocket">
+                        <span class="led"></span>
+                        <span class="label">WS</span>
+                    </div>
+                    <div class="status-indicator" id="status-sse" title="Server-Sent Events">
+                        <span class="led"></span>
+                        <span class="label">SSE</span>
+                    </div>
+                    <div class="status-indicator" id="status-lp" title="Long Polling">
+                        <span class="led"></span>
+                        <span class="label">LP</span>
+                    </div>
+                    <div class="status-indicator" id="status-sp" title="Short Polling">
+                        <span class="led"></span>
+                        <span class="label">SP</span>
+                    </div>
+                </div> -->
+
+                <!-- offline badge -->
+                <!-- <div class="offline-badge" id="offline-badge">
+                    <span class="count" id="queue-count">0</span>
+                    <span class="label">Pending Sync</span>
+                </div> -->
+
+                <!-- logout button -->
+                <button class="btn-logout" id="logoutBtn" title="Logout">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="reports-container">
+        <div class="reports-header">
+            <h1>Tax Report Generator</h1>
+            <button class="btn-back" onclick="window.location.href='index.html'">
+                Back to Departments
+            </button>
+        </div>
+
+        <div class="filter-section">
+            <h2>Select Date Range</h2>
+            <div class="date-inputs">
+                <div class="date-field">
+                    <label for="start-date">Start Date</label>
+                    <input type="date" id="start-date">
+                </div>
+                <div class="date-field">
+                    <label for="end-date">End Date</label>
+                    <input type="date" id="end-date">
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button id="btn-preview" class="btn btn-primary">Preview Expenses</button>
+                <button id="btn-generate" class="btn btn-success" disabled>Generate CSV Report</button>
+                <a id="btn-download" href="#" download style="display: none;">
+                    <button class="btn btn-success">Download Report</button>
+                </a>
+            </div>
+        </div>
+
+        <div class="preview-section">
+            <div class="preview-header">
+                <h2>Expense Preview</h2>
+            </div>
+
+            <div id="summary-stats" class="summary-stats" style="display: none;">
+                <div class="stat-item">
+                    <span class="stat-label">Total Expenses</span>
+                    <span class="stat-value" id="total-count">0</span>
+                </div>
+                <!-- <div class="stat-item">
+                    <span class="stat-label">Total Amount</span>
+                    <span class="stat-value" id="total-amount">$0.00</span>
+                </div> -->
+                <div class="stat-item">
+                    <span class="stat-label">Date Range</span>
+                    <span class="stat-value" id="date-range">-</span>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <div id="empty-state" class="empty-state">
+                    <div class="empty-state-icon">💸</div>
+                    <p>Select a date range and click "Preview Expenses" to see matching expenses</p>
+                </div>
+                <div id="loading-state" class="loading" style="display: none;">
+                    <p>Loading expenses...</p>
+                </div>
+                <table id="expenses-table" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Title</th>
+                            <th>Amount</th>
+                            <th>Department</th>
+                            <th>Status</th>
+                            <th>Tags</th>
+                            <th>Submitted By</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenses-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { UserSession } from './js/storage/session.js';
+        import { UserPreferenceLocal } from './js/storage/local.js';
+
+        // Check authentication
+        const session = UserSession.get();
+        if (!session) {
+            window.location.href = 'login.html';
+        } else {
+            console.log('User session:', session);
+            document.addEventListener('DOMContentLoaded', () => {
+                const userNameElements = document.getElementsByClassName('user-name');
+                Array.from(userNameElements).forEach(element => {
+                    element.textContent = session.name;
+                });
+                const userDeptElements = document.getElementsByClassName('user-dept');
+                Array.from(userDeptElements).forEach(element => {
+                    element.textContent = session.department || session.orgName;
+                });
+
+                // currency
+                const currencyPref = UserPreferenceLocal.getCurrency();
+                document.getElementById('currencySelect').value = currencyPref;
+
+                document.getElementById('currencySelect').addEventListener('change', (e) => {
+                    const newCurrency = e.target.value;
+                    UserPreferenceLocal.set({ currency: newCurrency });
+                    window.location.reload();
+                });
+
+                // Logout handler
+                document.getElementById('logoutBtn').addEventListener('click', () => {
+                    if (confirm('Are you sure you want to logout?')) {
+                        UserSession.clear();
+                        window.location.href = 'login.html';
+                    }
+                });
+            });
+        }
+    </script>
+    <script type="module" src="js/reports.js"></script>
+</body>
+
+</html>

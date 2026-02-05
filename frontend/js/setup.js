@@ -224,39 +224,3 @@ export async function setupData() {
     console.error("Failed to load tag data:", error);
   }
 }
-
-export async function setupWorker() {
-  const workerBtn = document.getElementById("btn-generate-report");
-  const downloadBtn = document.getElementById("btn-download-report");
-  const worker = new Worker("js/utils/worker.js");
-
-  workerBtn.addEventListener("click", async () => {
-    workerBtn.disabled = true;
-    workerBtn.textContent = "Generating...";
-
-    // Fetch all tickets from the store
-    const tickets = await TicketStore.getAllTickets();
-    
-    // Send tickets to worker for processing
-    worker.postMessage({ type: "run", tickets });
-  });
-
-  worker.onmessage = (e) => {
-    if (e.data.type === "done") {
-      downloadBtn.style.display = "block";
-
-      workerBtn.textContent = "Generate Quarterly Report";
-      workerBtn.disabled = false;
-
-      const reportData = e.data.payload;
-      const blob = new Blob([reportData], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-
-      downloadBtn.href = url;
-      const dateStr = new Date().toISOString().split('T')[0];
-      downloadBtn.download = `expenses_export_${dateStr}.csv`;
-
-      console.log("Report generation completed");
-    }
-  };
-}

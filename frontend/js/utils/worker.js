@@ -5,6 +5,9 @@ self.onmessage = async (e) => {
   await new Promise((resolve) => setTimeout(resolve, 10000));
 
   const tickets = e.data.tickets;
+  // const startDate = e.data.startDate;
+  // const endDate = e.data.endDate;
+  
   const result = processExpenseData(tickets);
 
   self.postMessage({

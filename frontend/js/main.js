@@ -6,7 +6,6 @@ import {
   setupCommunicationCallbacks,
   setupData,
   setupDB,
-  setupWorker,
 } from "./setup.js";
 import { UserSession } from "./storage/session.js";
 import { ticketDomManager } from "./ui/center/ticket.component.js";
@@ -51,9 +50,6 @@ async function initApp() {
 
     // diagnostic button
     setupDiagnosticButton();
-
-    // setup worker
-    setupWorker();
 
     console.log("Expensly initialized successfully");
   } catch (error) {

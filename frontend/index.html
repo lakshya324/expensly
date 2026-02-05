@@ -165,13 +165,10 @@
             <!-- report generator -->
             <div class="report-section">
                 <h3>Tax Report Generator</h3>
-                <button id="btn-generate-report" class="btn-submit">
-                    Generate Report
-                </button>
-                <a id="btn-download-report" href="#" download style="display: none;">
-                <button class="btn-submit">
-                    Download Report
-                </button>
+                <a href="reports.html" style="text-decoration: none;">
+                    <button class="btn-submit">
+                        Open Report Generator
+                    </button>
                 </a>
             </div>
 
@@ -204,7 +201,6 @@
     </footer>
 
     <script defer type="module" src="js/main.js"></script>
-    <script defer type="module" src="js/utils/worker.js"></script>
     <script type="module">
         import { AuthManager } from './js/auth.js';
         import { UserSession } from './js/storage/session.js';
