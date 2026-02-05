@@ -339,7 +339,6 @@ h3 {
 .btn-submit:hover {
     background: black;
     color: #00ff00;
-
 }
 
 .btn-submit:disabled {
@@ -947,7 +946,7 @@ h3 {
     margin-top: 20px;
 }
 
-.btn-primary,
+/* .btn-primary,
 .btn-secondary {
     padding: 10px 20px;
     border: none;
@@ -973,7 +972,7 @@ h3 {
 
 .btn-secondary:hover {
     background: #1a4d7a;
-}
+} */
 
 /* ========================================
    USER MANAGEMENT PAGE STYLES
