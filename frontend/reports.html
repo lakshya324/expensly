@@ -100,7 +100,7 @@
             font-weight: 600;
         }
 
-        .btn-primary {
+        /* .btn-primary {
             background-color: #00adb5;
             color: #1a1a2e;
             border: 1px solid #00adb5;
@@ -109,7 +109,7 @@
         .btn-primary:hover:not(:disabled) {
             background-color: #1a1a2e;
             color: #00adb5;
-        }
+        } */
 
         .btn-success {
             background-color: #00adb5;
@@ -353,18 +353,18 @@
                     <input type="date" id="end-date">
                 </div>
             </div>
-            <div class="action-buttons">
-                <button id="btn-preview" class="btn btn-primary">Preview Expenses</button>
-                <button id="btn-generate" class="btn btn-success" disabled>Generate CSV Report</button>
-                <a id="btn-download" href="#" download style="display: none;">
-                    <button class="btn btn-success">Download Report</button>
-                </a>
-            </div>
         </div>
 
         <div class="preview-section">
             <div class="preview-header">
                 <h2>Expense Preview</h2>
+                <div class="action-buttons">
+                <!-- <button id="btn-preview" class="btn btn-primary">Preview Expenses</button> -->
+                <button id="btn-generate" class="btn btn-success" disabled>Generate CSV Report</button>
+                <a id="btn-download" href="#" download style="display: none;">
+                    <button class="btn btn-success">Download Report</button>
+                </a>
+            </div>
             </div>
 
             <div id="summary-stats" class="summary-stats" style="display: none;">
@@ -384,8 +384,6 @@
 
             <div class="table-container">
                 <div id="empty-state" class="empty-state">
-                    <div class="empty-state-icon">💸</div>
-                    <p>Select a date range and click "Preview Expenses" to see matching expenses</p>
                 </div>
                 <div id="loading-state" class="loading" style="display: none;">
                     <p>Loading expenses...</p>

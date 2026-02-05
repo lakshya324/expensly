@@ -6,7 +6,7 @@ import { escapeHtml } from "./utils/html.js";
 // DOM elements
 const startDateInput = document.getElementById("start-date");
 const endDateInput = document.getElementById("end-date");
-const btnPreview = document.getElementById("btn-preview");
+// const btnPreview = document.getElementById("btn-preview");
 const btnGenerate = document.getElementById("btn-generate");
 const btnDownload = document.getElementById("btn-download");
 const emptyState = document.getElementById("empty-state");
@@ -30,13 +30,14 @@ function init() {
   
   startDateInput.value = firstDay.toISOString().split('T')[0];
   endDateInput.value = lastDay.toISOString().split('T')[0];
+  handlePreview(); // Load initial data
 
   // Initialize worker
   worker = new Worker("js/utils/worker.js");
   worker.onmessage = handleWorkerMessage;
 
   // Event listeners
-  btnPreview.addEventListener("click", handlePreview);
+  // btnPreview.addEventListener("click", handlePreview);
   btnGenerate.addEventListener("click", handleGenerate);
   
   // Date validation listeners
@@ -78,8 +79,8 @@ function validateDates() {
 
 // Handle preview button click
 async function handlePreview() {
-  btnPreview.disabled = true;
-  btnPreview.textContent = "Loading...";
+  // btnPreview.disabled = true;
+  // btnPreview.textContent = "Loading...";
   btnGenerate.disabled = true;
   btnDownload.style.display = "none";
 
@@ -125,8 +126,8 @@ async function handlePreview() {
     emptyState.style.display = "block";
     loadingState.style.display = "none";
   } finally {
-    btnPreview.disabled = false;
-    btnPreview.textContent = "Preview Expenses";
+    // btnPreview.disabled = false;
+    // btnPreview.textContent = "Preview Expenses";
   }
 }
 
