@@ -62,6 +62,22 @@
             flex-wrap: wrap;
         }
 
+        .date-field select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            font-size: 14px;
+            background: #1a1a2e;
+            color: #eee;
+            cursor: pointer;
+        }
+
+        .date-field select:focus {
+            outline: none;
+            border-color: #00adb5;
+        }
+
         .date-field {
             flex: 1;
             min-width: 200px;
@@ -269,6 +285,70 @@
             font-size: 12px;
             color: #aaa;
         }
+
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: #1a1a2e;
+            border-radius: 4px;
+            border: 1px solid #0f3460;
+        }
+
+        .pagination-info {
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .pagination-btn {
+            padding: 8px 16px;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            background: #16213e;
+            color: #00adb5;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: #0f3460;
+            border-color: #00adb5;
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .page-input {
+            width: 60px;
+            padding: 8px;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            background: #1a1a2e;
+            color: #eee;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .items-per-page-select {
+            padding: 8px;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            background: #1a1a2e;
+            color: #eee;
+            font-size: 14px;
+            cursor: pointer;
+        }
     </style>
 </head>
 
@@ -352,6 +432,20 @@
                     <label for="end-date">End Date</label>
                     <input type="date" id="end-date">
                 </div>
+                <div class="date-field">
+                    <label for="date-range-select">Date Range</label>
+                    <select id="date-range-select">
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="last7days">Last 7 Days</option>
+                        <option value="last30days" selected>Last 30 Days</option>
+                        <option value="last90days">Last 90 Days</option>
+                        <option value="thismonth">This Month</option>
+                        <option value="lastmonth">Last Month</option>
+                        <option value="thisyear">This Year</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -403,6 +497,28 @@
                     <tbody id="expenses-tbody">
                     </tbody>
                 </table>
+            </div>
+            <div id="pagination" class="pagination" style="display: none;">
+                <div class="pagination-info">
+                    <span>Showing <strong id="page-start">1</strong> to <strong id="page-end">10</strong> of <strong id="total-items">0</strong> expenses</span>
+                </div>
+                <div class="pagination-controls">
+                    <label for="items-per-page" style="color: #aaa; margin-right: 5px;">Items per page:</label>
+                    <select id="items-per-page" class="items-per-page-select">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                        <option value="all">All</option>
+                    </select>
+                    <button id="btn-first-page" class="pagination-btn">First</button>
+                    <button id="btn-prev-page" class="pagination-btn">Previous</button>
+                    <span style="color: #aaa;">Page</span>
+                    <input type="number" id="current-page" class="page-input" value="1" min="1">
+                    <span style="color: #aaa;">of <strong id="total-pages">1</strong></span>
+                    <button id="btn-next-page" class="pagination-btn">Next</button>
+                    <button id="btn-last-page" class="pagination-btn">Last</button>
+                </div>
             </div>
         </div>
     </div>
