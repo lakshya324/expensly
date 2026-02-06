@@ -22,7 +22,7 @@ class TicketDomManager {
 
     // Filter state
     this.filterState = {
-      view: "all", // 'all' or 'my-tickets'
+      view: "all", // 'all', 'my-tickets', or 'dept-tickets'
       department: "", // department name or empty for all
     };
 
@@ -952,8 +952,17 @@ class TicketDomManager {
       return;
     }
 
+    // Determine if user has elevated privileges
+    const user = AppState.currentUser;
+    const isPrivilegedUser = user?.isAdmin || user?.isFinance;
+
+    // Hide filter-dept for normal users (only show for admin and finance)
+    if (!isPrivilegedUser) {
+      filterDept.style.display = "none";
+    }
+
     // Hide "My Tickets" option for admin
-    if (AppState.currentUser?.isAdmin) {
+    if (user?.isAdmin) {
       filterView.style.display = "none";
     }
 
@@ -1009,11 +1018,20 @@ class TicketDomManager {
   applyFilters(expenses) {
     const { view, department } = this.filterState;
     let filtered = expenses;
+    const currentUserId = AppState.currentUser?.userId;
+    const currentUserDept = AppState.currentUser?.department;
 
-    // Apply view filter (My Tickets / All Tickets)
+    // Apply view filter (My Tickets / All Tickets / Department Tickets)
     if (view === "my-tickets") {
       filtered = filtered.filter(
-        (expense) => expense.submittedBy === AppState.currentUser?.userId,
+        (expense) => expense.submittedBy === currentUserId,
+      );
+    } else if (view === "dept-tickets") {
+      // Department tickets: same department but excluding user's own tickets
+      filtered = filtered.filter(
+        (expense) => 
+          expense.department === currentUserDept && 
+          expense.submittedBy !== currentUserId,
       );
     }
 
