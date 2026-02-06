@@ -9,7 +9,6 @@ export function setupExpenseValidation() {
   const titleField = document.getElementById("expense-title");
   const amountField = document.getElementById("expense-amount");
   const descField = document.getElementById("expense-desc");
-  const tagsField = document.getElementById("expense-tags");
 
   // Title validation
   titleField.addEventListener("input", () => validateTitle());
@@ -23,9 +22,7 @@ export function setupExpenseValidation() {
   descField.addEventListener("input", () => validateDescription());
   descField.addEventListener("blur", () => validateDescription());
 
-  // Tags validation
-  tagsField.addEventListener("input", () => validateTags());
-  tagsField.addEventListener("blur", () => validateTags());
+  // Tags validation is handled by TagInputComponent
 }
 
 /**
@@ -132,50 +129,7 @@ export function validateDescription() {
   return true;
 }
 
-/**
- * Validate tags field (optional but format check if provided)
- */
-export function validateTags() {
-  const tagsField = document.getElementById("expense-tags");
-  const errorElement = document.getElementById("expense-tags-error");
-  const value = tagsField.value.trim();
-
-  // Tags are optional
-  if (!value) {
-    clearFieldValidation(tagsField, errorElement);
-    return true;
-  }
-
-  // Split by both comma and space, normalize tags
-  const tags = value
-    .split(/[,\s]+/) // Split by comma or space (one or more)
-    .map(tag => tag.trim())
-    .filter(tag => tag)
-    .map(tag => tag.startsWith('#') ? tag : `#${tag}`); // Add # if missing
-  
-  // Check tag length (including the #)
-  const tooLongTags = tags.filter(tag => tag.length > 30);
-  if (tooLongTags.length > 0) {
-    showError(tagsField, errorElement, "Each tag must not exceed 30 characters");
-    return false;
-  }
-
-  // Check for invalid characters (only allow alphanumeric, underscore, and hyphen after #)
-  const invalidTags = tags.filter(tag => !/^#[a-zA-Z0-9_-]+$/.test(tag));
-  if (invalidTags.length > 0) {
-    showError(tagsField, errorElement, "Tags can only contain letters, numbers, _ and -");
-    return false;
-  }
-
-  // Check number of tags
-  if (tags.length > 10) {
-    showError(tagsField, errorElement, "Maximum 10 tags allowed");
-    return false;
-  }
-
-  showSuccess(tagsField, errorElement);
-  return true;
-}
+// Note: validateTags removed - tags validation is now handled by TagInputComponent
 
 /**
  * Validate entire expense form
@@ -184,9 +138,9 @@ export function validateExpenseForm() {
   const isTitleValid = validateTitle();
   const isAmountValid = validateAmount();
   const isDescValid = validateDescription();
-  const isTagsValid = validateTags();
+  // Tags validation handled by TagInputComponent
 
-  return isTitleValid && isAmountValid && isDescValid && isTagsValid;
+  return isTitleValid && isAmountValid && isDescValid;
 }
 
 /**
@@ -222,8 +176,7 @@ export function clearExpenseValidation() {
   const fields = [
     { field: "expense-title", error: "expense-title-error" },
     { field: "expense-amount", error: "expense-amount-error" },
-    { field: "expense-desc", error: "expense-desc-error" },
-    { field: "expense-tags", error: "expense-tags-error" }
+    { field: "expense-desc", error: "expense-desc-error" }
   ];
 
   fields.forEach(({ field, error }) => {

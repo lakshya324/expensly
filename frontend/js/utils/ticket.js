@@ -29,9 +29,10 @@ export async function handleTicketFormSubmit(event) {
 
   const formData = getExpenseFormData();
 
-  const tagString = formData.tags;
-  const tags = tagManager.parseTagString(tagString);
+  // Tags are now returned as an array from TagInputComponent
+  const tags = Array.isArray(formData.tags) ? formData.tags : [];
 
+  // Add tags to global tag manager for autocomplete
   tags.forEach((tag) => tagManager.addTag(tag));
   renderAvailableTags();
 

@@ -110,8 +110,17 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="expense-tags">Tags (comma or space separated)</label>
-                    <input type="text" id="expense-tags" placeholder="Travel Dinner or #Travel, #Dinner">
+                    <label for="expense-tags-input">Tags (max 5)</label>
+                    <div class="tag-input-container" id="tag-input-container">
+                        <div class="tag-list" id="tag-list"></div>
+                        <input 
+                            type="text" 
+                            id="expense-tags-input" 
+                            class="tag-input"
+                            placeholder="Type tag and press Enter"
+                            autocomplete="off">
+                        <div class="tag-autocomplete" id="tag-autocomplete"></div>
+                    </div>
                     <span class="error-message" id="expense-tags-error"></span>
                     <small>Available tags: <span id="available-tags"></span></small>
                 </div>

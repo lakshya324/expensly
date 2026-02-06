@@ -4,6 +4,7 @@ import { getExpenseFormData, populateExpenseForm } from "./form.js";
 import { handleReceiptFile, clearReceiptPreview } from "../../utils/receipt.js";
 import { handleTicketFormSubmit } from "../../utils/ticket.js";
 import { setupExpenseValidation, clearExpenseValidation } from "../../utils/expenseValidation.js";
+import { tagInputComponent } from "./tagInput.component.js";
 
 export async function renderUserLeftPanel() {
 
@@ -34,7 +35,7 @@ export async function renderUserLeftPanel() {
         formData.title ||
         formData.amount ||
         formData.description ||
-        formData.tags
+        (formData.tags && formData.tags.length > 0)
       ) {
         FormDraftSession.saveDraft(formData);
       }
@@ -48,6 +49,7 @@ export async function renderUserLeftPanel() {
       FormDraftSession.clearDraft();
       clearReceiptPreview();
       clearExpenseValidation();
+      tagInputComponent.clear();
       console.log("Draft cleared");
     }
   });

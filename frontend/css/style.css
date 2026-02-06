@@ -279,6 +279,103 @@ h3 {
     min-height: 16px;
 }
 
+/* Tag Input Component */
+.tag-input-container {
+    position: relative;
+    width: 100%;
+    background: #0f3460;
+    border: 1px solid #0f3460;
+    border-radius: 5px;
+    padding: 6px;
+    min-height: 44px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    cursor: text;
+}
+
+.tag-input-container:focus-within {
+    border-color: #00adb5;
+}
+
+.tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.tag-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #00adb5;
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.tag-remove {
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    font-weight: bold;
+    color: #fff;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.tag-remove:hover {
+    opacity: 1;
+}
+
+.tag-input {
+    flex: 1;
+    min-width: 120px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #eee;
+    font-size: 14px;
+    padding: 4px;
+}
+
+.tag-input::placeholder {
+    color: #888;
+}
+
+.tag-autocomplete {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #16213e;
+    border: 1px solid #00adb5;
+    border-top: none;
+    border-radius: 0 0 5px 5px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.tag-autocomplete-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    color: #eee;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.tag-autocomplete-item:hover {
+    background: #0f3460;
+}
+
+
 .amount-input-group {
     display: flex;
     align-items: center;
