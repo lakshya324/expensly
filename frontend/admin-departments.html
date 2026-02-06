@@ -65,6 +65,28 @@
                 </button>
             </div>
 
+            <!-- Total budget summary -->
+            <div class="user-mgmt-section">
+                <h3>Organization Budget Summary</h3>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                    <div style="background: #16213e; padding: 15px; border-radius: 6px; border: 1px solid #0f3460;">
+                        <div style="color: #aaa; font-size: 12px; margin-bottom: 5px; text-transform: uppercase;">Total
+                            Allocated</div>
+                        <div style="color: #00adb5; font-size: 20px; font-weight: 600;" id="total-allocated">$0</div>
+                    </div>
+                    <div style="background: #16213e; padding: 15px; border-radius: 6px; border: 1px solid #0f3460;">
+                        <div style="color: #aaa; font-size: 12px; margin-bottom: 5px; text-transform: uppercase;">Total
+                            Spent</div>
+                        <div style="color: #e74c3c; font-size: 20px; font-weight: 600;" id="total-spent">$0</div>
+                    </div>
+                    <div style="background: #16213e; padding: 15px; border-radius: 6px; border: 1px solid #0f3460;">
+                        <div style="color: #aaa; font-size: 12px; margin-bottom: 5px; text-transform: uppercase;">Total
+                            Remaining</div>
+                        <div style="color: #27ae60; font-size: 20px; font-weight: 600;" id="total-remaining">$0</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- add department form -->
             <div class="user-mgmt-section">
                 <h3>Add New Department</h3>
@@ -112,26 +134,30 @@
                         </tbody>
                     </table>
                 </div>
-            </div>
 
-            <!-- Total budget summary -->
-            <div class="user-mgmt-section">
-                <h3>Organization Budget Summary</h3>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
-                    <div style="background: #16213e; padding: 15px; border-radius: 6px; border: 1px solid #0f3460;">
-                        <div style="color: #aaa; font-size: 12px; margin-bottom: 5px; text-transform: uppercase;">Total
-                            Allocated</div>
-                        <div style="color: #00adb5; font-size: 20px; font-weight: 600;" id="total-allocated">$0</div>
-                    </div>
-                    <div style="background: #16213e; padding: 15px; border-radius: 6px; border: 1px solid #0f3460;">
-                        <div style="color: #aaa; font-size: 12px; margin-bottom: 5px; text-transform: uppercase;">Total
-                            Spent</div>
-                        <div style="color: #e74c3c; font-size: 20px; font-weight: 600;" id="total-spent">$0</div>
-                    </div>
-                    <div style="background: #16213e; padding: 15px; border-radius: 6px; border: 1px solid #0f3460;">
-                        <div style="color: #aaa; font-size: 12px; margin-bottom: 5px; text-transform: uppercase;">Total
-                            Remaining</div>
-                        <div style="color: #27ae60; font-size: 20px; font-weight: 600;" id="total-remaining">$0</div>
+                <!-- Finance Department Info Note -->
+                <div class="user-mgmt-section"
+                    style="background: #1a2332; border: 1px solid #00adb5; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <h3 style="color: #00adb5; margin-bottom: 12px;">
+                        <span style="font-size: 18px;">ℹ️</span> Finance Department - Default Powers & Permissions
+                    </h3>
+                    <div style="color: #e0e0e0; font-size: 14px; line-height: 1.6;">
+                        <p style="margin-bottom: 10px;">The <strong style="color: #00adb5;">Finance</strong> department
+                            is the default department created with every organization and has special privileges:</p>
+                        <ul style="margin-left: 20px; margin-bottom: 10px;">
+                            <li style="margin-bottom: 6px;">✓ <strong>Approval Authority:</strong> Finance users can
+                                approve/reject expenses from all departments</li>
+                            <li style="margin-bottom: 6px;">✓ <strong>Budget Oversight:</strong> Full visibility and
+                                control over organization-wide budgets</li>
+                            <li style="margin-bottom: 6px;">✓ <strong>Flag Authority:</strong> Can flag/unflag tickets
+                                for audit review</li>
+                            <li style="margin-bottom: 6px;">✓ <strong>Cross-Department Access:</strong> View and manage
+                                expenses across all departments</li>
+                        </ul>
+                        <p style="color: #aaa; font-size: 13px; margin-top: 10px;">
+                            <em>Note: Users in the Finance department are automatically granted these permissions based
+                                on their department assignment.</em>
+                        </p>
                     </div>
                 </div>
             </div>

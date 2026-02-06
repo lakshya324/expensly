@@ -1108,6 +1108,7 @@ h3 {
     overflow-x: auto;
     border-radius: 6px;
     border: 1px solid #0f3460;
+    margin-bottom: 20px;
 }
 
 .users-table {
