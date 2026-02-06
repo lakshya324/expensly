@@ -188,7 +188,6 @@ export function setupCommunicationCallbacks() {
     renderExchangeRates(rates);
     await ticketDomManager.updatePricesOnCurrencyChange();
     // Update budget grid with new exchange rates
-    const { renderBudgetGrid } = await import("./ui/left/common.component.js");
     await renderBudgetGrid();
   });
 

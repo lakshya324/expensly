@@ -5,14 +5,12 @@ import { OrganizationStore } from "../models/organization.store.js";
 import { CURRENCY } from "../utils/currency.js";
 import { AppState } from "./state.js";
 
-
 class BudgetTracker {
   constructor() {
     this.budgetMap = new Map();
     // Add caching for expensive operations
     this.budgetCache = new Map(); // cache per-dept budgets
     this.allBudgetsCache = null; // cache for all budgets
-    this.lastCurrency = null;
   }
 
   async initialize() {
@@ -73,38 +71,39 @@ class BudgetTracker {
       console.warn(`Department '${department}' not found in budget map`);
       return null;
     }
-    
+
     const userCurrency = UserPreferenceLocal.getCurrency();
     const cacheKey = `${department}-${userCurrency}`;
-    
+
     // Return cached result if currency hasn't changed
     if (this.budgetCache.has(cacheKey)) {
       return this.budgetCache.get(cacheKey);
     }
-    
+
     const budget = this.budgetMap.get(department);
-    const result = userCurrency !== CURRENCY[0]
-      ? {
-          ...budget,
-          allocated: exchangeRateStream.convert(
-            budget.allocated,
-            CURRENCY[0],
-            userCurrency,
-          ),
-          spent: exchangeRateStream.convert(
-            budget.spent,
-            CURRENCY[0],
-            userCurrency,
-          ),
-          remaining: exchangeRateStream.convert(
-            budget.remaining,
-            CURRENCY[0],
-            userCurrency,
-          ),
-          currency: userCurrency,
-        }
-      : budget;
-    
+    const result =
+      userCurrency !== CURRENCY[0]
+        ? {
+            ...budget,
+            allocated: exchangeRateStream.convert(
+              budget.allocated,
+              CURRENCY[0],
+              userCurrency,
+            ),
+            spent: exchangeRateStream.convert(
+              budget.spent,
+              CURRENCY[0],
+              userCurrency,
+            ),
+            remaining: exchangeRateStream.convert(
+              budget.remaining,
+              CURRENCY[0],
+              userCurrency,
+            ),
+            currency: userCurrency,
+          }
+        : budget;
+
     // Cache the result
     this.budgetCache.set(cacheKey, result);
     return result;
@@ -159,10 +158,10 @@ class BudgetTracker {
     BudgetLocal.set(Object.fromEntries(this.budgetMap));
 
     // Update org database
-      this.syncSpentToOrg(department, usdAmount);
+    this.syncSpentToOrg(department, usdAmount);
 
     console.log(
-      `${department}: Spent ${amount}, Remaining: ${budget.remaining}`
+      `${department}: Spent ${amount}, Remaining: ${budget.remaining}`,
     );
     return true;
   }
@@ -212,7 +211,7 @@ class BudgetTracker {
   invalidateDepartmentCache(department) {
     // Remove all cached entries for this department
     for (const key of this.budgetCache.keys()) {
-      if (key.startsWith(department + '-')) {
+      if (key.startsWith(department + "-")) {
         this.budgetCache.delete(key);
       }
     }
@@ -225,58 +224,24 @@ class BudgetTracker {
 
   getAllBudgets() {
     const userCurrency = UserPreferenceLocal.getCurrency();
-    
+
     // Return cached result if currency hasn't changed
     if (this.allBudgetsCache && this.lastCurrency === userCurrency) {
       return this.allBudgetsCache;
     }
-    
+
     const budgets = [];
     this.budgetMap.forEach((budget, department) => {
-      const storedCurrency = budget.currency || CURRENCY[0];
-
-      // Only convert if stored currency differs from user's currency
-      const allocated =
-        userCurrency !== storedCurrency
-          ? exchangeRateStream.convert(
-              budget.allocated,
-              storedCurrency,
-              userCurrency,
-            )
-          : budget.allocated;
-
-      const spent =
-        userCurrency !== storedCurrency
-          ? exchangeRateStream.convert(
-              budget.spent,
-              storedCurrency,
-              userCurrency,
-            )
-          : budget.spent;
-
-      const remaining =
-        userCurrency !== storedCurrency
-          ? exchangeRateStream.convert(
-              budget.remaining,
-              storedCurrency,
-              userCurrency,
-            )
-          : budget.remaining;
-
       budgets.push({
         department,
-        allocated,
-        spent,
-        remaining,
-        currency: userCurrency,
         percentUsed: ((budget.spent / budget.allocated) * 100).toFixed(1),
+        ...budget,
       });
     });
-    
+
     // Cache the result
     this.allBudgetsCache = budgets;
-    this.lastCurrency = userCurrency;
-    
+
     return budgets;
   }
 }
