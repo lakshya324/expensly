@@ -1,6 +1,5 @@
-// CORS Middleware Configuration
 import cors from 'cors';
-import { config } from '../config/env.js';
+import config from '../config/env.config.js';
 
 export const corsMiddleware = cors({
   origin: config.corsOrigin,
