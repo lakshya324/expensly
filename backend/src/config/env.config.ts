@@ -15,6 +15,18 @@ const config = {
   //* MongoDB
   mongodbUri: requireEnv("MONGODB_URI"),
 
+  //* Rate Limiting
+  ratelimit: {
+    auth: {
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 100, // limit each IP to 100 requests per windowMs
+    },
+    api: {
+      windowMs: 60 * 1000, // 1 minute
+      max: 200, // limit each IP to 200 requests per windowMs
+    },
+  },
+
   //* JWT
   jwtConfig: {
     jwtSecret: requireEnv("JWT_SECRET"),
