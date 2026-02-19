@@ -5,12 +5,17 @@ import { logError } from "./logger.js";
  * This function is used to create an error with a status code.
  * @param message - error message
  * @param status - status code of the error
+ * @param code - optional error code for better identification (default: "ERROR")
  * @returns never - throws Error with status code
- * @throws Error with status code
+ * @throws Error with status code and custom error code
  * @example
  * createError("Error message", 404);
  * // Output: Error: Error message
  * // Status Code: 404
+ * createError("Validation failed", 400, "VALIDATION_ERROR");
+ * // Output: Error: Validation failed
+ * // Status Code: 400
+ * // Error Code: VALIDATION_ERROR
  */
 export function createError(
   message: string,
