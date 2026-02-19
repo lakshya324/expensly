@@ -1,6 +1,6 @@
 import express from "express";
 
-import logs from "./logs.js";
+// import logs from "./logs.js";
 import router from "./routes.js";
 import databases from "./databases.js";
 import setupEnvironment from "./setup.js";
@@ -18,7 +18,7 @@ const app = express();
 middlewares(app);
 
 // Logging
-logs(app);
+// logs(app);
 
 // Routes
 app.use(router);

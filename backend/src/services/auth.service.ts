@@ -43,11 +43,11 @@ export function verifyAccessToken(header: string | undefined): JwtPayload {
     if (!decodedToken) createError("Not authenticated.", 401, "UNAUTHORIZED");
     return decodedToken;
   } catch (err) {
-    logError(err, {
-      message: "Error verifying access token",
-      code: "TOKEN_VERIFY_ERROR",
-      details: { header },
-    });
+    // logError(err, {
+    //   message: "Error verifying access token",
+    //   code: "TOKEN_VERIFY_ERROR",
+    //   details: { header },
+    // });
     createError("Not authenticated.", 401, "UNAUTHORIZED");
   }
 }

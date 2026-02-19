@@ -51,7 +51,7 @@ export async function authenticate(
     req.user = user;
     next();
   } catch (err) {
-    logError(err, { message: "Authentication error", code: "AUTH_ERROR" });
+    // logError(err, { message: "Authentication error", code: "AUTH_ERROR" });
     createError("Invalid or missing token", 401, "UNAUTHORIZED");
   }
 }

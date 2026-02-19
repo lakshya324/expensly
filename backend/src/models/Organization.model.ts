@@ -1,5 +1,5 @@
-import mongoose, { Schema, Document, Types } from "mongoose";
-import { CURRENCIES, type Currency } from "../config/constants.js";
+import mongoose, { Schema } from "mongoose";
+import { CURRENCIES } from "../config/constants.js";
 import {
   IDepartment,
   IDepartmentData,
@@ -24,8 +24,6 @@ const OrganizationSchema = new Schema<IOrganization>(
   },
   { timestamps: true },
 );
-
-OrganizationSchema.index({ slug: 1 });
 
 // OrganizationSchema.pre('save', async function () {
 //   if (this.isModified('name') || this.isNew) {
