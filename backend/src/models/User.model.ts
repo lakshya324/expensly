@@ -2,6 +2,8 @@ import mongoose, { Schema } from "mongoose";
 import { ROLES } from "../config/constants.js";
 import { IUser, IUserOutput } from "../types/user.types.js";
 import { createError } from "../utils/error.js";
+import { Organization } from "./Organization.model.js";
+import { IDepartmentData, IOrganization } from "../types/organization.types.js";
 
 const UserSchema = new Schema<IUser>(
   {
@@ -48,7 +50,12 @@ UserSchema.pre("save", async function () {
     );
 });
 
-UserSchema.methods.data = function (): IUserOutput {
+export const User = mongoose.model<IUser>("User", UserSchema);
+
+UserSchema.methods.data = async function (
+  this: IUser,
+  org: IOrganization | null = null,
+): Promise<IUserOutput> {
   if (this.isDisabled)
     createError(
       "User account is disabled. Please contact your administrator.",
@@ -56,15 +63,58 @@ UserSchema.methods.data = function (): IUserOutput {
       "USER_DISABLED",
     );
 
+  let orgData = org;
+  let managerData = null;
+
+  if (this.orgId && !org) {
+    if (this.managerId) {
+      const [org, manager] = await Promise.all([
+        Organization.findById(this.orgId),
+        User.findById(this.managerId),
+      ]);
+
+      if (!org)
+        createError(
+          "Organization not found for the user",
+          404,
+          "ORG_NOT_FOUND",
+        );
+
+      if (!manager)
+        createError("Manager not found for the user", 404, "MANAGER_NOT_FOUND");
+
+      orgData = org;
+      managerData = {
+        _id: manager._id.toString(),
+        name: manager.name,
+        email: manager.email,
+        role: manager.role,
+      };
+    } else {
+      orgData = await Organization.findById(this.orgId);
+      if (!orgData)
+        createError(
+          "Organization not found for the user",
+          404,
+          "ORG_NOT_FOUND",
+        );
+    }
+  }
+
+  const departmentData =
+    this.orgId && orgData
+      ? orgData
+          .departmentData()
+          .find((dept: IDepartmentData) => dept._id === this.department)
+      : null;
+
   return {
-    id: this._id.toString(),
+    _id: this._id.toString(),
     name: this.name,
     email: this.email,
     role: this.role,
-    orgId: this.orgId ? this.orgId.toString() : null,
-    department: this.department,
-    managerId: this.managerId ? this.managerId.toString() : null,
+    org: orgData ? orgData.data() : null,
+    department: departmentData ? departmentData : null,
+    manager: managerData,
   };
 };
-
-export const User = mongoose.model<IUser>("User", UserSchema);

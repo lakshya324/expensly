@@ -1,5 +1,6 @@
 import { Document, Types } from "mongoose";
 import { Role } from "../config/constants.js";
+import { IDepartmentData, IOrganization, IOrganizationData } from "./organization.types.js";
 
 export interface IUser extends Document {
   _id: Types.ObjectId;
@@ -16,15 +17,15 @@ export interface IUser extends Document {
 
   //! Functions
 
-  data(): IUserOutput;
+  data(this: IUser, org?: IOrganization): IUserOutput;
 }
 
 export interface IUserOutput {
-  id: string;
+  _id: string;
   name: string;
   email: string;
   role: Role;
-  orgId: string | null;
-  department: string | null;
-  managerId: string | null;
+  org: IOrganizationData | null;
+  department: IDepartmentData | null;
+  manager: Omit<IUserOutput, "org" | "department" | "manager"> | null;
 }
