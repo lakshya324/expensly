@@ -5,5 +5,6 @@ import { config } from '../config/env.js';
 export const corsMiddleware = cors({
   origin: config.corsOrigin,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true, // Required for httpOnly refresh token cookie
 });
