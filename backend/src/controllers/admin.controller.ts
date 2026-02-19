@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { hashPassword } from "../services/auth.service.js";
 import { createError } from "../utils/error.js";
-import { getIO } from "../websocket/wsServer.js";
+import { getIO } from "../websocket/ioServer.js";
 import {
   ROLES,
   DEFAULT_PAGE,

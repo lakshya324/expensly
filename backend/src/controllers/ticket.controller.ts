@@ -14,7 +14,7 @@ import {
   buildReceiptKey,
 } from "../services/s3.service.js";
 import { createError } from "../utils/error.js";
-import { getIO } from "../websocket/wsServer.js";
+import { getIO } from "../websocket/ioServer.js";
 import { AuthRequest } from "../types/types.js";
 import { buildTicketFilter } from "../utils/tickets.js";
 import {
