@@ -19,17 +19,19 @@ import { logError } from "./logger.js";
  */
 export function createError(
   message: string,
-  status: number,
+  status: number = 500,
   code: string | number = "ERROR",
+  details?: any,
 ): never {
   // const error = new Error(message) as StatusError;
   // error.statusCode = status || 500;
   // throw error;
-  const error = new AppError(status, message, code);
+  const error = new AppError(status, message, code, details);
   logError(error, {
     status,
     code,
     message,
+    details,
   });
   throw error;
 }

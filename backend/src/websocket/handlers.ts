@@ -1,9 +1,8 @@
-// WebSocket Message Handlers
-import { WebSocket } from 'ws';
+import { AuthSocket } from "../types/types.js";
 
 export class WebSocketHandlers {
-  /** Respond to a ping with a pong */
-  static handlePing(ws: WebSocket): void {
-    ws.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
-  }
+    /** Respond to a ping with a pong */
+    static handlePing(socket: AuthSocket): void {
+        socket.emit("pong", { timestamp: new Date().toISOString() });
+    }
 }

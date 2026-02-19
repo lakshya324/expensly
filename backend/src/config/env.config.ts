@@ -27,12 +27,15 @@ const config = {
     },
   },
 
-  //* JWT
-  jwtConfig: {
-    jwtSecret: requireEnv("JWT_SECRET"),
-    jwtRefreshSecret: requireEnv("JWT_REFRESH_SECRET"),
-    jwtExpiresIn: process.env["JWT_EXPIRES_IN"] ?? "15m",
-    jwtRefreshExpiresIn: process.env["JWT_REFRESH_EXPIRES_IN"] ?? "7d",
+  //* Authentication & Authorization
+  authConfig: {
+    jwt: {
+      secret: requireEnv("JWT_SECRET"),
+      refreshSecret: requireEnv("JWT_REFRESH_SECRET"),
+      expiresIn: process.env["JWT_EXPIRES_IN"] ?? "15m",
+      refreshExpiresIn: process.env["JWT_REFRESH_EXPIRES_IN"] ?? "7d",
+    },
+    bcryptRounds: parseInt(process.env["BCRYPT_ROUNDS"] ?? "10") || 10,
   },
 
   //* Super Admin

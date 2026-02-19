@@ -1,21 +1,20 @@
-// Reports Controller
 import { Request, Response, NextFunction } from 'express';
-import { Ticket } from '../models/index.js';
 import { generateTicketsCsv } from '../services/csv.service.js';
-import { createError } from '../middleware/errorHandler.js';
 import { TICKET_STATUS } from '../config/constants.js';
-import type { ITicket } from '../models/index.js';
+import { AuthRequest } from '../types/types.js';
+import { Ticket } from '../models/Ticket.model.js';
 
 export class ReportsController {
   /**
    * GET /api/reports/export
    */
-  static async exportCsv(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async exportCsv(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { orgId } = req.user!;
+        const user = req.user!;
+        const org = req.organization!;
       const { status, department, from, to } = req.query as Record<string, string | undefined>;
 
-      const filter: Record<string, unknown> = { orgId };
+      const filter: Record<string, unknown> = { orgId: org._id };
       if (status && (Object.values(TICKET_STATUS) as string[]).includes(status))
         filter['status'] = status;
       if (department) filter['department'] = department;

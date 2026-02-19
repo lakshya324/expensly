@@ -1,5 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
-import type { Role } from '../config/constants.js';
+import { Request, Response, NextFunction } from "express";
+import type { Role } from "../config/constants.js";
+import { AuthRequest } from "../types/types.js";
+import { create } from "node:domain";
+import { createError } from "../utils/error.js";
 
 /**
  * authorize(...roles) — middleware factory.
@@ -8,25 +11,11 @@ import type { Role } from '../config/constants.js';
  * Usage: router.get('/route', authenticate, authorize('admin', 'super_admin'), handler)
  */
 export const authorize = (...roles: Role[]) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({
-        success: false,
-        error: { code: 'UNAUTHORIZED', message: 'Not authenticated' },
-      });
-      return;
-    }
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+    if (!req.user) createError("User not authenticated", 401, "UNAUTHORIZED");
 
-    if (!roles.includes(req.user.role)) {
-      res.status(403).json({
-        success: false,
-        error: {
-          code: 'FORBIDDEN',
-          message: `Access denied. Required role: ${roles.join(' or ')}`,
-        },
-      });
-      return;
-    }
+    if (!roles.includes(req.user.role))
+      createError("Forbidden: insufficient permissions", 403, "FORBIDDEN");
 
     next();
   };

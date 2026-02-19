@@ -1,6 +1,6 @@
 import { stringify } from 'csv-stringify/sync';
 import type { FlattenMaps, Types } from 'mongoose';
-import type { ITicket, IApproval } from '../models/index.js';
+import { IApproval, ITicket } from '../types/ticket.types.js';
 
 type LeanTicket = FlattenMaps<ITicket> & { _id: Types.ObjectId };
 

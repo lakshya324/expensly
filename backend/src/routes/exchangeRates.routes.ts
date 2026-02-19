@@ -4,6 +4,6 @@ import { ExchangeRatesController } from '../controllers/exchangeRates.controller
 
 const router = express.Router();
 
-router.get('/exchange-rates', ExchangeRatesController.streamRates);
+router.get('/', ExchangeRatesController.streamRates);
 
 export default router;

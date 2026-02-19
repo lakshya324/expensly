@@ -1,67 +1,73 @@
-import bcrypt from 'bcryptjs';
-import jwt, { JwtPayload } from 'jsonwebtoken';
-import crypto from 'crypto';
-import { config } from '../config/env.js';
-import { BCRYPT_ROUNDS } from '../config/constants.js';
-import { RefreshToken } from '../models/index.js';
-import type { Types } from 'mongoose';
+import bcrypt from "bcryptjs";
+import jwt, { JwtPayload } from "jsonwebtoken";
+import crypto from "crypto";
+import config from "../config/env.config.js";
+import { BCRYPT_ROUNDS } from "../config/constants.js";
+import { createError } from "../utils/error.js";
+import { logError } from "../utils/logger.js";
+import { Types } from "mongoose";
+import { RefreshToken } from "../models/RefreshToken.model.js";
 
-export interface AccessTokenPayload extends JwtPayload {
-  sub: string;
-  role: 'user' | 'admin' | 'super_admin';
-  orgId: string | null;
-}
-
-interface TokenInput {
-  id: Types.ObjectId | string;
-  role: 'user' | 'admin' | 'super_admin';
-  orgId: Types.ObjectId | string | null;
-}
-
-// ─── Password ────────────────────────────────────────────────────────────────
-
-export const hashPassword = async (plain: string): Promise<string> => {
+//! Password
+export function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, BCRYPT_ROUNDS);
-};
-
-export const comparePassword = async (plain: string, hash: string): Promise<boolean> => {
+}
+export function comparePassword(plain: string, hash: string): Promise<boolean> {
   return bcrypt.compare(plain, hash);
-};
+}
 
-// ─── Access Token ─────────────────────────────────────────────────────────────
-
-export const generateAccessToken = ({ id, role, orgId }: TokenInput): string => {
-  return jwt.sign(
-    { sub: id.toString(), role, orgId: orgId ? orgId.toString() : null },
-    config.jwtSecret,
-    { expiresIn: config.jwtExpiresIn } as jwt.SignOptions
+//! Access Token
+export function generateAccessToken(id: Types.ObjectId | string): string {
+  return (
+    "Bearer " +
+    jwt.sign({ id }, config.authConfig.jwt.secret, {
+      expiresIn: config.authConfig.jwt.expiresIn,
+    } as jwt.SignOptions)
   );
-};
+}
+export function verifyAccessToken(header: string | undefined): JwtPayload {
+  try {
+    // Checking Authorization header
+    if (!header) createError("Not authenticated.", 401, "UNAUTHORIZED");
 
-export const verifyAccessToken = (token: string): AccessTokenPayload => {
-  const decoded = jwt.verify(token, config.jwtSecret);
-  if (typeof decoded === 'string') {
-    throw new Error('Invalid token payload');
+    // Bearer token
+    const set = header.split(" ");
+    const token = set[set.length - 1];
+    let decodedToken: JwtPayload;
+
+    // Decode token
+    decodedToken = jwt.verify(
+      token,
+      config.authConfig.jwt.secret,
+    ) as JwtPayload;
+    if (!decodedToken) createError("Not authenticated.", 401, "UNAUTHORIZED");
+    return decodedToken;
+  } catch (err) {
+    logError(err, {
+      message: "Error verifying access token",
+      code: "TOKEN_VERIFY_ERROR",
+      details: { header },
+    });
+    createError("Not authenticated.", 401, "UNAUTHORIZED");
   }
-  return decoded as AccessTokenPayload;
-};
+}
 
-// ─── Refresh Token ────────────────────────────────────────────────────────────
+//! Refresh Token
 
 const hashToken = (raw: string): string =>
-  crypto.createHash('sha256').update(raw).digest('hex');
+  crypto.createHash("sha256").update(raw).digest("hex");
 
-export const generateRefreshToken = async (
-  userId: Types.ObjectId | string
-): Promise<string> => {
-  const raw = crypto.randomBytes(64).toString('hex');
+export async function generateRefreshToken(
+  userId: Types.ObjectId,
+): Promise<string> {
+  const raw = crypto.randomBytes(64).toString("hex");
   const tokenHash = hashToken(raw);
 
   const expiresAt = new Date();
-  const match = config.jwtRefreshExpiresIn.match(/^(\d+)([smhd])$/);
+  const match = config.authConfig.jwt.refreshExpiresIn.match(/^(\d+)([smhd])$/);
   if (match) {
     const value = parseInt(match[1]!);
-    const unit = match[2] as 's' | 'm' | 'h' | 'd';
+    const unit = match[2] as "s" | "m" | "h" | "d";
     const multipliers: Record<typeof unit, number> = {
       s: 1000,
       m: 60000,
@@ -73,31 +79,33 @@ export const generateRefreshToken = async (
 
   await RefreshToken.create({ tokenHash, userId, expiresAt });
   return raw;
-};
-
-export const verifyRefreshToken = async (
-  raw: string
-): Promise<Types.ObjectId> => {
+}
+export async function verifyRefreshToken(raw: string): Promise<Types.ObjectId> {
   const tokenHash = hashToken(raw);
   const record = await RefreshToken.findOne({ tokenHash });
 
-  if (!record) throw new Error('Refresh token not found or already used');
+  if (!record)
+    createError(
+      "Refresh token not found or already used",
+      401,
+      "INVALID_REFRESH_TOKEN",
+    );
   if (record.expiresAt < new Date()) {
     await record.deleteOne();
-    throw new Error('Refresh token expired');
+    createError("Refresh token expired", 401, "EXPIRED_REFRESH_TOKEN");
   }
 
+  // delete token after use to prevent reuse (single-use token)
   await record.deleteOne();
   return record.userId;
-};
+}
 
-export const revokeRefreshToken = async (raw: string): Promise<void> => {
+export async function revokeRefreshToken(raw: string): Promise<void> {
   const tokenHash = hashToken(raw);
   await RefreshToken.deleteOne({ tokenHash });
-};
-
-export const revokeAllUserTokens = async (
-  userId: Types.ObjectId | string
-): Promise<void> => {
+}
+export async function revokeAllUserTokens(
+  userId: Types.ObjectId,
+): Promise<void> {
   await RefreshToken.deleteMany({ userId });
-};
+}

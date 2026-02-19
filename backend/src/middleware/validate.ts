@@ -1,5 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
-import { validationResult, ValidationChain } from 'express-validator';
+import { Request, Response, NextFunction } from "express";
+import { validationResult, ValidationChain } from "express-validator";
+import { createError } from "../utils/error.js";
 
 /**
  * Runs express-validator chains and returns 400 on failure.
@@ -11,23 +12,23 @@ import { validationResult, ValidationChain } from 'express-validator';
  *   ]), handler)
  */
 export const validate = (validations: ValidationChain[]) => {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
     for (const validation of validations) {
       await validation.run(req);
     }
 
     const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Validation failed',
-          details: errors.array().map((e) => ({ field: e.type === 'field' ? e.path : e.type, message: e.msg })),
-        },
+    if (!errors.isEmpty())
+      createError("Validation failed", 400, "VALIDATION_ERROR", {
+        details: errors.array().map((e) => ({
+          field: e.type === "field" ? e.path : e.type,
+          message: e.msg,
+        })),
       });
-      return;
-    }
 
     next();
   };

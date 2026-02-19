@@ -5,16 +5,16 @@ import {
   GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { config } from '../config/env.js';
+import config from '../config/env.config.js';
 import { S3_URL_EXPIRY } from '../config/constants.js';
 
 const s3 = new S3Client({
-  region: config.awsRegion,
+  region: config.awsConfig.awsRegion,
   credentials:
-    config.awsAccessKeyId && config.awsSecretAccessKey
+    config.awsConfig.awsAccessKeyId && config.awsConfig.awsSecretAccessKey
       ? {
-          accessKeyId: config.awsAccessKeyId,
-          secretAccessKey: config.awsSecretAccessKey,
+          accessKeyId: config.awsConfig.awsAccessKeyId,
+          secretAccessKey: config.awsConfig.awsSecretAccessKey,
         }
       : undefined,
 });
@@ -29,7 +29,7 @@ export const uploadFile = async (
 ): Promise<string> => {
   await s3.send(
     new PutObjectCommand({
-      Bucket: config.awsBucket,
+      Bucket: config.awsConfig.awsBucket,
       Key: key,
       Body: buffer,
       ContentType: mimetype,
@@ -43,7 +43,7 @@ export const uploadFile = async (
  */
 export const getReceiptSignedUrl = async (key: string): Promise<string> => {
   const command = new GetObjectCommand({
-    Bucket: config.awsBucket,
+    Bucket: config.awsConfig.awsBucket,
     Key: key,
   });
   return getSignedUrl(s3, command, { expiresIn: S3_URL_EXPIRY });
@@ -55,7 +55,7 @@ export const getReceiptSignedUrl = async (key: string): Promise<string> => {
 export const deleteFile = async (key: string): Promise<void> => {
   await s3.send(
     new DeleteObjectCommand({
-      Bucket: config.awsBucket,
+      Bucket: config.awsConfig.awsBucket,
       Key: key,
     })
   );

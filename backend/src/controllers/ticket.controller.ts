@@ -1,119 +1,109 @@
-import { body, query } from 'express-validator';
-import { Request, Response, NextFunction } from 'express';
-import mongoose from 'mongoose';
-import { Ticket, Organization, User } from '../models/index.js';
-import type { ITicket } from '../models/index.js';
-import { TICKET_STATUS, ROLES, DEFAULT_PAGE, DEFAULT_LIMIT, MAX_LIMIT } from '../config/constants.js';
+import { Request, Response, NextFunction } from "express";
+import mongoose from "mongoose";
+import {
+  TICKET_STATUS,
+  ROLES,
+  DEFAULT_PAGE,
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
+} from "../config/constants.js";
 import {
   uploadFile,
   getReceiptSignedUrl,
   deleteFile,
   buildReceiptKey,
-} from '../services/s3.service.js';
-import { createError } from '../middleware/errorHandler.js';
-import { getIO } from '../websocket/wsServer.js';
+} from "../services/s3.service.js";
+import { createError } from "../utils/error.js";
+import { getIO } from "../websocket/wsServer.js";
+import { AuthRequest } from "../types/types.js";
+import { buildTicketFilter } from "../utils/tickets.js";
+import {
+  ResponsePaginationPayload,
+  ResponsePayload,
+} from "../types/payloads.types.js";
+import { logError } from "../utils/logger.js";
+import { ITicket, ITicketData } from "../types/ticket.types.js";
+import { Ticket } from "../models/Ticket.model.js";
+import { User } from "../models/User.model.js";
+import { Organization } from "../models/Organization.model.js";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const buildPagination = (page: number, limit: number, total: number) => ({
-  page,
-  limit,
-  total,
-  pages: Math.ceil(total / limit),
-});
-
-const buildTicketFilter = (req: Request): Record<string, unknown> => {
-  const { role, orgId, id: userId } = req.user!;
-  const { status, department, from, to, search } = req.query as Record<string, string | undefined>;
-
-  const filter: Record<string, unknown> = { orgId };
-
-  if (role === ROLES.USER) {
-    filter['$or'] = [{ submittedBy: userId }, { 'managerApproval.reviewedBy': userId }];
-  }
-
-  if (status) filter['status'] = status;
-  if (department) filter['department'] = department;
-
-  if (from || to) {
-    const dateRange: Record<string, Date> = {};
-    if (from) dateRange['$gte'] = new Date(from);
-    if (to) dateRange['$lte'] = new Date(to);
-    filter['createdAt'] = dateRange;
-  }
-
-  if (search) {
-    // Note: this overwrites any $or set above; search takes precedence
-    filter['$or'] = [
-      { title: { $regex: search, $options: 'i' } },
-      { description: { $regex: search, $options: 'i' } },
-      { tags: { $regex: search, $options: 'i' } },
-    ];
-  }
-
-  return filter;
-};
-
-// ─── Controller ──────────────────────────────────────────────────────────────
-
-export class TicketController {
+export default class TicketController {
   /**
    * GET /api/expenses
    */
-  static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async list(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { page: pageQ, limit: limitQ } = req.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(pageQ ?? '') || DEFAULT_PAGE);
-      const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(limitQ ?? '') || DEFAULT_LIMIT));
+      const user = req.user!;
+      const org = req.organization!;
+      const { page: pageQ, limit: limitQ } = req.query as Record<
+        string,
+        string | undefined
+      >;
+      const page = Math.max(1, parseInt(pageQ ?? "") || DEFAULT_PAGE);
+      const limit = Math.min(
+        MAX_LIMIT,
+        Math.max(1, parseInt(limitQ ?? "") || DEFAULT_LIMIT),
+      );
       const skip = (page - 1) * limit;
 
       const filter = buildTicketFilter(req);
 
       const [tickets, total] = await Promise.all([
-        Ticket.find(filter)
-          .populate('submittedBy', 'name email department')
-          .populate('managerApproval.reviewedBy', 'name email')
-          .populate('financeApproval.reviewedBy', 'name email')
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .lean(),
+        Ticket.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
         Ticket.countDocuments(filter),
       ]);
 
-      res.status(200).json({ success: true, data: tickets, pagination: buildPagination(page, limit, total) });
+      const payload: ResponsePaginationPayload<ITicketData> = {
+        success: true,
+        message: "Tickets retrieved successfully",
+        timestamp: new Date().toISOString(),
+        data: {
+          data: await Promise.all(tickets.map(async (t) => await t.data(org))),
+          pagination: {
+            page,
+            pageSize: tickets.length,
+            totalItems: total,
+            totalPages: Math.ceil(total / limit),
+          },
+        },
+      };
+      res.status(200).json(payload);
     } catch (err) {
-      next(err);
+      logError(err, {
+        message: "Error listing tickets",
+        code: "TICKET_LIST_ERROR",
+      });
+      createError("Failed to list tickets", 500, "TICKET_LIST_ERROR");
     }
   }
 
   /**
    * POST /api/expenses
    */
-  static async create(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async create(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { id: userId, orgId } = req.user!;
-      const { title, amount, currency, department, description, tags, timestamp } =
-        req.body as Record<string, string | undefined>;
+      const user = req.user!;
+      const org = req.organization!;
+      const {
+        title,
+        amount,
+        currency,
+        department,
+        description,
+        tags,
+        timestamp,
+      } = req.body as Record<string, string | undefined>;
 
-      const org = await Organization.findById(orgId);
-      if (!org) throw createError(404, 'Organization not found', 'ORG_NOT_FOUND');
-      const deptExists = org.departments.some((d) => d.name === department);
+      const deptExists = org.departments.some(
+        (d) => d._id.toString() === department,
+      );
       if (!deptExists)
-        throw createError(
-          400,
+        createError(
           `Department "${department}" not found in your organization`,
-          'INVALID_DEPARTMENT'
+          400,
+          "INVALID_DEPARTMENT",
         );
 
-      let receiptKey: string | null = null;
-      if (req.file) {
-        const ticketTempId = Date.now().toString();
-        receiptKey = buildReceiptKey(ticketTempId, req.file.mimetype);
-        await uploadFile(receiptKey, req.file.buffer, req.file.mimetype);
-      }
-
-      const user = await User.findById(userId).lean();
       const needsManagerApproval = user?.managerId != null;
 
       const parsedTags: string[] = tags
@@ -124,89 +114,124 @@ export class TicketController {
 
       const ticket = await Ticket.create({
         title,
-        submittedBy: userId,
-        orgId: orgId as unknown as mongoose.Types.ObjectId,
-        amount: parseFloat(amount ?? '0'),
+        submittedBy: user._id,
+        orgId: org._id,
+        amount: parseFloat(amount ?? "0"),
         currency,
         department,
-        description: description ?? '',
+        description: description ?? "",
         tags: parsedTags,
-        receiptKey,
+        receiptKey: null,
         status: TICKET_STATUS.PENDING,
         managerApproval: needsManagerApproval
-          ? { required: true, approved: null, reviewedBy: null, reviewedAt: null, comments: null }
+          ? {
+              required: true,
+              approved: null,
+              reviewedBy: null,
+              reviewedAt: null,
+              comments: null,
+            }
           : null,
-        financeApproval: { approved: null, reviewedBy: null, reviewedAt: null, comments: null },
+        financeApproval: {
+          approved: null,
+          reviewedBy: null,
+          reviewedAt: null,
+          comments: null,
+        },
         ...(timestamp && { createdAt: new Date(timestamp) }),
       });
 
-      if (receiptKey && req.file) {
-        const properKey = buildReceiptKey(ticket._id.toString(), req.file.mimetype);
+      if (req.file) {
+        const properKey = buildReceiptKey(
+          ticket._id.toString(),
+          req.file.mimetype,
+        );
         await uploadFile(properKey, req.file.buffer, req.file.mimetype);
-        try {
-          await deleteFile(receiptKey);
-        } catch {
-          /* non-fatal */
-        }
         ticket.receiptKey = properKey;
         await ticket.save();
       }
 
-      const populated = await ticket.populate('submittedBy', 'name email department');
+      const ticketData = await ticket.data(org);
 
-      getIO()
-        .to(orgId!)
-        .emit('new_ticket', {
-          type: 'new_ticket',
-          ticketId: ticket._id.toString(),
-          ticketData: populated,
-          timestamp: new Date().toISOString(),
-        });
+      getIO().to(org._id.toString()).emit("new_ticket", {
+        type: "new_ticket",
+        ticketId: ticket._id.toString(),
+        ticketData,
+        timestamp: new Date().toISOString(),
+      });
 
-      res.status(201).json({ success: true, ticket: populated });
+      const payload: ResponsePayload<ITicketData> = {
+        success: true,
+        message: "Ticket created successfully",
+        data: ticketData,
+        timestamp: new Date().toISOString(),
+      };
+      res.status(201).json(payload);
     } catch (err) {
-      next(err);
+      logError(err, {
+        message: "Error creating ticket",
+        code: "TICKET_CREATE_ERROR",
+      });
+      createError("Failed to create ticket", 500, "TICKET_CREATE_ERROR");
     }
   }
 
   /**
    * GET /api/expenses/:id
    */
-  static async getOne(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async getOne(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      const user = req.user!;
+      const org = req.organization!;
+      const ticketId = req.params["id"] as string;
+
       const ticket = await Ticket.findOne({
-        _id: req.params['id'],
-        orgId: req.user!.orgId,
-      })
-        .populate('submittedBy', 'name email department')
-        .populate('managerApproval.reviewedBy', 'name email')
-        .populate('financeApproval.reviewedBy', 'name email')
-        .lean();
+        _id: new mongoose.Types.ObjectId(ticketId),
+        orgId: org._id,
+      });
 
-      if (!ticket) throw createError(404, 'Ticket not found', 'NOT_FOUND');
+      if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
 
-      res.status(200).json({ success: true, ticket });
+      const payload: ResponsePayload<ITicketData> = {
+        success: true,
+        message: "Ticket retrieved successfully",
+        data: await ticket.data(org),
+        timestamp: new Date().toISOString(),
+      };
+
+      res.status(200).json(payload);
     } catch (err) {
-      next(err);
+      logError(err, {
+        message: "Error retrieving ticket",
+        code: "TICKET_RETRIEVE_ERROR",
+      });
+      createError("Failed to retrieve ticket", 500, "TICKET_RETRIEVE_ERROR");
     }
   }
 
   /**
    * PATCH /api/expenses/:id
    */
-  static async update(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async update(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const ticket = await Ticket.findOne({
-        _id: req.params['id'],
-        orgId: req.user!.orgId,
-      });
-      if (!ticket) throw createError(404, 'Ticket not found', 'NOT_FOUND');
+      const user = req.user!;
+      const org = req.organization!;
+      const ticketId = req.params["id"] as string;
 
-      const isSubmitter = ticket.submittedBy.toString() === req.user!.id;
-      const isAdmin = req.user!.role === ROLES.ADMIN;
-      if (!isSubmitter && !isAdmin) {
-        throw createError(403, 'Only the submitter or admin can edit a ticket', 'FORBIDDEN');
-      }
+      const ticket = await Ticket.findOne({
+        _id: ticketId,
+        orgId: org._id,
+      });
+      if (!ticket) createError("Ticket not found", 404, "NOT_FOUND");
+
+      const isSubmitter = ticket.submittedBy.toString() === user._id.toString();
+      const isAdmin = user.role === ROLES.ADMIN;
+      if (!isSubmitter && !isAdmin)
+        createError(
+          "Only the submitter or admin can edit a ticket",
+          403,
+          "FORBIDDEN",
+        );
 
       const { title, amount, currency, description, tags } = req.body as Record<
         string,
@@ -214,31 +239,33 @@ export class TicketController {
       >;
       if (title !== undefined) ticket.title = title;
       if (amount !== undefined) ticket.amount = parseFloat(amount);
-      if (currency !== undefined) ticket.currency = currency as ITicket['currency'];
+      if (currency !== undefined)
+        ticket.currency = currency as ITicket["currency"];
       if (description !== undefined) ticket.description = description;
       if (tags !== undefined)
-        ticket.tags = Array.isArray(tags) ? (tags as string[]) : (JSON.parse(tags) as string[]);
+        ticket.tags = Array.isArray(tags)
+          ? (tags as string[])
+          : (JSON.parse(tags) as string[]);
 
       await ticket.save();
 
-      const updatedData = {
-        title: ticket.title,
-        amount: ticket.amount,
-        currency: ticket.currency,
-        description: ticket.description,
-        tags: ticket.tags,
+      const ticketData = await ticket.data(org);
+
+      getIO().to(org._id.toString()).emit("ticket_update", {
+        type: "ticket_update",
+        ticketId: ticket._id.toString(),
+        ticketData,
+        timestamp: new Date().toISOString(),
+      });
+
+      const payload: ResponsePayload<ITicketData> = {
+        success: true,
+        message: "Ticket updated successfully",
+        data: ticketData,
+        timestamp: new Date().toISOString(),
       };
 
-      getIO()
-        .to(req.user!.orgId!)
-        .emit('ticket_update', {
-          type: 'ticket_update',
-          ticketId: ticket._id.toString(),
-          updatedData,
-          timestamp: new Date().toISOString(),
-        });
-
-      res.status(200).json({ success: true, ticket });
+      res.status(200).json(payload);
     } catch (err) {
       next(err);
     }
@@ -247,39 +274,56 @@ export class TicketController {
   /**
    * DELETE /api/expenses/:id
    */
-  static async remove(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async remove(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      const user = req.user!;
+      const org = req.organization!;
+      const ticketId = req.params["id"] as string;
       const ticket = await Ticket.findOne({
-        _id: req.params['id'],
-        orgId: req.user!.orgId,
+        _id: ticketId,
+        orgId: org._id,
       });
-      if (!ticket) throw createError(404, 'Ticket not found', 'NOT_FOUND');
+      if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
 
-      const isSubmitter = ticket.submittedBy.toString() === req.user!.id;
-      const isAdmin = req.user!.role === ROLES.ADMIN;
-      if (!isSubmitter && !isAdmin) {
-        throw createError(403, 'Only the submitter or admin can delete a ticket', 'FORBIDDEN');
-      }
+      const isSubmitter = ticket.submittedBy.toString() === user._id.toString();
+      const isAdmin = user.role === ROLES.ADMIN;
+      if (!isSubmitter && !isAdmin)
+        createError(
+          "Only the submitter or admin can delete a ticket",
+          403,
+          "FORBIDDEN",
+        );
 
       if (ticket.receiptKey) {
         try {
           await deleteFile(ticket.receiptKey);
         } catch {
-          /* non-fatal */
+          logError(
+            new Error(`Failed to delete receipt file for ticket ${ticket._id}`),
+            {
+              message: "Receipt deletion error",
+              code: "RECEIPT_DELETE_ERROR",
+              ticketId: ticket._id.toString(),
+            },
+          );
         }
       }
 
       await ticket.deleteOne();
 
-      getIO()
-        .to(req.user!.orgId!)
-        .emit('ticket_delete', {
-          type: 'ticket_delete',
-          ticketId: ticket._id.toString(),
-          timestamp: new Date().toISOString(),
-        });
+      getIO().to(org._id.toString()).emit("ticket_delete", {
+        type: "ticket_delete",
+        ticketId: ticket._id.toString(),
+        timestamp: new Date().toISOString(),
+      });
 
-      res.status(200).json({ success: true, message: 'Ticket deleted' });
+      const payload: ResponsePayload = {
+        success: true,
+        message: "Ticket deleted successfully",
+        timestamp: new Date().toISOString(),
+      };
+
+      res.status(200).json(payload);
     } catch (err) {
       next(err);
     }
@@ -288,30 +332,39 @@ export class TicketController {
   /**
    * PATCH /api/expenses/:id/flag
    */
-  static async flag(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async flag(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const ticket = await Ticket.findOne({
-        _id: req.params['id'],
-        orgId: req.user!.orgId,
-      });
-      if (!ticket) throw createError(404, 'Ticket not found', 'NOT_FOUND');
+      const user = req.user!;
+      const org = req.organization!;
+      const ticketId = req.params["id"] as string;
+      const { flagged } = req.body as { flagged: boolean };
 
-      ticket.flagged =
-        (req.body as Record<string, unknown>)['flagged'] !== undefined
-          ? Boolean((req.body as Record<string, unknown>)['flagged'])
-          : !ticket.flagged;
+      const ticket = await Ticket.findOne({
+        _id: ticketId,
+        orgId: org._id,
+      });
+      if (!ticket) createError("Ticket not found", 404, "NOT_FOUND");
+
+      ticket.flagged = flagged === true;
       await ticket.save();
 
-      getIO()
-        .to(req.user!.orgId!)
-        .emit('ticket_flag', {
-          type: 'ticket_flag',
-          ticketId: ticket._id.toString(),
-          flagged: ticket.flagged,
-          timestamp: new Date().toISOString(),
-        });
+      const ticketData = await ticket.data(org);
 
-      res.status(200).json({ success: true, flagged: ticket.flagged });
+      getIO().to(org._id.toString()).emit("ticket_flag", {
+        type: "ticket_flag",
+        ticketId: ticket._id.toString(),
+        ticketData,
+        timestamp: new Date().toISOString(),
+      });
+
+      const payload: ResponsePayload<ITicketData> = {
+        success: true,
+        message: `Ticket ${flagged ? "flagged" : "unflagged"} successfully`,
+        data: ticketData,
+        timestamp: new Date().toISOString(),
+      };
+
+      res.status(200).json(payload);
     } catch (err) {
       next(err);
     }
@@ -320,13 +373,22 @@ export class TicketController {
   /**
    * PATCH /api/expenses/:id/status
    */
-  static async updateStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async updateStatus(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
-      const { status, comments } = req.body as { status: ITicket['status']; comments?: string };
-      const { id: userId, role, orgId } = req.user!;
+      const user = req.user!;
+      const org = req.organization!;
+      const { status, comments } = req.body as {
+        status: ITicket["status"];
+        comments?: string;
+      };
+      const ticketId = req.params["id"] as string;
 
-      const ticket = await Ticket.findOne({ _id: req.params['id'], orgId });
-      if (!ticket) throw createError(404, 'Ticket not found', 'NOT_FOUND');
+      const ticket = await Ticket.findOne({ _id: ticketId, orgId: org._id });
+      if (!ticket) createError("Ticket not found", 404, "NOT_FOUND");
 
       const now = new Date();
 
@@ -335,17 +397,21 @@ export class TicketController {
         status === TICKET_STATUS.REJECTED
       ) {
         if (ticket.managerApproval) {
-          ticket.managerApproval.approved = status === TICKET_STATUS.MANAGER_APPROVED;
-          ticket.managerApproval.reviewedBy = userId as unknown as ITicket['submittedBy'];
+          ticket.managerApproval.approved =
+            status === TICKET_STATUS.MANAGER_APPROVED;
+          ticket.managerApproval.reviewedBy = user._id;
           ticket.managerApproval.reviewedAt = now;
           ticket.managerApproval.comments = comments ?? null;
         }
       }
 
-      if (status === TICKET_STATUS.APPROVED || status === TICKET_STATUS.REJECTED) {
+      if (
+        status === TICKET_STATUS.APPROVED ||
+        status === TICKET_STATUS.REJECTED
+      ) {
         ticket.financeApproval = {
           approved: status === TICKET_STATUS.APPROVED,
-          reviewedBy: userId as unknown as ITicket['submittedBy'],
+          reviewedBy: user._id,
           reviewedAt: now,
           comments: comments ?? null,
         };
@@ -355,24 +421,36 @@ export class TicketController {
       await ticket.save();
 
       if (status === TICKET_STATUS.APPROVED) {
-        await Organization.findOneAndUpdate(
-          { _id: orgId, 'departments.name': ticket.department },
-          { $inc: { 'departments.$.spent': ticket.amount } }
+        await Organization.updateOne(
+          { _id: org._id, "departmentData._id": ticket.department },
+          { $inc: { "departmentData.$.spent": ticket.amount } },
         );
       }
 
+      const ticketData = await ticket.data(org);
+
       const io = getIO();
       const eventPayload = {
-        type: 'ticket_status_change',
+        type: "ticket_status_change",
         ticketId: ticket._id.toString(),
-        status: ticket.status,
+        ticketData,
         timestamp: new Date().toISOString(),
       };
 
-      io.to(orgId!).emit('ticket_status_change', eventPayload);
-      io.to(ticket.submittedBy.toString()).emit('ticket_status_change', eventPayload);
+      io.to(org._id.toString()).emit("ticket_status_change", eventPayload);
+      io.to(ticket.submittedBy.toString()).emit(
+        "ticket_status_change",
+        eventPayload,
+      );
 
-      res.status(200).json({ success: true, ticket });
+      const payload: ResponsePayload<ITicketData> = {
+        success: true,
+        message: "Ticket status updated successfully",
+        data: ticketData,
+        timestamp: new Date().toISOString(),
+      };
+
+      res.status(200).json(payload);
     } catch (err) {
       next(err);
     }
@@ -381,41 +459,30 @@ export class TicketController {
   /**
    * GET /api/expenses/:id/receipt
    */
-  static async getReceipt(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async getReceipt(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      const user = req.user!;
+      const org = req.organization!;
+      const ticketId = req.params["id"] as string;
+
       const ticket = await Ticket.findOne({
-        _id: req.params['id'],
-        orgId: req.user!.orgId,
-      }).lean();
-      if (!ticket) throw createError(404, 'Ticket not found', 'NOT_FOUND');
+        _id: ticketId,
+        orgId: org._id,
+      });
+      if (!ticket) createError("Ticket not found", 404, "NOT_FOUND");
       if (!ticket.receiptKey)
-        throw createError(404, 'No receipt attached to this ticket', 'NO_RECEIPT');
+        createError("No receipt attached to this ticket", 404, "NO_RECEIPT");
 
       const signedUrl = await getReceiptSignedUrl(ticket.receiptKey);
-      res.status(200).json({ success: true, signedUrl });
+      const payload: ResponsePayload<string> = {
+        success: true,
+        message: "Receipt URL retrieved successfully",
+        data: signedUrl,
+        timestamp: new Date().toISOString(),
+      };
+      res.status(200).json(payload);
     } catch (err) {
       next(err);
     }
   }
 }
-
-// ─── Validation Rules ─────────────────────────────────────────────────────────
-
-export const createTicketValidation = [
-  body('title').trim().notEmpty().withMessage('Title is required'),
-  body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be a positive number'),
-  body('currency').isIn(['USD', 'INR']).withMessage('Currency must be USD or INR'),
-  body('department').trim().notEmpty().withMessage('Department is required'),
-];
-
-export const updateStatusValidation = [
-  body('status')
-    .isIn(Object.values(TICKET_STATUS))
-    .withMessage(`Status must be one of: ${Object.values(TICKET_STATUS).join(', ')}`),
-];
-
-export const listTicketsValidation = [
-  query('page').optional().isInt({ min: 1 }),
-  query('limit').optional().isInt({ min: 1, max: MAX_LIMIT }),
-  query('status').optional().isIn(Object.values(TICKET_STATUS)),
-];

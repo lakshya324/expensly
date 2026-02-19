@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import { ROLES } from "../config/constants.js";
-import { IUser, IUserOutput } from "../types/user.types.js";
+import { IUser, IUserData } from "../types/user.types.js";
 import { createError } from "../utils/error.js";
 import { Organization } from "./Organization.model.js";
 import { IDepartmentData, IOrganization } from "../types/organization.types.js";
@@ -26,7 +26,7 @@ const UserSchema = new Schema<IUser>(
       ref: "Organization",
       default: null,
     },
-    department: { type: String, trim: true, default: null },
+    department: { type: Schema.Types.ObjectId, default: null },
     managerId: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -55,7 +55,7 @@ export const User = mongoose.model<IUser>("User", UserSchema);
 UserSchema.methods.data = async function (
   this: IUser,
   org: IOrganization | null = null,
-): Promise<IUserOutput> {
+): Promise<IUserData> {
   if (this.isDisabled)
     createError(
       "User account is disabled. Please contact your administrator.",
@@ -105,7 +105,7 @@ UserSchema.methods.data = async function (
     this.orgId && orgData
       ? orgData
           .departmentData()
-          .find((dept: IDepartmentData) => dept._id === this.department)
+          .find((dept: IDepartmentData) => dept._id.toString() === this.department?.toString())
       : null;
 
   return {
