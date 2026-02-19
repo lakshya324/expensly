@@ -1,15 +1,19 @@
 {
   "name": "expensly-backend",
   "version": "2.0.0",
-  "description": "Expensly Backend - Real Express + MongoDB + Socket.IO expense management system",
+  "description": "Expensly Backend - expense management system",
   "license": "MIT",
   "author": "Lakshya Sharma",
   "type": "module",
-  "main": "dist/server.js",
+  "main": "dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lakshya324/expensly/.git"
+  },
   "scripts": {
-    "start": "node dist/server.js",
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc-watch --onSuccess \"npm start\"",
+    "build": "tsc -p .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
