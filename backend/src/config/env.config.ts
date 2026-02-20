@@ -10,7 +10,7 @@ function requireEnv(key: string): string {
 const config = {
   port: parseInt(process.env["PORT"] ?? "3000") || 3000,
   nodeEnv: process.env["NODE_ENV"] ?? "development",
-  corsOrigin: process.env["CORS_ORIGIN"] ?? "http://127.0.0.1:5500",
+  corsOrigin: (process.env["CORS_ORIGIN"] ?? "http://localhost:5173,http://127.0.0.1:5173").split(",").map(s => s.trim()),
 
   //* MongoDB
   mongodbUri: requireEnv("MONGODB_URI"),
