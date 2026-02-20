@@ -11,6 +11,18 @@ import { OrgAnalytics } from "../models/OrgAnalytics.model.js";
 import { TICKET_STATUS } from "../config/constants.js";
 import { IOrgAnalyticsData } from "../types/analytics.types.js";
 import { logError, logInfo } from "../utils/logger.js";
+import { getJSON, setJSON, del } from "./cache.service.js";
+
+// Cache keys
+const ANALYTICS_CACHE_TTL = 3600; // 1 hour
+export const analyticsCacheKey = (orgId: string) => `cache:analytics:${orgId}`;
+
+// ---------------------------------------------------------------------------
+// Invalidate cached analytics for an org
+// ---------------------------------------------------------------------------
+export async function invalidateAnalyticsCache(orgId: Types.ObjectId | string): Promise<void> {
+  await del(analyticsCacheKey(orgId.toString()));
+}
 
 // ---------------------------------------------------------------------------
 // Refresh analytics snapshot for a given org
@@ -238,7 +250,7 @@ export async function refreshOrgAnalytics(
 
   logInfo(`Analytics refreshed for org ${orgId}`);
 
-  return {
+  const result: IOrgAnalyticsData = {
     orgId: oid.toString(),
     org: doc!.org as any,
     departments: doc!.departments.map((d) => ({
@@ -247,6 +259,11 @@ export async function refreshOrgAnalytics(
     })) as any,
     generatedAt: doc!.generatedAt,
   };
+
+  // Write-through cache
+  await setJSON(analyticsCacheKey(oid.toString()), result, ANALYTICS_CACHE_TTL);
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -255,10 +272,16 @@ export async function refreshOrgAnalytics(
 export async function getOrgAnalytics(
   orgId: Types.ObjectId | string,
 ): Promise<IOrgAnalyticsData | null> {
+  const cacheKey = analyticsCacheKey(orgId.toString());
+
+  // Try cache first
+  const cached = await getJSON<IOrgAnalyticsData>(cacheKey);
+  if (cached) return cached;
+
   const doc = await OrgAnalytics.findOne({ orgId });
   if (!doc) return null;
 
-  return {
+  const result: IOrgAnalyticsData = {
     orgId: doc.orgId.toString(),
     org: doc.org as any,
     departments: doc.departments.map((d) => ({
@@ -267,4 +290,9 @@ export async function getOrgAnalytics(
     })) as any,
     generatedAt: doc.generatedAt,
   };
+
+  // Populate cache
+  await setJSON(cacheKey, result, ANALYTICS_CACHE_TTL);
+
+  return result;
 }

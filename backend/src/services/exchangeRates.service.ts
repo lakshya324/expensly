@@ -15,6 +15,11 @@ import {
 } from "../types/exchangeRate.types.js";
 import { createError } from "../utils/error.js";
 import { logError, logInfo } from "../utils/logger.js";
+import { getJSON, setJSON, del } from "./cache.service.js";
+
+// Cache TTL for external rate responses (1 hour)
+const RATE_CACHE_TTL = 3600;
+const RATE_CACHE_PREFIX = "cache:rates:";
 
 // ---------------------------------------------------------------------------
 // External rate fetch (open.er-api.com — free, no key required for base rates)
@@ -24,6 +29,12 @@ const EXTERNAL_RATE_API = "https://open.er-api.com/v6/latest";
 export async function fetchExternalRates(
   baseCurrency: Currency = DEFAULT_BASE_CURRENCY,
 ): Promise<Record<string, number>> {
+  const cacheKey = `${RATE_CACHE_PREFIX}${baseCurrency}`;
+
+  // Check cache first
+  const cached = await getJSON<Record<string, number>>(cacheKey);
+  if (cached) return cached;
+
   const url = `${EXTERNAL_RATE_API}/${baseCurrency}`;
   try {
     const res = await fetch(url);
@@ -40,6 +51,10 @@ export async function fetchExternalRates(
     for (const c of CURRENCIES) {
       if (json.rates[c] != null) filtered[c] = json.rates[c];
     }
+
+    // Cache the filtered result
+    await setJSON(cacheKey, filtered, RATE_CACHE_TTL);
+
     return filtered;
   } catch (err) {
     logError(err as Error, {

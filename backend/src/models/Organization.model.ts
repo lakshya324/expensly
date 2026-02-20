@@ -30,16 +30,16 @@ const OrganizationSchema = new Schema<IOrganization>(
 );
 
 // Auto-generate slug from name
-OrganizationSchema.pre("save", function () {
-  if (this.isModified("name") || this.isNew) {
-    this.slug = this.name
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .trim();
-  }
-});
+// OrganizationSchema.pre("save", function () {
+//   if (this.isModified("name") || this.isNew) {
+//     this.slug = this.name
+//       .toLowerCase()
+//       .replace(/[^a-z0-9\s-]/g, "")
+//       .replace(/\s+/g, "-")
+//       .replace(/-+/g, "-")
+//       .trim();
+//   }
+// });
 
 OrganizationSchema.methods.data = function (
   this: IOrganization,

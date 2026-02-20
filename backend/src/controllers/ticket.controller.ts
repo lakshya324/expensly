@@ -37,6 +37,10 @@ import {
 } from "../websocket/handlers/ticket.handler.js";
 import { emitAnalyticsUpdate } from "../websocket/handlers/analytics.handler.js";
 import { Types } from "mongoose";
+import {
+  sendTicketSubmittedEmail,
+  sendTicketStatusEmail,
+} from "../services/email.service.js";
 
 export default class TicketController {
   /**
@@ -157,6 +161,7 @@ export default class TicketController {
       if (req.file) {
         const properKey = buildReceiptKey(
           ticket._id.toString(),
+          org.slug,
           req.file.mimetype,
         );
         await uploadFile(properKey, req.file.buffer, req.file.mimetype);
@@ -173,6 +178,33 @@ export default class TicketController {
 
       const ticketData = await ticket.data(org);
       emitNewTicket(org._id.toString(), ticketData, user._id.toString());
+
+      // Notify manager and org admins about new submission (non-blocking)
+      try {
+        const notifyTargets: { email: string; name: string }[] = [];
+        if (user.managerId) {
+          const manager = await User.findById(user.managerId).select("email name");
+          if (manager) notifyTargets.push({ email: manager.email, name: manager.name });
+        }
+        const admins = await User.find({ orgId: org._id, role: ROLES.ADMIN, isDisabled: false }).select("email name");
+        for (const admin of admins) {
+          if (!notifyTargets.some((t) => t.email === admin.email))
+            notifyTargets.push({ email: admin.email, name: admin.name });
+        }
+        for (const target of notifyTargets) {
+          sendTicketSubmittedEmail(
+            target.email,
+            target.name,
+            user.name,
+            ticket.title,
+            ticket._id.toString(),
+            ticket.amount,
+            ticket.currency,
+          );
+        }
+      } catch {
+        // Non-fatal notification
+      }
 
       const payload: ResponsePayload<ITicketData> = {
         success: true,
@@ -469,6 +501,28 @@ export default class TicketController {
         ticketData,
         user._id.toString(),
       );
+
+      // Notify submitter of status change (non-blocking)
+      if (
+        status === TICKET_STATUS.APPROVED ||
+        status === TICKET_STATUS.REJECTED
+      ) {
+        try {
+          const submitter = await User.findById(ticket.submittedBy).select("email name");
+          if (submitter) {
+            sendTicketStatusEmail(
+              submitter.email,
+              submitter.name,
+              ticket.title,
+              ticket._id.toString(),
+              status,
+              comments ?? null,
+            );
+          }
+        } catch {
+          // Non-fatal notification
+        }
+      }
 
       // Refresh pre-computed analytics after any status change
       try {

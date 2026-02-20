@@ -28,3 +28,15 @@ export const loginValidation = [
   body("email").toLowerCase().isEmail().withMessage("Valid email is required"),
   body("password").trim().notEmpty().withMessage("Password is required"),
 ];
+
+export const verifyOtpValidation = [
+  body("otpSessionId")
+    .trim()
+    .notEmpty()
+    .withMessage("OTP session ID is required"),
+  body("otp")
+    .trim()
+    .isLength({ min: 6, max: 6 })
+    .isNumeric()
+    .withMessage("OTP must be a 6-digit number"),
+];

@@ -9,6 +9,7 @@ import config from "./config/env.config.js";
 import { logError, logSuccess } from "./utils/logger.js";
 import { initializeSocket } from "./socket.js";
 import { startCronJobs } from "./cron.js";
+import { mountSwagger } from "./swagger.js";
 
 // Setup Environment
 setupEnvironment();
@@ -20,6 +21,9 @@ middlewares(app);
 
 // Logging
 logs(app);
+
+// Swagger UI (development only)
+mountSwagger(app);
 
 // Routes
 app.use(router);

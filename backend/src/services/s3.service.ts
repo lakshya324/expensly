@@ -62,9 +62,13 @@ export const deleteFile = async (key: string): Promise<void> => {
 };
 
 /**
- * Build a receipt S3 key for a given ticket id and file extension.
+ * Build a receipt S3 key using the pattern expensly/<orgSlug>/<ticketId>.<ext>.
  */
-export const buildReceiptKey = (ticketId: string, mimetype: string): string => {
+export const buildReceiptKey = (
+  ticketId: string,
+  orgSlug: string,
+  mimetype: string,
+): string => {
   const ext = mimetype.split('/')[1] ?? 'bin';
-  return `receipts/${ticketId}.${ext}`;
+  return `expensly/${orgSlug}/${ticketId}.${ext}`;
 };

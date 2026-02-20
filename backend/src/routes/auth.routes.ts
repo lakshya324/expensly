@@ -5,6 +5,7 @@ import { validate } from "../middleware/validate.js";
 import {
   loginValidation,
   signupValidation,
+  verifyOtpValidation,
 } from "../validation/auth.schema.js";
 
 const router = express.Router();
@@ -14,14 +15,16 @@ const router = express.Router();
 //* Signup [POST /api/auth/signup]
 router.post("/auth/signup", validate(signupValidation), AuthController.signup);
 
-//* Login [POST /api/auth/login]
+//* Login Step 1 — validate credentials → send OTP [POST /api/auth/login]
 router.post("/auth/login", validate(loginValidation), AuthController.login);
 
 //? FE compatibility aliases
-// These endpoints are used by the FE to determine user role and render appropriate UI.
 router.post("/auth/superadmin", validate(loginValidation), AuthController.login);
 router.post("/auth/admin", validate(loginValidation), AuthController.login);
 router.post("/auth/user", validate(loginValidation), AuthController.login);
+
+//* Login Step 2 — verify OTP → issue tokens [POST /api/auth/verify-otp]
+router.post("/auth/verify-otp", validate(verifyOtpValidation), AuthController.verifyOtp);
 
 //* Token Refresh [POST /api/auth/refresh]
 router.post("/auth/refresh", AuthController.refresh);

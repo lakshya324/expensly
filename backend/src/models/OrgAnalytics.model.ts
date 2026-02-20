@@ -53,7 +53,7 @@ const OrgAnalyticsSchema = new Schema<IOrgAnalytics>(
   { timestamps: false },
 );
 
-OrgAnalyticsSchema.index({ orgId: 1 });
+// OrgAnalyticsSchema.index({ orgId: 1 });
 
 export const OrgAnalytics = mongoose.model<IOrgAnalytics>(
   "OrgAnalytics",

@@ -15,6 +15,7 @@ import {
   emitUserUpdate,
   emitUserDisable,
 } from "../websocket/handlers/user.handler.js";
+import { sendWelcomeEmail } from "../services/email.service.js";
 
 export default class AdminController {
   //! Users
@@ -103,6 +104,9 @@ export default class AdminController {
 
       const userData = await newUser.data(org);
       emitUserUpdate(org._id.toString(), userData, org._id.toString());
+
+      // Welcome email (non-blocking)
+      sendWelcomeEmail(newUser.email, newUser.name, org.name, password);
 
       const payload: ResponsePayload<IUserData> = {
         success: true,

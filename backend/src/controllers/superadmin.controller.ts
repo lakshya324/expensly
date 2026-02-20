@@ -21,6 +21,10 @@ import { isValidObjectId } from "mongoose";
 import { logError } from "../utils/logger.js";
 import { User } from "../models/User.model.js";
 import { IUserData } from "../types/user.types.js";
+import {
+  sendSignupApprovedEmail,
+  sendSignupRejectedEmail,
+} from "../services/email.service.js";
 
 export default class SuperAdminController {
   /**
@@ -117,6 +121,20 @@ export default class SuperAdminController {
       const body = req.body as Record<string, unknown>;
       org.isDisabled = isDisabled;
       await org.save();
+
+      // Email org admin about status change (non-blocking)
+      try {
+        const orgAdmin = await User.findOne({ orgId: org._id, role: ROLES.ADMIN }).select("email name");
+        if (orgAdmin) {
+          if (!isDisabled) {
+            sendSignupApprovedEmail(orgAdmin.email, orgAdmin.name, org.name);
+          } else {
+            sendSignupRejectedEmail(orgAdmin.email, orgAdmin.name, org.name);
+          }
+        }
+      } catch {
+        // Non-fatal notification
+      }
 
       const payload: ResponsePayload = {
         success: true,

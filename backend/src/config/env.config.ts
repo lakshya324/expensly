@@ -51,6 +51,20 @@ const config = {
     awsAccessKeyId: process.env["AWS_ACCESS_KEY_ID"] as string | undefined,
     awsSecretAccessKey: requireEnv("AWS_SECRET_ACCESS_KEY"),
   },
+
+  //* Redis
+  redisUrl: requireEnv("REDIS_URL"),
+
+  //* Email (SMTP)
+  emailConfig: {
+    host: requireEnv("SMTP_HOST"),
+    port: parseInt(process.env["SMTP_PORT"] ?? "587") || 587,
+    user: requireEnv("SMTP_USER"),
+    pass: requireEnv("SMTP_PASS"),
+  },
+
+  //* OTP
+  otpExpiresIn: parseInt(process.env["OTP_EXPIRES_IN"] ?? "300") || 300, // seconds
 };
 
 export default config;

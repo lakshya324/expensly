@@ -1,12 +1,15 @@
 import bcrypt from "bcryptjs";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import crypto from "crypto";
+import { Response } from "express";
 import config from "../config/env.config.js";
-import { BCRYPT_ROUNDS } from "../config/constants.js";
+import { BCRYPT_ROUNDS, REFRESH_TOKEN_COOKIE } from "../config/constants.js";
 import { createError } from "../utils/error.js";
 import { logError } from "../utils/logger.js";
 import { Types } from "mongoose";
 import { RefreshToken } from "../models/RefreshToken.model.js";
+import { CookieOptions } from "express";
+import { IUser } from "../types/user.types.js";
 
 //! Password
 export function hashPassword(plain: string): Promise<string> {
@@ -108,4 +111,36 @@ export async function revokeAllUserTokens(
   userId: Types.ObjectId,
 ): Promise<void> {
   await RefreshToken.deleteMany({ userId });
+}
+
+// ---------------------------------------------------------------------------
+// Issue access + refresh token pair (sets refresh cookie, returns access token)
+// ---------------------------------------------------------------------------
+const refreshCookieOptions: CookieOptions = {
+  httpOnly: true,
+  secure: config.nodeEnv === "production",
+  sameSite: config.nodeEnv === "production" ? "strict" : "lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  path: "/",
+};
+
+export async function issueTokenPair(
+  user: IUser,
+  res: Response,
+): Promise<string> {
+  const accessToken = generateAccessToken(user._id);
+  const refreshToken = await generateRefreshToken(user._id);
+  res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, refreshCookieOptions);
+  return accessToken;
+}
+
+// ---------------------------------------------------------------------------
+// OTP helpers (stored in Redis by caller)
+// ---------------------------------------------------------------------------
+export function generateOtp(): string {
+  return crypto.randomInt(100000, 999999).toString();
+}
+
+export function generateOtpSessionId(): string {
+  return crypto.randomBytes(32).toString("hex");
 }
