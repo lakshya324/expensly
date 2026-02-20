@@ -121,7 +121,14 @@ export default class TicketController {
           "INVALID_DEPARTMENT",
         );
 
-      const needsManagerApproval = user?.managerId != null;
+      // Manager approval required only when the user has a manager AND the ticket
+      // amount meets or exceeds the department threshold for that currency.
+      // If no threshold is configured, default to requiring manager approval.
+      const parsedAmount = parseFloat(amount ?? "0");
+      const currencyThreshold = dept.approvalThresholds.get(currency ?? "") ?? null;
+      const needsManagerApproval =
+        user?.managerId != null &&
+        (currencyThreshold === null || parsedAmount >= currencyThreshold);
 
       const parsedTags: string[] = tags
         ? Array.isArray(tags)
@@ -133,7 +140,7 @@ export default class TicketController {
         title,
         submittedBy: user._id,
         orgId: org._id,
-        amount: parseFloat(amount ?? "0"),
+        amount: parsedAmount,
         currency,
         department,
         description: description ?? "",
@@ -144,7 +151,7 @@ export default class TicketController {
           ? {
               required: true,
               approved: null,
-              reviewedBy: null,
+              reviewedBy: user.managerId,
               reviewedAt: null,
               comments: null,
             }
@@ -371,15 +378,17 @@ export default class TicketController {
       const user = req.user!;
       const org = req.organization!;
       const ticketId = req.params["id"] as string;
-      const { flagged } = req.body as { flagged: boolean };
+      const body = req.body as { flagged?: boolean } | undefined;
 
       const ticket = await Ticket.findOne({
         _id: ticketId,
         orgId: org._id,
       });
-      if (!ticket) createError("Ticket not found", 404, "NOT_FOUND");
+      if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
 
-      ticket.flagged = flagged === true;
+      // If an explicit value is supplied use it, otherwise toggle the current state
+      const newFlagged = body?.flagged !== undefined ? body.flagged === true : !ticket.flagged;
+      ticket.flagged = newFlagged;
       await ticket.save();
 
       const ticketData = await ticket.data(org);
@@ -387,7 +396,7 @@ export default class TicketController {
 
       const payload: ResponsePayload<ITicketData> = {
         success: true,
-        message: `Ticket ${flagged ? "flagged" : "unflagged"} successfully`,
+        message: `Ticket ${newFlagged ? "flagged" : "unflagged"} successfully`,
         data: ticketData,
         timestamp: new Date().toISOString(),
       };
