@@ -248,9 +248,16 @@ export default class AuthController {
           "ACCOUNT_DISABLED",
         );
 
-      // Delete existing OTP (if any) and issue a fresh one
+      // Only resend if the previous OTP has already expired
       const loginOtpKey = `${LOGIN_OTP_PREFIX}${userId}`;
-      await del(loginOtpKey);
+      const existing = await getJSON<OtpRecord>(loginOtpKey);
+      if (existing) {
+        throw createError(
+          "An OTP was already sent to your email. Please wait for it to expire before requesting a new one.",
+          429,
+          "OTP_ALREADY_SENT",
+        );
+      }
 
       const otp = generateOtp();
       const record: OtpRecord = { otp, attempts: 0 };
@@ -427,11 +434,11 @@ export default class AuthController {
 
       const accessToken = await issueTokenPair(user, res);
 
-      const payload: ResponsePayload<{ accessToken: string }> = {
+      const payload: ResponsePayload<{ accessToken: string; user: IUserData }> = {
         success: true,
         message: "Token refreshed successfully",
         timestamp: new Date().toISOString(),
-        data: { accessToken },
+        data: { accessToken, user: await user.data() },
       };
 
       res.status(200).json(payload);

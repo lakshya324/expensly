@@ -24,4 +24,6 @@ export interface IOrganizationData {
   baseCurrency: string;
   activeCurrencies: string[];
   currentRateSnapshotId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

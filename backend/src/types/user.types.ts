@@ -37,6 +37,9 @@ export interface IUserData {
   department: IDepartmentData | null;
   permissions: IUserPermissions;
   manager: Omit<IUserData, "org" | "department" | "manager" | "permissions"> | null;
+  isDisabled: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface IUserMinimalData {

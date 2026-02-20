@@ -67,8 +67,7 @@ export default class SuperAdminController {
         Organization.find(filter)
           .sort({ createdAt: -1 })
           .skip(skip)
-          .limit(limit)
-          .lean(),
+          .limit(limit),
         Organization.countDocuments(filter),
       ]);
 

@@ -63,20 +63,20 @@ UserSchema.methods.data = async function (
   this: IUser,
   org: IOrganization | null = null,
 ): Promise<IUserData> {
-  if (this.isDisabled)
-    createError(
-      "User account is disabled. Please contact your administrator.",
-      403,
-      "USER_DISABLED",
-    );
+  // if (this.isDisabled)
+  //   createError(
+  //     "User account is disabled. Please contact your administrator.",
+  //     403,
+  //     "USER_DISABLED",
+  //   );
 
   let orgData = org;
   let managerData = null;
 
   if (this.orgId && !org) {
     orgData = await Organization.findById(this.orgId);
-    if (!orgData)
-      createError("Organization not found for the user", 404, "ORG_NOT_FOUND");
+    // if (!orgData)
+    //   createError("Organization not found for the user", 404, "ORG_NOT_FOUND");
   }
 
   if (this.managerId) {
@@ -89,6 +89,9 @@ UserSchema.methods.data = async function (
         name: manager.name,
         email: manager.email,
         role: manager.role,
+        isDisabled: manager.isDisabled,
+        createdAt: manager.createdAt.toISOString(),
+        updatedAt: manager.updatedAt.toISOString(),
       };
     }
   }
@@ -111,6 +114,9 @@ UserSchema.methods.data = async function (
       canApprove: this.permissions?.canApprove ?? null,
     },
     manager: managerData,
+    isDisabled: this.isDisabled,
+    createdAt: this.createdAt.toISOString(),
+    updatedAt: this.updatedAt.toISOString(),
   };
 };
 

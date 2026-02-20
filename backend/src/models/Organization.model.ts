@@ -54,6 +54,8 @@ OrganizationSchema.methods.data = function (
     currentRateSnapshotId: this.currentRateSnapshotId
       ? this.currentRateSnapshotId.toString()
       : null,
+    createdAt: this.createdAt.toISOString(),
+    updatedAt: this.updatedAt.toISOString(),
   };
 };
 
