@@ -81,7 +81,7 @@ UserSchema.methods.data = async function (
 
   if (this.managerId) {
     const manager = await User.findById(this.managerId).select(
-      "_id name email role",
+      "_id name email role isDisabled createdAt updatedAt",
     );
     if (manager) {
       managerData = {
