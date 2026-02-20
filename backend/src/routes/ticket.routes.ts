@@ -11,39 +11,39 @@ const router = express.Router();
 
 //* List Tickets [GET /api/users/expenses]
 router.get(
-  "/expenses",
+  "/",
   validate(schema.listTicketsValidation),
   TicketController.list,
 );
 
 //* Create Ticket [POST /api/users/expenses]
 router.post(
-  "/expenses",
+  "/",
   uploadReceipt,
   validate(schema.createTicketValidation),
   TicketController.create,
 );
 
 //* Get Ticket Details [GET /api/users/expenses/:id]
-router.get("/expenses/:id", TicketController.getOne);
+router.get("/:id", TicketController.getOne);
 
 //* Update Ticket [PATCH /api/users/expenses/:id]
-router.patch("/expenses/:id", TicketController.update);
+router.patch("/:id", TicketController.update);
 
 //* Delete Ticket [DELETE /api/users/expenses/:id]
-router.delete("/expenses/:id", TicketController.remove);
+router.delete("/:id", TicketController.remove);
 
 //* Flag Ticket [PATCH /api/users/expenses/:id/flag]
-router.patch("/expenses/:id/flag", TicketController.flag);
+router.patch("/:id/flag", TicketController.flag);
 
 //* Update Ticket Status [PATCH /api/users/expenses/:id/status]
 router.patch(
-  "/expenses/:id/status",
+  "/:id/status",
   validate(schema.updateStatusValidation),
   TicketController.updateStatus,
 );
 
 //* Get Receipt Image [GET /api/users/expenses/:id/receipt]
-router.get("/expenses/:id/receipt", TicketController.getReceipt);
+router.get("/:id/receipt", TicketController.getReceipt);
 
 export default router;
