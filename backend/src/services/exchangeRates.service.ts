@@ -8,7 +8,7 @@
 import { Types } from "mongoose";
 import { ExchangeRateSnapshot } from "../models/ExchangeRateSnapshot.model.js";
 import { Organization } from "../models/Organization.model.js";
-import { Currency, CURRENCIES, DEFAULT_BASE_CURRENCY } from "../config/constants.js";
+import { CURRENCIES, DEFAULT_BASE_CURRENCY, Currency } from "../config/constants.js";
 import {
   IExchangeRateSnapshot,
   IExchangeRateSnapshotData,
@@ -88,7 +88,6 @@ export async function setOrgRates(
   userId: Types.ObjectId | string,
   rates: Record<string, number>,
   source: "manual" | "fetched",
-  activeCurrencies?: Currency[],
 ): Promise<IExchangeRateSnapshotData> {
   const org = await Organization.findById(orgId);
   if (!org) throw createError("Organization not found", 404, "ORG_NOT_FOUND");
@@ -97,13 +96,11 @@ export async function setOrgRates(
     orgId: org._id,
     rates: new Map(Object.entries(rates)),
     baseCurrency: org.baseCurrency,
-    activeCurrencies: activeCurrencies ?? org.activeCurrencies,
     source,
     createdBy: userId,
   });
 
   org.currentRateSnapshotId = snapshot._id;
-  if (activeCurrencies) org.activeCurrencies = activeCurrencies;
   await org.save();
 
   logInfo(`Exchange rates updated for org ${orgId} (source: ${source})`);

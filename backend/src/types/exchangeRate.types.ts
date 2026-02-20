@@ -12,7 +12,7 @@ export interface IExchangeRateSnapshot extends Document {
   rates: Map<string, number>;
   baseCurrency: Currency;
   /** Which currencies the org has activated */
-  activeCurrencies: Currency[];
+  // activeCurrencies: Currency[];
   /** 'manual' = admin typed values, 'fetched' = pulled from external API */
   source: "manual" | "fetched";
   createdBy: Types.ObjectId;
@@ -25,7 +25,7 @@ export interface IExchangeRateSnapshotData {
   orgId: string;
   rates: Record<string, number>;
   baseCurrency: string;
-  activeCurrencies: string[];
+  // activeCurrencies: string[];
   source: "manual" | "fetched";
   createdBy: string;
   createdAt: Date;

@@ -14,6 +14,9 @@ router.patch("/", ExchangeRatesController.setRates);
 //* Fetch Latest from External API [POST /api/admin/exchange-rates/fetch-latest]
 router.post("/fetch-latest", ExchangeRatesController.fetchLatest);
 
+//* Preview External Rates Without Saving [GET /api/admin/exchange-rates/fetch-preview]
+router.get("/fetch-preview", ExchangeRatesController.fetchPreview);
+
 //* Rate History [GET /api/admin/exchange-rates/history]
 router.get("/history", ExchangeRatesController.getHistory);
 

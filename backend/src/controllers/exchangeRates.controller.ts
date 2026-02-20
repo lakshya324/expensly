@@ -4,6 +4,7 @@ import {
   getOrgRates,
   setOrgRates,
   fetchAndSaveOrgRates,
+  fetchExternalRates,
   getRateHistory,
 } from "../services/exchangeRates.service.js";
 import { Organization } from "../models/Organization.model.js";
@@ -52,9 +53,8 @@ export default class ExchangeRatesController {
     try {
       const org = req.organization!;
       const user = req.user!;
-      const { rates, activeCurrencies } = req.body as {
+      const { rates } = req.body as {
         rates: Record<string, number>;
-        activeCurrencies?: Currency[];
       };
 
       if (
@@ -79,7 +79,6 @@ export default class ExchangeRatesController {
         user._id,
         rates,
         "manual",
-        activeCurrencies,
       );
 
       emitRatesUpdate(
@@ -127,6 +126,28 @@ export default class ExchangeRatesController {
         message: "Latest exchange rates fetched and saved",
         timestamp: new Date().toISOString(),
         data: snapshot,
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** GET /api/admin/exchange-rates/fetch-preview — preview external rates without saving */
+  static async fetchPreview(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const org = req.organization!;
+      const rates = await fetchExternalRates(org.baseCurrency);
+
+      const payload: ResponsePayload<Record<string, number>> = {
+        success: true,
+        message: "External rates fetched (preview only — not saved)",
+        timestamp: new Date().toISOString(),
+        data: rates,
       };
       res.status(200).json(payload);
     } catch (err) {

@@ -22,10 +22,10 @@ const ExchangeRateSnapshotSchema = new Schema<IExchangeRateSnapshot>(
       enum: CURRENCIES,
       required: true,
     },
-    activeCurrencies: {
-      type: [String],
-      default: [],
-    },
+    // activeCurrencies: {
+    //   type: [String],
+    //   default: [],
+    // },
     source: {
       type: String,
       enum: ["manual", "fetched"],
@@ -49,7 +49,7 @@ ExchangeRateSnapshotSchema.methods.toData =
       orgId: this.orgId.toString(),
       rates: Object.fromEntries(this.rates),
       baseCurrency: this.baseCurrency,
-      activeCurrencies: this.activeCurrencies,
+      // activeCurrencies: this.activeCurrencies,
       source: this.source,
       createdBy: this.createdBy.toString(),
       createdAt: this.createdAt,
