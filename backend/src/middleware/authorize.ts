@@ -12,10 +12,10 @@ import { createError } from "../utils/error.js";
  */
 export const authorize = (...roles: Role[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    if (!req.user) createError("User not authenticated", 401, "UNAUTHORIZED");
+    if (!req.user) throw createError("User not authenticated", 401, "UNAUTHORIZED");
 
     if (!roles.includes(req.user.role))
-      createError("Forbidden: insufficient permissions", 403, "FORBIDDEN");
+      throw createError("Forbidden: insufficient permissions", 403, "FORBIDDEN");
 
     next();
   };

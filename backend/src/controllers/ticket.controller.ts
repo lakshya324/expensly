@@ -26,7 +26,10 @@ import { Ticket } from "../models/Ticket.model.js";
 import { User } from "../models/User.model.js";
 import { Department } from "../models/Department.model.js";
 import { Organization } from "../models/Organization.model.js";
-import { convertAmount, getOrgRates } from "../services/exchangeRates.service.js";
+import {
+  convertAmount,
+  getOrgRates,
+} from "../services/exchangeRates.service.js";
 import { refreshOrgAnalytics } from "../services/analytics.service.js";
 import {
   emitNewTicket,
@@ -125,7 +128,8 @@ export default class TicketController {
       // amount meets or exceeds the department threshold for that currency.
       // If no threshold is configured, default to requiring manager approval.
       const parsedAmount = parseFloat(amount ?? "0");
-      const currencyThreshold = dept.approvalThresholds.get(currency ?? "") ?? null;
+      const currencyThreshold =
+        dept.approvalThresholds.get(currency ?? "") ?? null;
       const needsManagerApproval =
         user?.managerId != null &&
         (currencyThreshold === null || parsedAmount >= currencyThreshold);
@@ -190,10 +194,17 @@ export default class TicketController {
       try {
         const notifyTargets: { email: string; name: string }[] = [];
         if (user.managerId) {
-          const manager = await User.findById(user.managerId).select("email name");
-          if (manager) notifyTargets.push({ email: manager.email, name: manager.name });
+          const manager = await User.findById(user.managerId).select(
+            "email name",
+          );
+          if (manager)
+            notifyTargets.push({ email: manager.email, name: manager.name });
         }
-        const admins = await User.find({ orgId: org._id, role: ROLES.ADMIN, isDisabled: false }).select("email name");
+        const admins = await User.find({
+          orgId: org._id,
+          role: ROLES.ADMIN,
+          isDisabled: false,
+        }).select("email name");
         for (const admin of admins) {
           if (!notifyTargets.some((t) => t.email === admin.email))
             notifyTargets.push({ email: admin.email, name: admin.name });
@@ -387,7 +398,8 @@ export default class TicketController {
       if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
 
       // If an explicit value is supplied use it, otherwise toggle the current state
-      const newFlagged = body?.flagged !== undefined ? body.flagged === true : !ticket.flagged;
+      const newFlagged =
+        body?.flagged !== undefined ? body.flagged === true : !ticket.flagged;
       ticket.flagged = newFlagged;
       await ticket.save();
 
@@ -418,6 +430,7 @@ export default class TicketController {
     try {
       const user = req.user!;
       const org = req.organization!;
+      const dept = req.userDepartment;
       const { status, comments } = req.body as {
         status: ITicket["status"];
         comments?: string;
@@ -448,16 +461,30 @@ export default class TicketController {
         status === TICKET_STATUS.APPROVED ||
         status === TICKET_STATUS.REJECTED
       ) {
-        // Guard: can't finance-approve if manager approval is required but not yet done
+        // Only users with canApprove permission (or admins) can do finance approval.
+        // Priority: user-level permission → dept-level permission → role default.
+        const hasApprovePermission =
+          user.role === ROLES.ADMIN ||
+          user.permissions?.canApprove === true ||
+          (user.permissions?.canApprove == null &&
+            dept?.permissions?.canApprove === true);
+        if (!hasApprovePermission)
+          throw createError(
+            "You do not have permission to approve or reject tickets",
+            403,
+            "FORBIDDEN",
+          );
+
+        // If manager approval was pending but finance is approving, auto-bypass it
         if (
+          status === TICKET_STATUS.APPROVED &&
           ticket.managerApproval?.required === true &&
           ticket.managerApproval?.approved !== true
         ) {
-          throw createError(
-            "Manager approval is required before finance can approve this ticket",
-            400,
-            "MANAGER_APPROVAL_REQUIRED",
-          );
+          ticket.managerApproval.approved = true;
+          ticket.managerApproval.reviewedBy = user._id;
+          ticket.managerApproval.reviewedAt = now;
+          ticket.managerApproval.comments = "Auto-approved by finance";
         }
 
         ticket.financeApproval = {
@@ -517,7 +544,9 @@ export default class TicketController {
         status === TICKET_STATUS.REJECTED
       ) {
         try {
-          const submitter = await User.findById(ticket.submittedBy).select("email name");
+          const submitter = await User.findById(ticket.submittedBy).select(
+            "email name",
+          );
           if (submitter) {
             sendTicketStatusEmail(
               submitter.email,

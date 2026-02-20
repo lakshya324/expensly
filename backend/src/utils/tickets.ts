@@ -11,10 +11,14 @@ export function buildTicketFilter(req: AuthRequest): Record<string, unknown> {
   const filter: Record<string, unknown> = { orgId: user.orgId };
 
   // Determine if user should see only their own tickets.
-  // User-level permission override takes precedence over role default.
+  // Priority: user-level permission → dept-level permission → role default.
+  const dept = req.userDepartment ?? null;
   const canViewAll =
     user.permissions?.canViewAllTickets === true ||
-    (user.permissions?.canViewAllTickets == null && user.role !== ROLES.USER);
+    (user.permissions?.canViewAllTickets == null && (
+      dept?.permissions?.canViewAllTickets === true ||
+      user.role !== ROLES.USER
+    ));
 
   const userScopeOr = canViewAll
     ? null

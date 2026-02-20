@@ -7,6 +7,7 @@ import { ROLES } from "../config/constants.js";
 import { logError } from "../utils/logger.js";
 import { Organization } from "../models/Organization.model.js";
 import { User } from "../models/User.model.js";
+import { Department } from "../models/Department.model.js";
 
 /**
  * Authentication Middleware - Verifies JWT access token and loads user/org into req context
@@ -46,6 +47,13 @@ export async function authenticate(
         createError("Organization is disabled", 401, "ORG_DISABLED");
 
       req.organization = org;
+    }
+
+    // Load the user's department so permission resolution can use dept-level permissions
+    if (user.department) {
+      req.userDepartment = await Department.findById(user.department) ?? null;
+    } else {
+      req.userDepartment = null;
     }
 
     req.user = user;
