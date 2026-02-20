@@ -39,15 +39,15 @@ const COLUMNS: Column<ITicketData>[] = [
     header: 'Submitted By',
     render: (row) => (
       <div>
-        <p className="text-sm font-medium">{(row as unknown as { userId?: { name?: string } }).userId?.name ?? '—'}</p>
-        <p className="text-xs text-muted-foreground">{(row as unknown as { userId?: { email?: string } }).userId?.email ?? ''}</p>
+        <p className="text-sm font-medium">{(row as unknown as { submittedBy?: { name?: string } }).submittedBy?.name ?? '—'}</p>
+        <p className="text-xs text-muted-foreground">{(row as unknown as { submittedBy?: { email?: string } }).submittedBy?.email ?? ''}</p>
       </div>
     ),
   },
   {
     key: 'department',
     header: 'Department',
-    render: (row) => <span className="text-sm">{row.departmentId?.name ?? '—'}</span>,
+    render: (row) => <span className="text-sm">{row.department?.name ?? '—'}</span>,
   },
   {
     key: 'amount',
