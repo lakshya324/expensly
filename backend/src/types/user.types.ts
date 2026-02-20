@@ -1,6 +1,14 @@
 import { Document, Types } from "mongoose";
 import { Role } from "../config/constants.js";
-import { IDepartmentData, IOrganization, IOrganizationData } from "./organization.types.js";
+import { IOrganization, IOrganizationData } from "./organization.types.js";
+import { IDepartmentData } from "./department.types.js";
+
+export interface IUserPermissions {
+  /** Override dept-level canViewAllTickets. null = inherit from dept */
+  canViewAllTickets: boolean | null;
+  /** Override dept-level canApprove. null = inherit from dept */
+  canApprove: boolean | null;
+}
 
 export interface IUser extends Document {
   _id: Types.ObjectId;
@@ -11,12 +19,12 @@ export interface IUser extends Document {
   orgId: Types.ObjectId | null;
   department: Types.ObjectId | null;
   managerId: Types.ObjectId | null;
+  permissions: IUserPermissions;
   isDisabled: boolean;
   createdAt: Date;
   updatedAt: Date;
 
-  //! Functions
-
+  //! Methods
   data(this: IUser, org?: IOrganization): Promise<IUserData>;
 }
 
@@ -27,7 +35,8 @@ export interface IUserData {
   role: Role;
   org: IOrganizationData | null;
   department: IDepartmentData | null;
-  manager: Omit<IUserData, "org" | "department" | "manager"> | null;
+  permissions: IUserPermissions;
+  manager: Omit<IUserData, "org" | "department" | "manager" | "permissions"> | null;
 }
 
 export interface IUserMinimalData {

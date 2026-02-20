@@ -10,12 +10,18 @@ export function buildTicketFilter(req: AuthRequest): Record<string, unknown> {
 
   const filter: Record<string, unknown> = { orgId: user.orgId };
 
-  if (user.role === ROLES.USER) {
-    filter["$or"] = [
-      { submittedBy: user._id },
-      { "managerApproval.reviewedBy": user._id },
-    ];
-  }
+  // Determine if user should see only their own tickets.
+  // User-level permission override takes precedence over role default.
+  const canViewAll =
+    user.permissions?.canViewAllTickets === true ||
+    (user.permissions?.canViewAllTickets == null && user.role !== ROLES.USER);
+
+  const userScopeOr = canViewAll
+    ? null
+    : [
+        { submittedBy: user._id },
+        { "managerApproval.reviewedBy": user._id },
+      ];
 
   if (status) filter["status"] = status;
   if (department) filter["department"] = department;
@@ -27,13 +33,21 @@ export function buildTicketFilter(req: AuthRequest): Record<string, unknown> {
     filter["createdAt"] = dateRange;
   }
 
-  if (search) {
-    // Note: this overwrites any $or set above; search takes precedence
-    filter["$or"] = [
-      { title: { $regex: search, $options: "i" } },
-      { description: { $regex: search, $options: "i" } },
-      { tags: { $regex: search, $options: "i" } },
-    ];
+  const searchOr = search
+    ? [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+        { tags: { $regex: search, $options: "i" } },
+      ]
+    : null;
+
+  if (userScopeOr && searchOr) {
+    // Both constraints active — combine with $and to prevent overwrite
+    filter["$and"] = [{ $or: userScopeOr }, { $or: searchOr }];
+  } else if (userScopeOr) {
+    filter["$or"] = userScopeOr;
+  } else if (searchOr) {
+    filter["$or"] = searchOr;
   }
 
   return filter;

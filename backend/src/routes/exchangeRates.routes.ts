@@ -1,9 +1,23 @@
-// Exchange Rates Routes (SSE)
-import express from 'express';
-import { ExchangeRatesController } from '../controllers/exchangeRates.controller.js';
+import { Router } from "express";
+import ExchangeRatesController from "../controllers/exchangeRates.controller.js";
 
-const router = express.Router();
+const router = Router();
 
-router.get('/', ExchangeRatesController.streamRates);
+//! Exchange Rate Routes [ALL Methods /api/admin/exchange-rates]
+
+//* Get Current Rates Snapshot [GET /api/admin/exchange-rates]
+router.get("/", ExchangeRatesController.getCurrent);
+
+//* Manually Set Rates [PATCH /api/admin/exchange-rates]
+router.patch("/", ExchangeRatesController.setRates);
+
+//* Fetch Latest from External API [POST /api/admin/exchange-rates/fetch-latest]
+router.post("/fetch-latest", ExchangeRatesController.fetchLatest);
+
+//* Rate History [GET /api/admin/exchange-rates/history]
+router.get("/history", ExchangeRatesController.getHistory);
+
+//* Update Active Currencies [PATCH /api/admin/exchange-rates/active-currencies]
+router.patch("/active-currencies", ExchangeRatesController.updateActiveCurrencies);
 
 export default router;

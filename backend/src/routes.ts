@@ -1,8 +1,10 @@
-import express, { Router, Request, Response, NextFunction } from "express";
+import express, { Router, Response, NextFunction } from "express";
 import { AuthRequest } from "./types/types.js";
 import { logInfo } from "./utils/logger.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import exchangeRatesRoutes from "./routes/exchangeRates.routes.js";
+import departmentRoutes from "./routes/department.routes.js";
+import analyticsRoutes from "./routes/analytics.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import healthRoutes from "./routes/health.routes.js";
@@ -28,10 +30,6 @@ router.use((req: AuthRequest, res: Response, next: NextFunction) => {
 //* Health APIs [ALL Methods /api/health]
 router.use("/api/health", apiLimiter, healthRoutes);
 
-// //* Exchange Rates (SSE) [ALL Methods /api/exchange-rates]
-// router.use("/api/exchange-rates", exchangeRatesRoutes);
-// // Note: No rate limiting on exchange rates since it's a streaming endpoint and doesn't cause heavy load
-
 //* Auth APIs [ALL Methods /api/auth]
 router.use("/api/auth", authLimiter, authRoutes);
 
@@ -51,6 +49,33 @@ router.use(
   authenticate,
   authorize(ROLES.ADMIN),
   adminRoutes,
+);
+
+//* Admin: Department Routes [ALL Methods /api/admin/departments]
+router.use(
+  "/api/admin/departments",
+  apiLimiter,
+  authenticate,
+  authorize(ROLES.ADMIN),
+  departmentRoutes,
+);
+
+//* Admin: Exchange Rate Routes [ALL Methods /api/admin/exchange-rates]
+router.use(
+  "/api/admin/exchange-rates",
+  apiLimiter,
+  authenticate,
+  authorize(ROLES.ADMIN),
+  exchangeRatesRoutes,
+);
+
+//* Admin: Analytics Routes [ALL Methods /api/admin/analytics]
+router.use(
+  "/api/admin/analytics",
+  apiLimiter,
+  authenticate,
+  authorize(ROLES.ADMIN),
+  analyticsRoutes,
 );
 
 //* Super Admin Routes [ALL Methods /api/superadmin]

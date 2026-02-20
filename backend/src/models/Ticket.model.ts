@@ -8,7 +8,7 @@ import {
 } from "../types/ticket.types.js";
 import { User } from "./User.model.js";
 import { IOrganization } from "../types/organization.types.js";
-import { Organization } from "./Organization.model.js";
+import { Department } from "./Department.model.js";
 import { createError } from "../utils/error.js";
 
 const ApprovalSchema = new Schema<IApproval>(
@@ -29,7 +29,11 @@ const TicketSchema = new Schema<ITicket>(
     orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true },
     amount: { type: Number, required: true, min: 0 },
     currency: { type: String, enum: CURRENCIES, required: true },
-    department: { type: Schema.Types.ObjectId, required: true },
+    department: {
+      type: Schema.Types.ObjectId,
+      ref: "Department",
+      required: true,
+    },
     description: { type: String, trim: true, default: "" },
     tags: { type: [String], default: [] },
     receiptKey: { type: String, default: null },
@@ -41,6 +45,12 @@ const TicketSchema = new Schema<ITicket>(
     flagged: { type: Boolean, default: false },
     managerApproval: { type: ApprovalSchema, default: null },
     financeApproval: { type: ApprovalSchema, default: null },
+    exchangeRateSnapshotId: {
+      type: Schema.Types.ObjectId,
+      ref: "ExchangeRateSnapshot",
+      default: null,
+    },
+    convertedAmount: { type: Number, default: null },
   },
   { timestamps: true },
 );
@@ -55,16 +65,10 @@ TicketSchema.methods.data = async function (
   this: ITicket,
   org: IOrganization,
 ): Promise<ITicketData> {
-  const department = org.departmentData();
-  const ticketDept = department.find(
-    (d) => d._id.toString() === this.department.toString(),
-  );
-  if (!ticketDept)
-    createError(
-      "Ticket department not found in organization",
-      500,
-      "DATA_ERROR",
-    );
+  // Load department from its own collection
+  const dept = this.department
+    ? await Department.findById(this.department)
+    : null;
 
   const fetchUsers = [this.submittedBy];
   if (this.managerApproval?.reviewedBy)
@@ -80,12 +84,26 @@ TicketSchema.methods.data = async function (
   if (!submittedBy)
     createError("Submitted by user not found", 500, "DATA_ERROR");
 
+  // Resolve reviewer dept data
+  const resolveReviewerDept = async (deptId: mongoose.Types.ObjectId | null | undefined) => {
+    if (!deptId) return null;
+    const d = await Department.findById(deptId);
+    return d ? d.toData() : null;
+  };
+
   const managerReviewer = this.managerApproval?.reviewedBy
     ? users.find((u) => u._id.equals(this.managerApproval!.reviewedBy!))
     : null;
   const financeReviewer = this.financeApproval?.reviewedBy
     ? users.find((u) => u._id.equals(this.financeApproval!.reviewedBy!))
     : null;
+
+  const [managerReviewerDept, financeReviewerDept, submittedByDept] =
+    await Promise.all([
+      resolveReviewerDept(managerReviewer?.department as mongoose.Types.ObjectId | null | undefined),
+      resolveReviewerDept(financeReviewer?.department as mongoose.Types.ObjectId | null | undefined),
+      resolveReviewerDept(submittedBy?.department as mongoose.Types.ObjectId | null | undefined),
+    ]);
 
   const managerApproval: IApprovalData | null = this.managerApproval
     ? {
@@ -97,11 +115,7 @@ TicketSchema.methods.data = async function (
               name: managerReviewer.name,
               email: managerReviewer.email,
               role: managerReviewer.role,
-              department:
-                department.find(
-                  (d) =>
-                    d._id.toString() === managerReviewer.department?.toString(),
-                ) || null,
+              department: managerReviewerDept,
             }
           : null,
         reviewedAt: this.managerApproval.reviewedAt,
@@ -119,17 +133,20 @@ TicketSchema.methods.data = async function (
               name: financeReviewer.name,
               email: financeReviewer.email,
               role: financeReviewer.role,
-              department:
-                department.find(
-                  (d) =>
-                    d._id.toString() === financeReviewer.department?.toString(),
-                ) || null,
+              department: financeReviewerDept,
             }
           : null,
         reviewedAt: this.financeApproval.reviewedAt,
         comments: this.financeApproval.comments,
       }
     : null;
+
+  // Determine if rates changed since approval
+  const ratesChangedSinceApproval =
+    this.exchangeRateSnapshotId != null &&
+    org.currentRateSnapshotId != null &&
+    this.exchangeRateSnapshotId.toString() !==
+      org.currentRateSnapshotId.toString();
 
   return {
     _id: this._id.toString(),
@@ -139,16 +156,12 @@ TicketSchema.methods.data = async function (
       name: submittedBy.name,
       email: submittedBy.email,
       role: submittedBy.role,
-      department: submittedBy.department
-        ? department.find(
-            (d) => d._id.toString() === submittedBy.department?.toString(),
-          ) || null
-        : null,
+      department: submittedByDept,
     },
     orgId: this.orgId.toString(),
     amount: this.amount,
     currency: this.currency,
-    department: ticketDept,
+    department: dept ? dept.toData() : null,
     description: this.description,
     tags: this.tags,
     receiptKey: this.receiptKey,
@@ -156,6 +169,11 @@ TicketSchema.methods.data = async function (
     flagged: this.flagged,
     managerApproval,
     financeApproval,
+    exchangeRateSnapshotId: this.exchangeRateSnapshotId
+      ? this.exchangeRateSnapshotId.toString()
+      : null,
+    convertedAmount: this.convertedAmount,
+    ratesChangedSinceApproval,
     createdAt: this.createdAt,
   };
 };

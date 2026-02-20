@@ -9,12 +9,5 @@ export const createUserValidation = [
     .withMessage(
       `Password must be at least ${userConfig.password.minLength} characters`,
     ),
-  body("department").trim().notEmpty().withMessage("Department is required"),
-];
-
-export const addDepartmentValidation = [
-  body("name").trim().notEmpty().withMessage("Department name is required"),
-  body("budget")
-    .isFloat({ min: 0 })
-    .withMessage("Budget must be a non-negative number"),
+  body("department").trim().notEmpty().withMessage("Department ID is required"),
 ];

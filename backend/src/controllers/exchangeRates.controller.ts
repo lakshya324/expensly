@@ -1,30 +1,221 @@
-// Exchange Rates Controller (SSE)
-import { Request, Response } from 'express';
-import { ExchangeRatesService } from '../services/exchangeRates.service.js';
+import { Response, NextFunction } from "express";
+import { AuthRequest } from "../types/types.js";
+import {
+  getOrgRates,
+  setOrgRates,
+  fetchAndSaveOrgRates,
+  getRateHistory,
+} from "../services/exchangeRates.service.js";
+import { Organization } from "../models/Organization.model.js";
+import { createError } from "../utils/error.js";
+import {
+  ResponsePayload,
+  ResponsePaginationPayload,
+} from "../types/payloads.types.js";
+import { IExchangeRateSnapshotData } from "../types/exchangeRate.types.js";
+import { emitRatesUpdate } from "../websocket/handlers/analytics.handler.js";
+import {
+  Currency,
+  CURRENCIES,
+  DEFAULT_PAGE,
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
+} from "../config/constants.js";
 
-export class ExchangeRatesController {
-  static streamRates(req: Request, res: Response): void {
-    console.log('[SSE] Exchange rates connection established');
+export default class ExchangeRatesController {
+  /** GET /api/admin/exchange-rates — current snapshot */
+  static async getCurrent(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const org = req.organization!;
+      const snapshot = await getOrgRates(org._id);
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders();
+      const payload: ResponsePayload<IExchangeRateSnapshotData | null> = {
+        success: true,
+        message: snapshot
+          ? "Exchange rates retrieved"
+          : "No exchange rates set yet",
+        timestamp: new Date().toISOString(),
+        data: snapshot,
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-    // Send current rates immediately on connect
-    const current = ExchangeRatesService.getCurrentRates();
-    res.write(`data: ${JSON.stringify(current)}\n\n`);
+  /** PATCH /api/admin/exchange-rates — manually set rates */
+  static async setRates(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const org = req.organization!;
+      const user = req.user!;
+      const { rates, activeCurrencies } = req.body as {
+        rates: Record<string, number>;
+        activeCurrencies?: Currency[];
+      };
 
-    // Subscribe to the shared interval emitter
-    const unsubscribe = ExchangeRatesService.subscribe((rates) => {
-      if (!res.writableEnded) {
-        res.write(`data: ${JSON.stringify(rates)}\n\n`);
-      }
-    });
+      if (
+        !rates ||
+        typeof rates !== "object" ||
+        Object.keys(rates).length === 0
+      )
+        throw createError("rates object is required", 400, "VALIDATION_ERROR");
 
-    req.on('close', () => {
-      unsubscribe();
-      console.log('[SSE] Exchange rates connection closed');
-    });
+      const invalidCurrencies = Object.keys(rates).filter(
+        (c) => !(CURRENCIES as readonly string[]).includes(c),
+      );
+      if (invalidCurrencies.length > 0)
+        throw createError(
+          `Invalid currencies: ${invalidCurrencies.join(", ")}`,
+          400,
+          "INVALID_CURRENCY",
+        );
+
+      const snapshot = await setOrgRates(
+        org._id,
+        user._id,
+        rates,
+        "manual",
+        activeCurrencies,
+      );
+
+      emitRatesUpdate(
+        org._id.toString(),
+        snapshot._id,
+        snapshot.rates,
+        snapshot.baseCurrency,
+        user._id.toString(),
+      );
+
+      const payload: ResponsePayload<IExchangeRateSnapshotData> = {
+        success: true,
+        message: "Exchange rates updated",
+        timestamp: new Date().toISOString(),
+        data: snapshot,
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** POST /api/admin/exchange-rates/fetch-latest — pull from external API */
+  static async fetchLatest(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const org = req.organization!;
+      const user = req.user!;
+
+      const snapshot = await fetchAndSaveOrgRates(org._id, user._id);
+
+      emitRatesUpdate(
+        org._id.toString(),
+        snapshot._id,
+        snapshot.rates,
+        snapshot.baseCurrency,
+        user._id.toString(),
+      );
+
+      const payload: ResponsePayload<IExchangeRateSnapshotData> = {
+        success: true,
+        message: "Latest exchange rates fetched and saved",
+        timestamp: new Date().toISOString(),
+        data: snapshot,
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** GET /api/admin/exchange-rates/history — paginated snapshot history */
+  static async getHistory(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const org = req.organization!;
+      const { page: pageQ, limit: limitQ } = req.query as Record<
+        string,
+        string | undefined
+      >;
+      const page = Math.max(1, parseInt(pageQ ?? "") || DEFAULT_PAGE);
+      const limit = Math.min(
+        MAX_LIMIT,
+        Math.max(1, parseInt(limitQ ?? "") || DEFAULT_LIMIT),
+      );
+
+      const { data, total } = await getRateHistory(org._id, limit, page);
+
+      const payload: ResponsePaginationPayload<IExchangeRateSnapshotData> = {
+        success: true,
+        message: "Exchange rate history retrieved",
+        timestamp: new Date().toISOString(),
+        data: {
+          data,
+          pagination: {
+            page,
+            pageSize: data.length,
+            totalItems: total,
+            totalPages: Math.ceil(total / limit),
+          },
+        },
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** PATCH /api/admin/exchange-rates/active-currencies */
+  static async updateActiveCurrencies(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const org = req.organization!;
+      const { activeCurrencies } = req.body as { activeCurrencies: Currency[] };
+
+      if (!Array.isArray(activeCurrencies) || activeCurrencies.length === 0)
+        throw createError(
+          "activeCurrencies must be a non-empty array",
+          400,
+          "VALIDATION_ERROR",
+        );
+
+      const invalid = activeCurrencies.filter(
+        (c) => !(CURRENCIES as readonly string[]).includes(c),
+      );
+      if (invalid.length > 0)
+        throw createError(
+          `Invalid currencies: ${invalid.join(", ")}`,
+          400,
+          "INVALID_CURRENCY",
+        );
+
+      const updatedOrg = await Organization.findByIdAndUpdate(
+        org._id,
+        { $set: { activeCurrencies } },
+        { new: true },
+      );
+
+      const payload: ResponsePayload<string[]> = {
+        success: true,
+        message: "Active currencies updated",
+        timestamp: new Date().toISOString(),
+        data: updatedOrg!.activeCurrencies,
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
   }
 }

@@ -8,6 +8,7 @@ import middlewares from "./middlewares.js";
 import config from "./config/env.config.js";
 import { logError, logSuccess } from "./utils/logger.js";
 import { initializeSocket } from "./socket.js";
+import { startCronJobs } from "./cron.js";
 
 // Setup Environment
 setupEnvironment();
@@ -30,6 +31,7 @@ databases()
     server.listen(config.port, () =>
       logSuccess(`Server started on port ${config.port}`),
     );
+    startCronJobs();
   })
   .catch((err) =>
     logError(err, {

@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import {
   TICKET_STATUS,
@@ -14,7 +14,6 @@ import {
   buildReceiptKey,
 } from "../services/s3.service.js";
 import { createError } from "../utils/error.js";
-import { getIO } from "../websocket/ioServer.js";
 import { AuthRequest } from "../types/types.js";
 import { buildTicketFilter } from "../utils/tickets.js";
 import {
@@ -25,7 +24,19 @@ import { logError } from "../utils/logger.js";
 import { ITicket, ITicketData } from "../types/ticket.types.js";
 import { Ticket } from "../models/Ticket.model.js";
 import { User } from "../models/User.model.js";
+import { Department } from "../models/Department.model.js";
 import { Organization } from "../models/Organization.model.js";
+import { convertAmount, getOrgRates } from "../services/exchangeRates.service.js";
+import { refreshOrgAnalytics } from "../services/analytics.service.js";
+import {
+  emitNewTicket,
+  emitTicketUpdate,
+  emitTicketDelete,
+  emitTicketFlag,
+  emitTicketStatusChange,
+} from "../websocket/handlers/ticket.handler.js";
+import { emitAnalyticsUpdate } from "../websocket/handlers/analytics.handler.js";
+import { Types } from "mongoose";
 
 export default class TicketController {
   /**
@@ -94,12 +105,14 @@ export default class TicketController {
         timestamp,
       } = req.body as Record<string, string | undefined>;
 
-      const deptExists = org.departments.some(
-        (d) => d._id.toString() === department,
-      );
-      if (!deptExists)
-        createError(
-          `Department "${department}" not found in your organization`,
+      const dept = await Department.findOne({
+        _id: new Types.ObjectId(department as string),
+        orgId: org._id,
+        isActive: true,
+      });
+      if (!dept)
+        throw createError(
+          `Department not found or inactive`,
           400,
           "INVALID_DEPARTMENT",
         );
@@ -151,14 +164,15 @@ export default class TicketController {
         await ticket.save();
       }
 
-      const ticketData = await ticket.data(org);
+      // Add any new tags into the department's tag pool
+      if (parsedTags.length > 0) {
+        await Department.findByIdAndUpdate(dept._id, {
+          $addToSet: { tags: { $each: parsedTags } },
+        });
+      }
 
-      getIO().to(org._id.toString()).emit("new_ticket", {
-        type: "new_ticket",
-        ticketId: ticket._id.toString(),
-        ticketData,
-        timestamp: new Date().toISOString(),
-      });
+      const ticketData = await ticket.data(org);
+      emitNewTicket(org._id.toString(), ticketData, user._id.toString());
 
       const payload: ResponsePayload<ITicketData> = {
         success: true,
@@ -250,13 +264,7 @@ export default class TicketController {
       await ticket.save();
 
       const ticketData = await ticket.data(org);
-
-      getIO().to(org._id.toString()).emit("ticket_update", {
-        type: "ticket_update",
-        ticketId: ticket._id.toString(),
-        ticketData,
-        timestamp: new Date().toISOString(),
-      });
+      emitTicketUpdate(org._id.toString(), ticketData, user._id.toString());
 
       const payload: ResponsePayload<ITicketData> = {
         success: true,
@@ -264,7 +272,6 @@ export default class TicketController {
         data: ticketData,
         timestamp: new Date().toISOString(),
       };
-
       res.status(200).json(payload);
     } catch (err) {
       next(err);
@@ -310,12 +317,7 @@ export default class TicketController {
       }
 
       await ticket.deleteOne();
-
-      getIO().to(org._id.toString()).emit("ticket_delete", {
-        type: "ticket_delete",
-        ticketId: ticket._id.toString(),
-        timestamp: new Date().toISOString(),
-      });
+      emitTicketDelete(org._id.toString(), ticket._id.toString());
 
       const payload: ResponsePayload = {
         success: true,
@@ -349,13 +351,7 @@ export default class TicketController {
       await ticket.save();
 
       const ticketData = await ticket.data(org);
-
-      getIO().to(org._id.toString()).emit("ticket_flag", {
-        type: "ticket_flag",
-        ticketId: ticket._id.toString(),
-        ticketData,
-        timestamp: new Date().toISOString(),
-      });
+      emitTicketFlag(org._id.toString(), ticketData, user._id.toString());
 
       const payload: ResponsePayload<ITicketData> = {
         success: true,
@@ -388,60 +384,99 @@ export default class TicketController {
       const ticketId = req.params["id"] as string;
 
       const ticket = await Ticket.findOne({ _id: ticketId, orgId: org._id });
-      if (!ticket) createError("Ticket not found", 404, "NOT_FOUND");
+      if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
 
       const now = new Date();
 
+      // Manager / awaiting_finance step
       if (
-        status === TICKET_STATUS.MANAGER_APPROVED ||
+        status === TICKET_STATUS.AWAITING_FINANCE ||
         status === TICKET_STATUS.REJECTED
       ) {
         if (ticket.managerApproval) {
           ticket.managerApproval.approved =
-            status === TICKET_STATUS.MANAGER_APPROVED;
+            status === TICKET_STATUS.AWAITING_FINANCE;
           ticket.managerApproval.reviewedBy = user._id;
           ticket.managerApproval.reviewedAt = now;
           ticket.managerApproval.comments = comments ?? null;
         }
       }
 
+      // Finance final approval / rejection
       if (
         status === TICKET_STATUS.APPROVED ||
         status === TICKET_STATUS.REJECTED
       ) {
+        // Guard: can't finance-approve if manager approval is required but not yet done
+        if (
+          ticket.managerApproval?.required === true &&
+          ticket.managerApproval?.approved !== true
+        ) {
+          throw createError(
+            "Manager approval is required before finance can approve this ticket",
+            400,
+            "MANAGER_APPROVAL_REQUIRED",
+          );
+        }
+
         ticket.financeApproval = {
           approved: status === TICKET_STATUS.APPROVED,
           reviewedBy: user._id,
           reviewedAt: now,
           comments: comments ?? null,
         };
+
+        if (status === TICKET_STATUS.APPROVED) {
+          // Lock exchange rate snapshot
+          const freshOrg = await Organization.findById(org._id).select(
+            "currentRateSnapshotId baseCurrency",
+          );
+          if (freshOrg?.currentRateSnapshotId) {
+            ticket.exchangeRateSnapshotId = freshOrg.currentRateSnapshotId;
+          }
+
+          // Compute converted amount into org base currency
+          try {
+            const snapshot = await getOrgRates(org._id);
+            if (snapshot) {
+              ticket.convertedAmount = convertAmount(
+                ticket.amount,
+                ticket.currency,
+                (freshOrg?.baseCurrency ?? org.baseCurrency) as string,
+                snapshot.rates,
+              );
+            }
+          } catch {
+            // Non-fatal — leave convertedAmount unset if rates unavailable
+          }
+
+          // Increment department spent
+          if (ticket.department) {
+            await Department.findByIdAndUpdate(ticket.department, {
+              $inc: { spent: ticket.amount },
+            });
+          }
+        }
       }
 
       ticket.status = status;
       await ticket.save();
 
-      if (status === TICKET_STATUS.APPROVED) {
-        await Organization.updateOne(
-          { _id: org._id, "departmentData._id": ticket.department },
-          { $inc: { "departmentData.$.spent": ticket.amount } },
-        );
-      }
-
       const ticketData = await ticket.data(org);
-
-      const io = getIO();
-      const eventPayload = {
-        type: "ticket_status_change",
-        ticketId: ticket._id.toString(),
+      emitTicketStatusChange(
+        org._id.toString(),
+        ticket.submittedBy.toString(),
         ticketData,
-        timestamp: new Date().toISOString(),
-      };
-
-      io.to(org._id.toString()).emit("ticket_status_change", eventPayload);
-      io.to(ticket.submittedBy.toString()).emit(
-        "ticket_status_change",
-        eventPayload,
+        user._id.toString(),
       );
+
+      // Refresh pre-computed analytics after any status change
+      try {
+        const analytics = await refreshOrgAnalytics(org._id);
+        emitAnalyticsUpdate(org._id.toString(), analytics, user._id.toString());
+      } catch {
+        // Non-fatal analytics refresh
+      }
 
       const payload: ResponsePayload<ITicketData> = {
         success: true,
@@ -449,7 +484,6 @@ export default class TicketController {
         data: ticketData,
         timestamp: new Date().toISOString(),
       };
-
       res.status(200).json(payload);
     } catch (err) {
       next(err);

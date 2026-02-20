@@ -1,30 +1,26 @@
-import { Request, Response, NextFunction } from "express";
+import { Response, NextFunction } from "express";
 import { hashPassword } from "../services/auth.service.js";
 import { createError } from "../utils/error.js";
-import { getIO } from "../websocket/ioServer.js";
-import {
-  ROLES,
-  DEFAULT_PAGE,
-  DEFAULT_LIMIT,
-  MAX_LIMIT,
-  CURRENCIES,
-} from "../config/constants.js";
+import { ROLES, DEFAULT_PAGE, DEFAULT_LIMIT, MAX_LIMIT } from "../config/constants.js";
 import { AuthRequest } from "../types/types.js";
 import { User } from "../models/User.model.js";
+import { Department } from "../models/Department.model.js";
 import {
   ResponsePaginationPayload,
   ResponsePayload,
 } from "../types/payloads.types.js";
-import { IUserData } from "../types/user.types.js";
+import { IUserData, IUserPermissions } from "../types/user.types.js";
 import { Types } from "mongoose";
-import { IDepartmentData } from "../types/organization.types.js";
+import {
+  emitUserUpdate,
+  emitUserDisable,
+} from "../websocket/handlers/user.handler.js";
 
 export default class AdminController {
   //! Users
 
   static async listUsers(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const user = req.user!;
       const org = req.organization!;
       const {
         page: pageQ,
@@ -42,14 +38,10 @@ export default class AdminController {
         orgId: org._id,
         role: { $ne: ROLES.SUPER_ADMIN },
       };
-      if (deptQ) filter["department"] = deptQ;
+      if (deptQ) filter["department"] = new Types.ObjectId(deptQ);
 
       const [users, total] = await Promise.all([
-        User.find(filter)
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .lean(),
+        User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
         User.countDocuments(filter),
       ]);
 
@@ -76,7 +68,6 @@ export default class AdminController {
 
   static async createUser(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const user = req.user!;
       const org = req.organization!;
       const { name, email, password, department, managerId } = req.body as {
         name: string;
@@ -86,16 +77,17 @@ export default class AdminController {
         managerId?: string;
       };
 
-      const deptExists = org.departments.some((d) => d.name === department);
-      if (!deptExists)
-        createError(
-          `Department "${department}" not found`,
-          400,
-          "INVALID_DEPARTMENT",
-        );
+      const dept = await Department.findOne({
+        _id: new Types.ObjectId(department),
+        orgId: org._id,
+        isActive: true,
+      });
+      if (!dept)
+        throw createError("Department not found or inactive", 400, "INVALID_DEPARTMENT");
 
       const existing = await User.findOne({ email: email.toLowerCase() });
-      if (existing) createError("Email already exists", 409, "DUPLICATE_EMAIL");
+      if (existing)
+        throw createError("Email already exists", 409, "DUPLICATE_EMAIL");
 
       const passwordHash = await hashPassword(password);
 
@@ -105,18 +97,12 @@ export default class AdminController {
         passwordHash,
         role: ROLES.USER,
         orgId: org._id,
-        department,
-        managerId: managerId ?? null,
+        department: new Types.ObjectId(department),
+        managerId: managerId ? new Types.ObjectId(managerId) : null,
       });
 
       const userData = await newUser.data(org);
-
-      getIO().to(org._id.toString()).emit("user_update", {
-        type: "user_update",
-        userId: newUser._id.toString(),
-        userData,
-        timestamp: new Date().toISOString(),
-      });
+      emitUserUpdate(org._id.toString(), userData, org._id.toString());
 
       const payload: ResponsePayload<IUserData> = {
         success: true,
@@ -132,7 +118,6 @@ export default class AdminController {
 
   static async editUser(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const user = req.user!;
       const org = req.organization!;
       const userId = req.params["id"]!;
 
@@ -147,15 +132,13 @@ export default class AdminController {
 
       if (name !== undefined) editUser.name = name;
       if (department !== undefined) {
-        const deptExists = org.departments.some(
-          (d) => d._id.toString() === department,
-        );
-        if (!deptExists)
-          createError(
-            `Department "${department}" not found`,
-            400,
-            "INVALID_DEPARTMENT",
-          );
+        const dept = await Department.findOne({
+          _id: new Types.ObjectId(department),
+          orgId: org._id,
+          isActive: true,
+        });
+        if (!dept)
+          throw createError("Department not found or inactive", 400, "INVALID_DEPARTMENT");
         editUser.department = new Types.ObjectId(department);
       }
       if (managerId !== undefined)
@@ -165,13 +148,7 @@ export default class AdminController {
       await editUser.save();
 
       const userData = await editUser.data(org);
-
-      getIO().to(org._id.toString()).emit("user_update", {
-        type: "user_update",
-        userId: editUser._id.toString(),
-        userData,
-        timestamp: new Date().toISOString(),
-      });
+      emitUserUpdate(org._id.toString(), userData, org._id.toString());
 
       const payload: ResponsePayload<IUserData> = {
         success: true,
@@ -179,7 +156,6 @@ export default class AdminController {
         timestamp: new Date().toISOString(),
         data: userData,
       };
-
       res.status(200).json(payload);
     } catch (err) {
       next(err);
@@ -192,30 +168,23 @@ export default class AdminController {
     next: NextFunction,
   ) {
     try {
-      const admin = req.user!;
       const org = req.organization!;
       const userId = req.params["id"]!;
-      const isDisabled = req.body["isDisabled"] === "true";
+      const isDisabled = req.body["isDisabled"] === true || req.body["isDisabled"] === "true";
 
       const user = await User.findOne({ _id: userId, orgId: org._id });
-      if (!user) createError("User not found", 404, "NOT_FOUND");
+      if (!user) throw createError("User not found", 404, "NOT_FOUND");
 
-      const body = req.body as Record<string, unknown>;
       user.isDisabled = isDisabled;
       await user.save();
 
       const userData = await user.data(org);
-
-      const io = getIO();
-      const payload = {
-        type: "user_disable",
-        userId: user._id.toString(),
+      emitUserDisable(
+        org._id.toString(),
+        user._id.toString(),
         userData,
-        timestamp: new Date().toISOString(),
-      };
-
-      io.to(org._id.toString()).emit("user_disable", payload);
-      io.to(user._id.toString()).emit("user_disable", payload);
+        org._id.toString(),
+      );
 
       const responsePayload: ResponsePayload<boolean> = {
         success: true,
@@ -223,161 +192,45 @@ export default class AdminController {
         timestamp: new Date().toISOString(),
         data: isDisabled,
       };
-
       res.status(200).json(responsePayload);
     } catch (err) {
       next(err);
     }
   }
 
-  //! Departments
-
-  static async listDepartments(
+  static async updateUserPermissions(
     req: AuthRequest,
     res: Response,
     next: NextFunction,
   ) {
     try {
-      const user = req.user!;
       const org = req.organization!;
-
-      const payload: ResponsePayload<IDepartmentData[]> = {
-        success: true,
-        message: "Departments retrieved successfully",
-        timestamp: new Date().toISOString(),
-        data: org.departmentData(),
+      const userId = req.params["id"]!;
+      const { canViewAllTickets, canApprove } = req.body as {
+        canViewAllTickets?: boolean | null;
+        canApprove?: boolean | null;
       };
 
-      res.status(200).json(payload);
-    } catch (err) {
-      next(err);
-    }
-  }
+      const user = await User.findOne({ _id: userId, orgId: org._id });
+      if (!user) throw createError("User not found", 404, "NOT_FOUND");
 
-  static async addDepartment(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction,
-  ) {
-    try {
-      const user = req.user!;
-      const org = req.organization!;
-      const { name, budget, currency } = req.body as {
-        name: string;
-        budget?: number | string;
-        currency?: string;
-      };
+      if (canViewAllTickets !== undefined)
+        user.permissions.canViewAllTickets = canViewAllTickets;
+      if (canApprove !== undefined) user.permissions.canApprove = canApprove;
+      await user.save();
 
-      const duplicate = org.departments.some(
-        (d) => d.name.toLowerCase() === name.toLowerCase(),
-      );
-      if (duplicate)
-        createError(
-          `Department "${name}" already exists`,
-          409,
-          "DUPLICATE_DEPARTMENT",
-        );
+      const userData = await user.data(org);
+      emitUserUpdate(org._id.toString(), userData, org._id.toString());
 
-      org.departments.push({
-        name,
-        budget: parseFloat(String(budget)) || 0,
-        spent: 0,
-        currency: currency ?? CURRENCIES[0],
-      } as Parameters<typeof org.departments.push>[0]);
-      org.totalBudget = org.departments.reduce(
-        (sum, d) => sum + (d.budget ?? 0),
-        0,
-      );
-      await org.save();
-
-      const payload: ResponsePayload<{
-        departments: IDepartmentData[];
-        totalBudget: number;
-      }> = {
+      const payload: ResponsePayload<IUserPermissions> = {
         success: true,
-        message: "Department added successfully",
+        message: "User permissions updated",
         timestamp: new Date().toISOString(),
         data: {
-          departments: org.departmentData(),
-          totalBudget: org.totalBudget,
+          canViewAllTickets: user.permissions.canViewAllTickets ?? null,
+          canApprove: user.permissions.canApprove ?? null,
         },
       };
-
-      res.status(201).json(payload);
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  static async editDepartment(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction,
-  ) {
-    try {
-      const user = req.user!;
-      const org = req.organization!;
-      const deptId = req.params["id"]! as string;
-
-      const dept = org.departments.id(deptId);
-      if (!dept) createError("Department not found", 404, "NOT_FOUND");
-
-      const { name, budget, currency } = req.body as {
-        name?: string;
-        budget?: number | string;
-        currency?: string;
-      };
-      if (name !== undefined) dept.name = name;
-      if (budget !== undefined) dept.budget = parseFloat(String(budget));
-      if (currency !== undefined) dept.currency = currency as "USD" | "INR";
-
-      org.totalBudget = org.departments.reduce(
-        (sum, d) => sum + (d.budget ?? 0),
-        0,
-      );
-      await org.save();
-
-      const payload: ResponsePayload<{
-        departments: IDepartmentData[];
-        totalBudget: number;
-      }> = {
-        success: true,
-        message: "Department updated successfully",
-        timestamp: new Date().toISOString(),
-        data: {
-          departments: org.departmentData(),
-          totalBudget: org.totalBudget,
-        },
-      };
-      res.status(200).json(payload);
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  static async resetDepartmentSpent(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction,
-  ) {
-    try {
-      const user = req.user!;
-      const org = req.organization!;
-      const deptId = req.params["id"]! as string;
-
-      const dept = org.departments.id(deptId);
-      if (!dept) createError("Department not found", 404, "NOT_FOUND");
-
-      dept.spent = 0;
-      await org.save();
-
-      const payload: ResponsePayload<IDepartmentData[]> = {
-        success: true,
-        message: "Department spent reset successfully",
-        timestamp: new Date().toISOString(),
-        data: org.departmentData(),
-      };
-
       res.status(200).json(payload);
     } catch (err) {
       next(err);

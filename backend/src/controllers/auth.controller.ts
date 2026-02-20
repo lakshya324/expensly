@@ -12,7 +12,6 @@ import config from "../config/env.config.js";
 import {
   ROLES,
   REFRESH_TOKEN_COOKIE,
-  CURRENCIES,
 } from "../config/constants.js";
 import { createError } from "../utils/error.js";
 import { time } from "node:console";
@@ -72,10 +71,6 @@ export default class AuthController {
       const org = await Organization.create({
         name: orgName,
         slug: orgSlug,
-        totalBudget: 0,
-        departments: [
-          { name: "Finance", budget: 50000, spent: 0, currency: CURRENCIES[0] },
-        ],
         isDisabled: true,
       });
 

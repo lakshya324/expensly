@@ -1,10 +1,8 @@
 import { Router } from "express";
 import AdminController from "../controllers/admin.controller.js";
 import { validate } from "../middleware/validate.js";
-import {
-  addDepartmentValidation,
-  createUserValidation,
-} from "../validation/admin.schema.js";
+import { createUserValidation } from "../validation/admin.schema.js";
+import { updateUserPermissionsValidation } from "../validation/department.schema.js";
 
 const router = Router();
 
@@ -28,25 +26,11 @@ router.put("/users/:id", AdminController.editUser);
 //* Disable/Enable User [PATCH /api/admin/users/:id/disable]
 router.patch("/users/:id/disable", AdminController.toggleUserStatus);
 
-//? Departments
-
-//* List Departments [GET /api/admin/departments]
-router.get("/departments", AdminController.listDepartments);
-
-//* Add Department [POST /api/admin/departments]
-router.post(
-  "/departments",
-  validate(addDepartmentValidation),
-  AdminController.addDepartment,
+//* Update User Permissions [PATCH /api/admin/users/:id/permissions]
+router.patch(
+  "/users/:id/permissions",
+  validate(updateUserPermissionsValidation),
+  AdminController.updateUserPermissions,
 );
-
-//* Edit Department [PATCH /api/admin/departments/:id]
-router.patch("/departments/:id", AdminController.editDepartment);
-
-//* Delete Department [DELETE /api/admin/departments/:id]
-// router.delete('/departments/:id', AdminController.deleteDepartment);
-
-//* Reset Department Spent [POST /api/admin/departments/:id/reset]
-router.post("/departments/:id/reset", AdminController.resetDepartmentSpent);
 
 export default router;

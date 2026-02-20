@@ -1,7 +1,8 @@
 import { Document, Types } from "mongoose";
 import { Currency, TicketStatus } from "../config/constants.js";
 import { IUserData, IUserMinimalData } from "./user.types.js";
-import { IDepartmentData, IOrganization } from "./organization.types.js";
+import { IDepartmentData } from "./department.types.js";
+import { IOrganization } from "./organization.types.js";
 
 export interface IApproval {
   required?: boolean;
@@ -26,6 +27,10 @@ export interface ITicket extends Document {
   flagged: boolean;
   managerApproval: IApproval | null;
   financeApproval: IApproval | null;
+  /** Rate snapshot ID at the time of final approval */
+  exchangeRateSnapshotId: Types.ObjectId | null;
+  /** Amount converted to org base currency using the locked snapshot */
+  convertedAmount: number | null;
   createdAt: Date;
   updatedAt: Date;
 
@@ -48,7 +53,7 @@ export interface ITicketData {
   orgId: string;
   amount: number;
   currency: Currency;
-  department: IDepartmentData;
+  department: IDepartmentData | null;
   description: string;
   tags: string[];
   receiptKey: string | null;
@@ -56,5 +61,9 @@ export interface ITicketData {
   flagged: boolean;
   managerApproval: IApprovalData | null;
   financeApproval: IApprovalData | null;
+  exchangeRateSnapshotId: string | null;
+  convertedAmount: number | null;
+  /** True when the org's current rate snapshot differs from the ticket's locked snapshot */
+  ratesChangedSinceApproval: boolean;
   createdAt: Date;
 }

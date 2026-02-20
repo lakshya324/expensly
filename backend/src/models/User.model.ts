@@ -1,9 +1,10 @@
 import mongoose, { Schema } from "mongoose";
 import { ROLES } from "../config/constants.js";
-import { IUser, IUserData } from "../types/user.types.js";
+import { IUser, IUserData, IUserPermissions } from "../types/user.types.js";
 import { createError } from "../utils/error.js";
 import { Organization } from "./Organization.model.js";
-import { IDepartmentData, IOrganization } from "../types/organization.types.js";
+import { Department } from "./Department.model.js";
+import { IOrganization } from "../types/organization.types.js";
 
 const UserSchema = new Schema<IUser>(
   {
@@ -26,11 +27,19 @@ const UserSchema = new Schema<IUser>(
       ref: "Organization",
       default: null,
     },
-    department: { type: Schema.Types.ObjectId, default: null },
+    department: {
+      type: Schema.Types.ObjectId,
+      ref: "Department",
+      default: null,
+    },
     managerId: {
       type: Schema.Types.ObjectId,
       ref: "User",
       default: null,
+    },
+    permissions: {
+      canViewAllTickets: { type: Boolean, default: null },
+      canApprove: { type: Boolean, default: null },
     },
     isDisabled: { type: Boolean, default: false },
   },
@@ -67,46 +76,30 @@ UserSchema.methods.data = async function (
   let managerData = null;
 
   if (this.orgId && !org) {
-    if (this.managerId) {
-      const [org, manager] = await Promise.all([
-        Organization.findById(this.orgId),
-        User.findById(this.managerId),
-      ]);
+    orgData = await Organization.findById(this.orgId);
+    if (!orgData)
+      createError("Organization not found for the user", 404, "ORG_NOT_FOUND");
+  }
 
-      if (!org)
-        createError(
-          "Organization not found for the user",
-          404,
-          "ORG_NOT_FOUND",
-        );
-
-      if (!manager)
-        createError("Manager not found for the user", 404, "MANAGER_NOT_FOUND");
-
-      orgData = org;
+  if (this.managerId) {
+    const manager = await User.findById(this.managerId).select(
+      "_id name email role",
+    );
+    if (manager) {
       managerData = {
         _id: manager._id.toString(),
         name: manager.name,
         email: manager.email,
         role: manager.role,
       };
-    } else {
-      orgData = await Organization.findById(this.orgId);
-      if (!orgData)
-        createError(
-          "Organization not found for the user",
-          404,
-          "ORG_NOT_FOUND",
-        );
     }
   }
 
-  const departmentData =
-    this.orgId && orgData
-      ? orgData
-          .departmentData()
-          .find((dept: IDepartmentData) => dept._id.toString() === this.department?.toString())
-      : null;
+  let departmentData = null;
+  if (this.department) {
+    const dept = await Department.findById(this.department);
+    if (dept) departmentData = dept.toData();
+  }
 
   return {
     _id: this._id.toString(),
@@ -114,7 +107,11 @@ UserSchema.methods.data = async function (
     email: this.email,
     role: this.role,
     org: orgData ? orgData.data() : null,
-    department: departmentData ? departmentData : null,
+    department: departmentData,
+    permissions: {
+      canViewAllTickets: this.permissions?.canViewAllTickets ?? null,
+      canApprove: this.permissions?.canApprove ?? null,
+    },
     manager: managerData,
   };
 };
