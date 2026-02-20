@@ -59,8 +59,6 @@ UserSchema.pre("save", async function () {
     );
 });
 
-export const User = mongoose.model<IUser>("User", UserSchema);
-
 UserSchema.methods.data = async function (
   this: IUser,
   org: IOrganization | null = null,
@@ -115,3 +113,5 @@ UserSchema.methods.data = async function (
     manager: managerData,
   };
 };
+
+export const User = mongoose.model<IUser>("User", UserSchema);
