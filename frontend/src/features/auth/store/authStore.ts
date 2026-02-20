@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { tokenStore } from '@/infrastructure/storage/token.store';
 import { socketClient } from '@/infrastructure/socket/socket.client';
 import apiClient from '@/infrastructure/api/client';
-import type { IUserData } from '@/core/types/user.types';
+import type { IUserData, IOrganizationData } from '@/core/types/user.types';
 
 type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated';
 
@@ -15,6 +15,7 @@ interface AuthState {
   setAuth: (user: IUserData, accessToken: string) => void;
   clearAuth: () => void;
   tryRestoreSession: () => Promise<void>;
+  patchOrg: (patch: Partial<IOrganizationData>) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -48,4 +49,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ status: 'unauthenticated' });
     }
   },
+
+  patchOrg: (patch) =>
+    set((state) => {
+      if (!state.user) return {};
+      return { user: { ...state.user, org: state.user.org ? { ...state.user.org, ...patch } : state.user.org } };
+    }),
 }));

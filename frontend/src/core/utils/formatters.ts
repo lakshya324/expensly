@@ -38,14 +38,16 @@ export function formatCurrency(
   return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export function formatDuration(ms: number): string {
+export function formatDuration(ms: number | null | undefined): string {
+  if (ms == null || isNaN(ms)) return '—';
   if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
   if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`;
   if (ms < 86_400_000) return `${Math.round(ms / 3_600_000)}h`;
   return `${Math.round(ms / 86_400_000)}d`;
 }
 
-export function formatPercent(value: number, digits = 1): string {
+export function formatPercent(value: number | null | undefined, digits = 1): string {
+  if (value == null || isNaN(value)) return '—';
   return `${value.toFixed(digits)}%`;
 }
 

@@ -76,11 +76,15 @@ export function AdminUsersPage() {
     resolver: zodResolver(createUserSchema),
     defaultValues: { role: 'user' },
   });
+  const watchedCreateDept = createForm.watch('department');
+  const [createDeptUsers, setCreateDeptUsers] = useState<IUserData[]>([]);
 
   // Edit dialog
   const [editTarget, setEditTarget] = useState<IUserData | null>(null);
   const { updateUser, loading: updating } = useUpdateUser(editTarget?._id ?? '');
   const editForm = useForm<UpdateUserFormValues>({ resolver: zodResolver(updateUserSchema) });
+  const watchedEditDept = editForm.watch('department');
+  const [editDeptUsers, setEditDeptUsers] = useState<IUserData[]>([]);
 
   useEffect(() => {
     if (editTarget) {
@@ -89,8 +93,53 @@ export function AdminUsersPage() {
         department: editTarget.department?._id ?? '',
         managerId: editTarget.managerId?._id ?? '',
       });
+      // Load users from the existing dept for the manager dropdown
+      if (editTarget.department?._id) {
+        apiClient
+          .get<ApiResponse<PaginatedData<IUserData>>>(EP.ADMIN_USERS, {
+            params: { department: editTarget.department._id, limit: 100 },
+          })
+          .then((r) => setEditDeptUsers(r.data.data.data))
+          .catch(() => {});
+      } else {
+        setEditDeptUsers([]);
+      }
+    } else {
+      setEditDeptUsers([]);
     }
   }, [editTarget]);
+
+  // Fetch users in selected dept for manager dropdown (create form)
+  useEffect(() => {
+    createForm.setValue('managerId', '');
+    if (!watchedCreateDept) {
+      setCreateDeptUsers([]);
+      return;
+    }
+    apiClient
+      .get<ApiResponse<PaginatedData<IUserData>>>(EP.ADMIN_USERS, {
+        params: { department: watchedCreateDept, limit: 100 },
+      })
+      .then((r) => setCreateDeptUsers(r.data.data.data))
+      .catch(() => {});
+  }, [watchedCreateDept]);
+
+  // Re-fetch users when dept changes in edit form (skip initial render that matches editTarget)
+  useEffect(() => {
+    if (!editTarget) return;
+    if (watchedEditDept === (editTarget.department?._id ?? '')) return;
+    editForm.setValue('managerId', '');
+    if (!watchedEditDept) {
+      setEditDeptUsers([]);
+      return;
+    }
+    apiClient
+      .get<ApiResponse<PaginatedData<IUserData>>>(EP.ADMIN_USERS, {
+        params: { department: watchedEditDept, limit: 100 },
+      })
+      .then((r) => setEditDeptUsers(r.data.data.data))
+      .catch(() => {});
+  }, [watchedEditDept]);
 
   // Disable / enable
   const [disableTarget, setDisableTarget] = useState<IUserData | null>(null);
@@ -129,6 +178,7 @@ export function AdminUsersPage() {
     const result = await createUser({
       name: values.name,
       email: values.email,
+      password: values.password,
       department: values.department || undefined,
       managerId: values.managerId || undefined,
       role: values.role,
@@ -305,6 +355,13 @@ export function AdminUsersPage() {
               error={createForm.formState.errors.email?.message}
               {...createForm.register('email')}
             />
+            <Input
+              label="Password"
+              type="password"
+              placeholder="••••••••"
+              error={createForm.formState.errors.password?.message}
+              {...createForm.register('password')}
+            />
             <div className="w-full">
               <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
                 Department <span className="text-[var(--muted-foreground)]">(optional)</span>
@@ -337,10 +394,11 @@ export function AdminUsersPage() {
               </label>
               <select
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                disabled={!watchedCreateDept}
                 {...createForm.register('managerId')}
               >
-                <option value="">No manager</option>
-                {data.map((u) => (
+                <option value="">{watchedCreateDept ? 'No manager' : 'Select a department first'}</option>
+                {createDeptUsers.map((u) => (
                   <option key={u._id} value={u._id}>{u.name}</option>
                 ))}
               </select>
@@ -390,10 +448,11 @@ export function AdminUsersPage() {
               </label>
               <select
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                disabled={!watchedEditDept}
                 {...editForm.register('managerId')}
               >
-                <option value="">No manager</option>
-                {data
+                <option value="">{watchedEditDept ? 'No manager' : 'Select a department first'}</option>
+                {editDeptUsers
                   .filter((u) => u._id !== editTarget?._id)
                   .map((u) => (
                     <option key={u._id} value={u._id}>{u.name}</option>

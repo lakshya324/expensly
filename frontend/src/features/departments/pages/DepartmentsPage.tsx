@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, RotateCcw, Trash2, Pencil, Tag, Building2 } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
@@ -34,6 +34,11 @@ const RESET_PERIOD_LABELS: Record<string, string> = {
   yearly: 'Yearly',
 };
 
+const CURRENCIES = [
+  'USD', 'EUR', 'GBP', 'INR', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'SGD',
+  'AED', 'HKD', 'MXN', 'BRL', 'KRW', 'SEK', 'NOK', 'DKK', 'NZD', 'ZAR',
+];
+
 export function DepartmentsPage() {
   const { data, loading, refetch } = useDepartments({ limit: 100 });
 
@@ -45,8 +50,14 @@ export function DepartmentsPage() {
   });
   const createForm = useForm<DepartmentFormValues>({
     resolver: zodResolver(departmentSchema),
-    defaultValues: { budgetResetPeriod: 'none', budget: '0' },
+    defaultValues: {
+      budgetResetPeriod: 'none',
+      budget: '0',
+      permissions: { canViewAllTickets: false, canApprove: false },
+      approvalThresholds: [],
+    },
   });
+  const createThresholds = useFieldArray({ control: createForm.control, name: 'approvalThresholds' });
 
   // Edit
   const [editTarget, setEditTarget] = useState<IDepartmentData | null>(null);
@@ -55,14 +66,22 @@ export function DepartmentsPage() {
     refetch();
   });
   const editForm = useForm<DepartmentFormValues>({ resolver: zodResolver(departmentSchema) });
+  const editThresholds = useFieldArray({ control: editForm.control, name: 'approvalThresholds' });
 
   const openEdit = (dept: IDepartmentData) => {
-    editTarget; // suppress prev
     setEditTarget(dept);
     editForm.reset({
       name: dept.name,
       budget: String(dept.budget),
       budgetResetPeriod: dept.budgetResetPeriod,
+      permissions: {
+        canViewAllTickets: dept.permissions.canViewAllTickets,
+        canApprove: dept.permissions.canApprove,
+      },
+      approvalThresholds: Object.entries(dept.approvalThresholds).map(([currency, amount]) => ({
+        currency,
+        amount: String(amount),
+      })),
     });
   };
 
@@ -84,20 +103,37 @@ export function DepartmentsPage() {
   });
 
   const handleCreate = createForm.handleSubmit(async (values) => {
-    await createDepartment({
-      name: values.name,
-      budget: Number(values.budget),
-      budgetResetPeriod: values.budgetResetPeriod,
+    await createDepartment(
+      {
+        name: values.name,
+        budget: Number(values.budget),
+        budgetResetPeriod: values.budgetResetPeriod,
+        approvalThresholds: Object.fromEntries(
+          values.approvalThresholds.map(({ currency, amount }) => [currency, Number(amount)]),
+        ),
+      },
+      values.permissions,
+    );
+    createForm.reset({
+      budgetResetPeriod: 'none',
+      budget: '0',
+      permissions: { canViewAllTickets: false, canApprove: false },
+      approvalThresholds: [],
     });
-    createForm.reset({ budgetResetPeriod: 'none', budget: '0' });
   });
 
   const handleEdit = editForm.handleSubmit(async (values) => {
-    await updateDepartment({
-      name: values.name,
-      budget: Number(values.budget),
-      budgetResetPeriod: values.budgetResetPeriod,
-    });
+    await updateDepartment(
+      {
+        name: values.name,
+        budget: Number(values.budget),
+        budgetResetPeriod: values.budgetResetPeriod,
+        approvalThresholds: Object.fromEntries(
+          values.approvalThresholds.map(({ currency, amount }) => [currency, Number(amount)]),
+        ),
+      },
+      values.permissions,
+    );
   });
 
   return (
@@ -199,6 +235,67 @@ export function DepartmentsPage() {
                 ))}
               </select>
             </div>
+            {/* Permissions */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-[var(--foreground)]">Default Permissions</label>
+              <Controller
+                control={createForm.control}
+                name="permissions.canViewAllTickets"
+                render={({ field }) => (
+                  <BoolToggleRow label="Can View All Tickets" checked={field.value} onChange={field.onChange} />
+                )}
+              />
+              <Controller
+                control={createForm.control}
+                name="permissions.canApprove"
+                render={({ field }) => (
+                  <BoolToggleRow label="Can Approve Tickets" checked={field.value} onChange={field.onChange} />
+                )}
+              />
+            </div>
+            {/* Approval Thresholds */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-[var(--foreground)]">Approval Thresholds</label>
+                <button
+                  type="button"
+                  onClick={() => createThresholds.append({ currency: 'USD', amount: '0' })}
+                  className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium"
+                >
+                  <Plus className="w-3 h-3" /> Add
+                </button>
+              </div>
+              {createThresholds.fields.length === 0 ? (
+                <p className="text-xs text-[var(--muted-foreground)]">No thresholds — approvals won't be gated by amount.</p>
+              ) : (
+                createThresholds.fields.map((field, idx) => (
+                  <div key={field.id} className="flex items-center gap-2">
+                    <select
+                      className="w-24 px-2 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      {...createForm.register(`approvalThresholds.${idx}.currency`)}
+                    >
+                      {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="1000"
+                      className="flex-1"
+                      error={createForm.formState.errors.approvalThresholds?.[idx]?.amount?.message}
+                      {...createForm.register(`approvalThresholds.${idx}.amount`)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => createThresholds.remove(idx)}
+                      className="p-1.5 rounded-lg hover:bg-danger-50 transition text-[var(--muted-foreground)] hover:text-danger-500"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
             <div className="flex gap-2 justify-end pt-2">
               <Button variant="outline" type="button" onClick={() => setCreateOpen(false)}>
                 Cancel
@@ -245,6 +342,67 @@ export function DepartmentsPage() {
                 ))}
               </select>
             </div>
+            {/* Permissions */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-[var(--foreground)]">Default Permissions</label>
+              <Controller
+                control={editForm.control}
+                name="permissions.canViewAllTickets"
+                render={({ field }) => (
+                  <BoolToggleRow label="Can View All Tickets" checked={field.value} onChange={field.onChange} />
+                )}
+              />
+              <Controller
+                control={editForm.control}
+                name="permissions.canApprove"
+                render={({ field }) => (
+                  <BoolToggleRow label="Can Approve Tickets" checked={field.value} onChange={field.onChange} />
+                )}
+              />
+            </div>
+            {/* Approval Thresholds */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-[var(--foreground)]">Approval Thresholds</label>
+                <button
+                  type="button"
+                  onClick={() => editThresholds.append({ currency: 'USD', amount: '0' })}
+                  className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium"
+                >
+                  <Plus className="w-3 h-3" /> Add
+                </button>
+              </div>
+              {editThresholds.fields.length === 0 ? (
+                <p className="text-xs text-[var(--muted-foreground)]">No thresholds — approvals won't be gated by amount.</p>
+              ) : (
+                editThresholds.fields.map((field, idx) => (
+                  <div key={field.id} className="flex items-center gap-2">
+                    <select
+                      className="w-24 px-2 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      {...editForm.register(`approvalThresholds.${idx}.currency`)}
+                    >
+                      {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="1000"
+                      className="flex-1"
+                      error={editForm.formState.errors.approvalThresholds?.[idx]?.amount?.message}
+                      {...editForm.register(`approvalThresholds.${idx}.amount`)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => editThresholds.remove(idx)}
+                      className="p-1.5 rounded-lg hover:bg-danger-50 transition text-[var(--muted-foreground)] hover:text-danger-500"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
             <div className="flex gap-2 justify-end pt-2">
               <Button variant="outline" type="button" onClick={() => setEditTarget(null)}>
                 Cancel
@@ -281,6 +439,38 @@ export function DepartmentsPage() {
         onConfirm={deleteDepartment}
       />
     </AppShell>
+  );
+}
+
+function BoolToggleRow({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between p-3 rounded-xl border border-[var(--border)] bg-[var(--muted)]/30">
+      <span className="text-sm font-medium text-[var(--foreground)]">{label}</span>
+      <div className="flex items-center gap-1">
+        {([true, false] as const).map((val) => (
+          <button
+            key={String(val)}
+            type="button"
+            onClick={() => onChange(val)}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
+              checked === val
+                ? 'bg-brand-600 text-white'
+                : 'bg-[var(--muted)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]'
+            }`}
+          >
+            {val ? 'Yes' : 'No'}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

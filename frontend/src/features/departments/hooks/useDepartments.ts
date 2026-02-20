@@ -50,18 +50,31 @@ interface DeptBody {
   name: string;
   budget: number;
   budgetResetPeriod: 'none' | 'monthly' | 'quarterly' | 'yearly';
+  approvalThresholds?: Record<string, number>;
+}
+
+interface DeptPermissions {
+  canViewAllTickets: boolean;
+  canApprove: boolean;
 }
 
 export function useCreateDepartment(onSuccess?: () => void) {
   const [loading, setLoading] = useState(false);
 
-  const createDepartment = async (body: DeptBody): Promise<IDepartmentData | null> => {
+  const createDepartment = async (
+    body: DeptBody,
+    permissions?: DeptPermissions,
+  ): Promise<IDepartmentData | null> => {
     setLoading(true);
     try {
       const res = await apiClient.post<ApiResponse<IDepartmentData>>(EP.ADMIN_DEPARTMENTS, body);
+      const dept = res.data.data;
+      if (permissions) {
+        await apiClient.patch(EP.ADMIN_DEPT_PERMISSIONS(dept._id), permissions);
+      }
       toast.success('Department created');
       onSuccess?.();
-      return res.data.data;
+      return dept;
     } catch (e) {
       toast.error(errMsg(e, 'Failed to create department'));
       return null;
@@ -76,10 +89,16 @@ export function useCreateDepartment(onSuccess?: () => void) {
 export function useUpdateDepartment(id: string, onSuccess?: () => void) {
   const [loading, setLoading] = useState(false);
 
-  const updateDepartment = async (body: Partial<DeptBody>): Promise<IDepartmentData | null> => {
+  const updateDepartment = async (
+    body: Partial<DeptBody>,
+    permissions?: DeptPermissions,
+  ): Promise<IDepartmentData | null> => {
     setLoading(true);
     try {
       const res = await apiClient.patch<ApiResponse<IDepartmentData>>(EP.ADMIN_DEPT(id), body);
+      if (permissions) {
+        await apiClient.patch(EP.ADMIN_DEPT_PERMISSIONS(id), permissions);
+      }
       toast.success('Department updated');
       onSuccess?.();
       return res.data.data;

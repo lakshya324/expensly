@@ -40,6 +40,7 @@ export const EP = {
   // Exchange Rates
   EXCHANGE_RATES: '/admin/exchange-rates',
   EXCHANGE_RATES_FETCH_LATEST: '/admin/exchange-rates/fetch-latest',
+  EXCHANGE_RATES_FETCH_PREVIEW: '/admin/exchange-rates/fetch-preview',
   EXCHANGE_RATES_HISTORY: '/admin/exchange-rates/history',
   EXCHANGE_RATES_CURRENCIES: '/admin/exchange-rates/active-currencies',
 

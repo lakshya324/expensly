@@ -151,7 +151,7 @@ export function ProfilePage() {
         </Card>
 
         {/* Org info (admin only shows org details) */}
-        {(user.role === 'admin' || user.role === 'super_admin') && (
+        {(user.role === 'admin' || user.role === 'user') && (
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -159,8 +159,10 @@ export function ProfilePage() {
                 Organization
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-sm">
-              <Row label="Org ID" value={<code className="text-xs bg-muted px-1.5 py-0.5 rounded">{user.orgId ?? 'N/A'}</code>} />
+            <CardContent className="text-sm space-y-1">
+              <Row label="Organization Name" value={<code className="text-xs bg-muted px-1.5 py-0.5 rounded">{user.org?.name ?? 'N/A'}</code>} />
+              {/* <Row label="Organization Slug" value={<code className="text-xs bg-muted px-1.5 py-0.5 rounded">{user.org?.slug ?? 'N/A'}</code>} /> */}
+              <Row label="Base Currency" value={<code className="text-xs bg-muted px-1.5 py-0.5 rounded">{user.org?.baseCurrency ?? 'N/A'}</code>} />
             </CardContent>
           </Card>
         )}

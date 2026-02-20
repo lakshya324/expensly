@@ -183,7 +183,7 @@ export function AnalyticsPage() {
                           <div className="h-1.5 w-24 rounded-full bg-[var(--muted)] overflow-hidden">
                             <div
                               className="h-full rounded-full bg-brand-500"
-                              style={{ width: `${Math.min(dept.budgetUsagePercent, 100)}%` }}
+                              style={{ width: `${Math.min(dept.budgetUsagePercent ?? 0, 100)}%` }}
                             />
                           </div>
                           <span className="text-xs font-medium text-[var(--foreground)]">

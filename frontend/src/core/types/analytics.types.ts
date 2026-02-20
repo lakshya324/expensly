@@ -40,7 +40,6 @@ export interface IExchangeRateSnapshot {
   orgId: string;
   rates: Record<Currency, number>;
   baseCurrency: Currency;
-  activeCurrencies: Currency[];
   source: 'manual' | 'fetched';
   createdBy: { _id: string; name: string } | null;
   createdAt: string;

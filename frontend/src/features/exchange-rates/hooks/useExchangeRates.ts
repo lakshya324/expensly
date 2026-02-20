@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
+import { useAuthStore } from '@/features/auth/store/authStore';
 import type { IExchangeRateSnapshot } from '@/core/types/analytics.types';
 import type { ApiResponse, PaginatedData, PaginationMeta } from '@/core/types/api.types';
 
@@ -87,9 +88,27 @@ export function useFetchLatestRates(onSuccess?: () => void) {
   return { fetchLatest, loading };
 }
 
+export function useFetchRatesPreview() {
+  const [loading, setLoading] = useState(false);
+
+  const fetchPreview = async (): Promise<Record<string, number> | null> => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get<{ data: Record<string, number> }>(EP.EXCHANGE_RATES_FETCH_PREVIEW);
+      return res.data.data;
+    } catch (e) {
+      toast.error(errMsg(e, 'Failed to fetch latest rates'));
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { fetchPreview, loading };
+}
+
 interface SetManualRatesBody {
   rates: Record<string, number>;
-  activeCurrencies?: string[];
 }
 
 export function useSetManualRates(onSuccess?: () => void) {
@@ -113,11 +132,13 @@ export function useSetManualRates(onSuccess?: () => void) {
 
 export function useUpdateActiveCurrencies(onSuccess?: () => void) {
   const [loading, setLoading] = useState(false);
+  const patchOrg = useAuthStore((s) => s.patchOrg);
 
   const updateActiveCurrencies = async (activeCurrencies: string[]) => {
     setLoading(true);
     try {
-      await apiClient.patch(EP.EXCHANGE_RATES_CURRENCIES, { activeCurrencies });
+      const res = await apiClient.patch<ApiResponse<string[]>>(EP.EXCHANGE_RATES_CURRENCIES, { activeCurrencies });
+      patchOrg({ activeCurrencies: res.data.data as never });
       toast.success('Active currencies updated');
       onSuccess?.();
     } catch (e) {
