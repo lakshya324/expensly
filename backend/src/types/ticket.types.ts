@@ -16,6 +16,8 @@ export interface ITicket extends Document {
   _id: Types.ObjectId;
   title: string;
   submittedBy: Types.ObjectId;
+  /** Manager ID of the submitter at creation time (for efficient filtering) */
+  submitterManagerId: Types.ObjectId | null;
   orgId: Types.ObjectId;
   amount: number;
   currency: Currency;
@@ -50,6 +52,7 @@ export interface ITicketData {
   _id: string;
   title: string;
   submittedBy: IUserMinimalData;
+  submitterManagerId: string | null;
   orgId: string;
   amount: number;
   currency: Currency;

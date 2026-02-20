@@ -25,6 +25,7 @@ export function buildTicketFilter(req: AuthRequest): Record<string, unknown> {
     : [
         { submittedBy: user._id },
         { "managerApproval.reviewedBy": user._id },
+        { submitterManagerId: user._id }, // See all tickets from team members
       ];
 
   if (status) filter["status"] = status;

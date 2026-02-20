@@ -26,6 +26,7 @@ const TicketSchema = new Schema<ITicket>(
   {
     title: { type: String, required: true, trim: true },
     submittedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    submitterManagerId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true },
     amount: { type: Number, required: true, min: 0 },
     currency: { type: String, enum: CURRENCIES, required: true },
@@ -57,6 +58,7 @@ const TicketSchema = new Schema<ITicket>(
 
 TicketSchema.index({ orgId: 1 });
 TicketSchema.index({ submittedBy: 1 });
+TicketSchema.index({ submitterManagerId: 1 });
 TicketSchema.index({ orgId: 1, status: 1 });
 TicketSchema.index({ orgId: 1, department: 1 });
 TicketSchema.index({ createdAt: -1 });
@@ -158,6 +160,7 @@ TicketSchema.methods.data = async function (
       role: submittedBy.role,
       department: submittedByDept,
     },
+    submitterManagerId: this.submitterManagerId ? this.submitterManagerId.toString() : null,
     orgId: this.orgId.toString(),
     amount: this.amount,
     currency: this.currency,

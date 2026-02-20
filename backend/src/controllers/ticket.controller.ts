@@ -143,6 +143,7 @@ export default class TicketController {
       const ticket = await Ticket.create({
         title,
         submittedBy: user._id,
+        submitterManagerId: user.managerId ?? null,
         orgId: org._id,
         amount: parsedAmount,
         currency,
@@ -155,7 +156,7 @@ export default class TicketController {
           ? {
               required: true,
               approved: null,
-              reviewedBy: user.managerId,
+              reviewedBy: null,
               reviewedAt: null,
               comments: null,
             }
