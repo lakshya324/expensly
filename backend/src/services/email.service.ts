@@ -104,6 +104,28 @@ export async function sendOtpEmail(
 }
 
 // ---------------------------------------------------------------------------
+// Password Reset OTP Email
+// ---------------------------------------------------------------------------
+export async function sendPasswordResetOtpEmail(
+  to: string,
+  name: string,
+  otp: string,
+  expiresInMinutes: number,
+): Promise<void> {
+  const html = baseTemplate(
+    "Reset Your Expensly Password",
+    `<h2>Password Reset Request 🔐</h2>
+    <p>Hi <strong>${name}</strong>, we received a request to reset your Expensly account password. Use the code below — it expires in <strong>${expiresInMinutes} minute${expiresInMinutes !== 1 ? "s" : ""}</strong>.</p>
+    <div class="otp-box">
+      <div style="font-size: 12px; text-transform: uppercase; font-weight: 600; color: #94a3b8; margin-bottom: 8px;">Password Reset OTP</div>
+      <span>${otp}</span>
+    </div>
+    <p style="font-size: 13px; color: #94a3b8;">⚠️ If you did not request a password reset, please ignore this email — your account remains secure and your password has not been changed.</p>`,
+  );
+  await send(to, "Reset Your Expensly Password", html);
+}
+
+// ---------------------------------------------------------------------------
 // Ticket submitted — notify manager / admin
 // ---------------------------------------------------------------------------
 export async function sendTicketSubmittedEmail(

@@ -6,6 +6,9 @@ import {
   loginValidation,
   signupValidation,
   verifyOtpValidation,
+  resendOtpValidation,
+  forgotPasswordValidation,
+  resetPasswordValidation,
 } from "../validation/auth.schema.js";
 
 const router = express.Router();
@@ -25,6 +28,15 @@ router.post("/user", validate(loginValidation), AuthController.login);
 
 //* Login Step 2 — verify OTP → issue tokens [POST /api/verify-otp]
 router.post("/verify-otp", validate(verifyOtpValidation), AuthController.verifyOtp);
+
+//* Resend OTP [POST /api/resend-otp]
+router.post("/resend-otp", validate(resendOtpValidation), AuthController.resendOtp);
+
+//* Forgot Password — send reset OTP [POST /api/forgot-password]
+router.post("/forgot-password", validate(forgotPasswordValidation), AuthController.forgotPassword);
+
+//* Reset Password — verify OTP + set new password [POST /api/reset-password]
+router.post("/reset-password", validate(resetPasswordValidation), AuthController.resetPassword);
 
 //* Token Refresh [POST /api/refresh]
 router.post("/refresh", AuthController.refresh);

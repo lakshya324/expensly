@@ -30,13 +30,39 @@ export const loginValidation = [
 ];
 
 export const verifyOtpValidation = [
-  body("otpSessionId")
+  body("userId")
     .trim()
     .notEmpty()
-    .withMessage("OTP session ID is required"),
+    .withMessage("User ID is required"),
   body("otp")
     .trim()
     .isLength({ min: 6, max: 6 })
     .isNumeric()
     .withMessage("OTP must be a 6-digit number"),
+];
+
+export const resendOtpValidation = [
+  body("userId")
+    .trim()
+    .notEmpty()
+    .withMessage("User ID is required"),
+];
+
+export const forgotPasswordValidation = [
+  body("email").toLowerCase().isEmail().withMessage("Valid email is required"),
+];
+
+export const resetPasswordValidation = [
+  body("userId").trim().notEmpty().withMessage("User ID is required"),
+  body("otp")
+    .trim()
+    .isLength({ min: 6, max: 6 })
+    .isNumeric()
+    .withMessage("OTP must be a 6-digit number"),
+  body("newPassword")
+    .trim()
+    .isLength({ min: userConfig.password.minLength })
+    .withMessage(
+      `Password must be at least ${userConfig.password.minLength} characters`,
+    ),
 ];
