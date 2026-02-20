@@ -25,7 +25,7 @@ export interface IUserData {
   orgId: string | null;
   org: IOrganizationData | null;
   department: { _id: string; name: string } | null;
-  managerId: { _id: string; name: string; email: string; role: Role } | null;
+  manager: { _id: string; name: string; email: string; role: Role; isDisabled: boolean; createdAt: string; updatedAt: string } | null;
   permissions: UserPermissions;
   isDisabled: boolean;
   createdAt: string;

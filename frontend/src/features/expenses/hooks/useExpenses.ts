@@ -146,8 +146,8 @@ export function useDeleteExpense(id: string, onSuccess?: () => void) {
 export function useReceiptUrl(id: string) {
   const openReceipt = async () => {
     try {
-      const res = await apiClient.get<ApiResponse<{ url: string }>>(EP.EXPENSE_RECEIPT(id));
-      window.open(res.data.data.url, '_blank');
+      const res = await apiClient.get<ApiResponse<string>>(EP.EXPENSE_RECEIPT(id));
+      window.open(res.data.data, '_blank');
     } catch {
       toast.error('Failed to get receipt URL');
     }

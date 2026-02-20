@@ -7,8 +7,7 @@ export const createExpenseSchema = z.object({
     .string()
     .min(1, 'Amount is required')
     .refine((v) => !isNaN(Number(v)) && Number(v) > 0, 'Amount must be a positive number'),
-  currency: z.enum(CURRENCIES as [string, ...string[]], { required_error: 'Currency is required' }),
-  department: z.string().min(1, 'Department is required'),
+  currency: z.enum(CURRENCIES as [string, ...string[]]),
   description: z.string().max(1000, 'Description too long').optional(),
   tags: z.array(z.string()).optional(),
 });

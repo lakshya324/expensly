@@ -84,7 +84,7 @@ export function ProfilePage() {
               />
               <Row
                 label="Manager"
-                value={user.managerId?.name ?? <span className="text-muted-foreground italic">None</span>}
+                value={user.manager?.name ?? <span className="text-muted-foreground italic">None</span>}
               />
               <Row
                 label="Member since"

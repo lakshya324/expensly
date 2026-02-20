@@ -91,7 +91,7 @@ export function AdminUsersPage() {
       editForm.reset({
         name: editTarget.name,
         department: editTarget.department?._id ?? '',
-        managerId: editTarget.managerId?._id ?? '',
+        managerId: editTarget.manager?._id ?? '',
       });
       // Load users from the existing dept for the manager dropdown
       if (editTarget.department?._id) {
@@ -231,6 +231,16 @@ export function AdminUsersPage() {
       render: (row) => (
         <span className="text-sm text-[var(--muted-foreground)]">
           {row.department?.name ?? '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'manager',
+      header: 'Manager',
+      width: '140px',
+      render: (row) => (
+        <span className="text-sm text-[var(--muted-foreground)]">
+          {row.manager?.name ?? '—'}
         </span>
       ),
     },

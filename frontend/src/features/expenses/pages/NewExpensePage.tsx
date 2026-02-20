@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, X, FileText, Image } from 'lucide-react';
+import { ArrowLeft, Upload, X, FileText, Image, Tag } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -12,15 +12,18 @@ import { createExpenseSchema, type CreateExpenseFormValues } from '../validators
 import { ROUTES } from '@/core/constants/constants';
 import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
-import type { IDepartmentData } from '@/core/types/ticket.types';
-import type { ApiResponse, PaginatedData } from '@/core/types/api.types';
+import { useAuthStore } from '@/features/auth/store/authStore';
+import type { ApiResponse } from '@/core/types/api.types';
 
 export function NewExpensePage() {
   const navigate = useNavigate();
   const { createExpense, loading } = useCreateExpense();
-  const [departments, setDepartments] = useState<IDepartmentData[]>([]);
+  const { user } = useAuthStore();
   const [deptTags, setDeptTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+  const tagInputRef = useRef<HTMLInputElement>(null);
   const [receipt, setReceipt] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -29,30 +32,40 @@ export function NewExpensePage() {
     register,
     handleSubmit,
     control,
-    watch,
     formState: { errors },
   } = useForm<CreateExpenseFormValues>({ resolver: zodResolver(createExpenseSchema) });
 
-  const selectedDept = watch('department');
-
   useEffect(() => {
+    const deptId = user?.department?._id;
+    if (!deptId) return;
     apiClient
-      .get<ApiResponse<PaginatedData<IDepartmentData>>>(EP.USER_DEPARTMENTS)
-      .then((res) => setDepartments(res.data.data.data))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!selectedDept) return;
-    apiClient
-      .get<ApiResponse<string[]>>(EP.USER_DEPT_TAGS(selectedDept))
+      .get<ApiResponse<string[]>>(EP.USER_DEPT_TAGS(deptId))
       .then((res) => setDeptTags(res.data.data))
       .catch(() => {});
-    setSelectedTags([]);
-  }, [selectedDept]);
+  }, [user?.department?._id]);
 
-  const toggleTag = (tag: string) =>
-    setSelectedTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
+  const toggleTag = (tag: string) => {
+    const trimmed = tag.trim().toLowerCase();
+    if (!trimmed) return;
+    if (selectedTags.includes(trimmed)) {
+      setSelectedTags((prev) => prev.filter((t) => t !== trimmed));
+    } else if (selectedTags.length < 5) {
+      setSelectedTags((prev) => [...prev, trimmed]);
+    }
+  };
+
+  const addTagFromInput = useCallback(() => {
+    const trimmed = tagInput.trim().toLowerCase();
+    if (trimmed && !selectedTags.includes(trimmed) && selectedTags.length < 5) {
+      setSelectedTags((prev) => [...prev, trimmed]);
+    }
+    setTagInput('');
+    setTagDropdownOpen(false);
+  }, [tagInput, selectedTags]);
+
+  const filteredSuggestions = deptTags.filter(
+    (t) => t.toLowerCase().includes(tagInput.toLowerCase()) && !selectedTags.includes(t),
+  );
 
   const handleFile = (file: File) => {
     const valid = ['image/jpeg', 'image/png', 'application/pdf'];
@@ -66,7 +79,7 @@ export function NewExpensePage() {
     fd.append('title', values.title);
     fd.append('amount', values.amount);
     fd.append('currency', values.currency);
-    fd.append('department', values.department);
+    if (user?.department?._id) fd.append('department', user.department._id);
     if (values.description) fd.append('description', values.description);
     selectedTags.forEach((t) => fd.append('tags[]', t));
     if (receipt) fd.append('receipt', receipt);
@@ -75,10 +88,7 @@ export function NewExpensePage() {
     if (result) navigate(ROUTES.EXPENSES);
   };
 
-  const activeCurrencies = departments
-    .find((d) => d._id === selectedDept)
-    ? ['USD', 'EUR', 'GBP', 'INR'] // fallback to defaults; org currencies from org data
-    : ['USD', 'EUR', 'GBP', 'INR'];
+  const activeCurrencies = user?.org?.activeCurrencies ?? [];
 
   return (
     <AppShell title="New Expense">
@@ -134,24 +144,6 @@ export function NewExpensePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Department</label>
-                <Controller
-                  name="department"
-                  control={control}
-                  render={({ field }) => (
-                    <select
-                      {...field}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    >
-                      <option value="">Select department</option>
-                      {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
-                    </select>
-                  )}
-                />
-                {errors.department && <p className="mt-1.5 text-xs text-danger-500">{errors.department.message}</p>}
-              </div>
-
-              <div>
                 <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Description</label>
                 <textarea
                   {...register('description')}
@@ -162,27 +154,86 @@ export function NewExpensePage() {
               </div>
 
               {/* Tags */}
-              {deptTags.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-[var(--foreground)] mb-2">Tags</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {deptTags.map((tag) => (
-                      <button
+              <div>
+                <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
+                  Tags <span className="text-[var(--muted-foreground)] font-normal">({selectedTags.length}/5)</span>
+                </label>
+
+                {/* Selected tags */}
+                {selectedTags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {selectedTags.map((tag) => (
+                      <span
                         key={tag}
-                        type="button"
-                        onClick={() => toggleTag(tag)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium transition ${
-                          selectedTags.includes(tag)
-                            ? 'bg-brand-600 dark:bg-brand-500 text-white'
-                            : 'bg-[var(--muted)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]'
-                        }`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-brand-600 dark:bg-brand-500 text-white"
                       >
+                        <Tag className="w-3 h-3" />
                         {tag}
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleTag(tag)}
+                          className="ml-0.5 hover:opacity-70 transition"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+
+                {/* Input + suggestions */}
+                {selectedTags.length < 5 && (
+                  <div className="relative">
+                    <input
+                      ref={tagInputRef}
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => { setTagInput(e.target.value); setTagDropdownOpen(true); }}
+                      onFocus={() => setTagDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setTagDropdownOpen(false), 150)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); addTagFromInput(); }
+                        if (e.key === 'Escape') setTagDropdownOpen(false);
+                      }}
+                      placeholder={deptTags.length > 0 ? 'Type or pick a suggestion…' : 'Type a tag and press Enter'}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                    {tagDropdownOpen && filteredSuggestions.length > 0 && (
+                      <div className="absolute z-10 mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] shadow-lg overflow-hidden">
+                        {filteredSuggestions.map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); toggleTag(tag); setTagInput(''); setTagDropdownOpen(false); }}
+                            className="w-full text-left px-3.5 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--accent)] flex items-center gap-2 transition"
+                          >
+                            <Tag className="w-3.5 h-3.5 text-[var(--muted-foreground)]" />
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Recommendations strip */}
+                {deptTags.filter((t) => !selectedTags.includes(t)).length > 0 && selectedTags.length < 5 && tagInput === '' && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {deptTags
+                      .filter((t) => !selectedTags.includes(t))
+                      .map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => toggleTag(tag)}
+                          className="px-3 py-1 rounded-full text-xs font-medium bg-[var(--muted)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] transition"
+                        >
+                          + {tag}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
