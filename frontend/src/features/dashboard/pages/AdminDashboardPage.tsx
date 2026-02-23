@@ -88,12 +88,16 @@ export function AdminDashboardPage() {
                 <BarChart data={data.departments}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} unit="%" />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    unit="%"
+                    domain={[0, (dataMax: number) => Math.max(dataMax * 1.2, 10)]}
+                  />
                   <Tooltip
                     formatter={(v: number) => [`${v.toFixed(1)}%`, 'Used']}
                     contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '12px' }}
                   />
-                  <Bar dataKey="budgetUsagePercent" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="budgetUsagePercent" fill="#7c3aed" radius={[4, 4, 0, 0]} minPointSize={4} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>

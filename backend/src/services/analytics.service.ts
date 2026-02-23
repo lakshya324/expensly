@@ -254,7 +254,7 @@ export async function refreshOrgAnalytics(
     orgId: oid.toString(),
     org: doc!.org as any,
     departments: doc!.departments.map((d) => ({
-      ...d,
+      ...(d as any).toObject(),
       departmentId: d.departmentId.toString(),
     })) as any,
     generatedAt: doc!.generatedAt,
@@ -285,7 +285,7 @@ export async function getOrgAnalytics(
     orgId: doc.orgId.toString(),
     org: doc.org as any,
     departments: doc.departments.map((d) => ({
-      ...d,
+      ...(d as any).toObject(),
       departmentId: d.departmentId.toString(),
     })) as any,
     generatedAt: doc.generatedAt,
