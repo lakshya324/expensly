@@ -31,8 +31,7 @@ export interface ITicket extends Document {
   financeApproval: IApproval | null;
   /** Rate snapshot ID at the time of final approval */
   exchangeRateSnapshotId: Types.ObjectId | null;
-  /** Amount converted to org base currency using the locked snapshot */
-  convertedAmount: number | null;
+  // convertedAmount: number | null;
   createdAt: Date;
   updatedAt: Date;
 
@@ -65,8 +64,7 @@ export interface ITicketData {
   managerApproval: IApprovalData | null;
   financeApproval: IApprovalData | null;
   exchangeRateSnapshotId: string | null;
-  convertedAmount: number | null;
-  /** True when the org's current rate snapshot differs from the ticket's locked snapshot */
+  // convertedAmount: number | null;
   ratesChangedSinceApproval: boolean;
   createdAt: Date;
 }

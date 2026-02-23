@@ -505,24 +505,27 @@ export default class TicketController {
           }
 
           // Compute converted amount into org base currency
-          try {
-            const snapshot = await getOrgRates(org._id);
-            if (snapshot) {
-              ticket.convertedAmount = convertAmount(
-                ticket.amount,
-                ticket.currency,
-                (freshOrg?.baseCurrency ?? org.baseCurrency) as string,
-                snapshot.rates,
-              );
+          let convertedAmount = ticket.amount;
+          if (ticket.currency !== org.baseCurrency) {
+            try {
+              const snapshot = await getOrgRates(org);
+              if (snapshot) {
+                convertedAmount = convertAmount(
+                  ticket.amount,
+                  ticket.currency,
+                  (freshOrg?.baseCurrency ?? org.baseCurrency) as string,
+                  snapshot.rates,
+                );
+              }
+            } catch {
+              // Non-fatal — leave convertedAmount unset if rates unavailable
             }
-          } catch {
-            // Non-fatal — leave convertedAmount unset if rates unavailable
           }
 
           // Increment department spent (use converted amount so it's always in org base currency)
           if (ticket.department) {
             await Department.findByIdAndUpdate(ticket.department, {
-              $inc: { spent: ticket.convertedAmount ?? ticket.amount },
+              $inc: { spent: convertedAmount ?? ticket.amount },
             });
           }
         }

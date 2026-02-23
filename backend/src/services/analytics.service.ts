@@ -96,7 +96,12 @@ export async function refreshOrgAnalytics(
   const snapshotMap = new Map(
     snapshotDocs.map((s) => [
       s._id.toString(),
-      { rates: Object.fromEntries(s.rates as Map<string, number>), baseCurrency: s.baseCurrency as string },
+      {
+        rates: s.rates instanceof Map
+          ? Object.fromEntries(s.rates as Map<string, number>)
+          : (s.rates as unknown as Record<string, number>),
+        baseCurrency: s.baseCurrency as string,
+      },
     ]),
   );
 

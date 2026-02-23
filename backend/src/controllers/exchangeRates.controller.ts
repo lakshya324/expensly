@@ -25,14 +25,10 @@ import {
 
 export default class ExchangeRatesController {
   /** GET /api/admin/exchange-rates — current snapshot */
-  static async getCurrent(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction,
-  ) {
+  static async getCurrent(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const org = req.organization!;
-      const snapshot = await getOrgRates(org._id);
+      const snapshot = await getOrgRates(org);
 
       const payload: ResponsePayload<IExchangeRateSnapshotData | null> = {
         success: true,
@@ -74,12 +70,7 @@ export default class ExchangeRatesController {
           "INVALID_CURRENCY",
         );
 
-      const snapshot = await setOrgRates(
-        org._id,
-        user._id,
-        rates,
-        "manual",
-      );
+      const snapshot = await setOrgRates(org, user, rates);
 
       emitRatesUpdate(
         org._id.toString(),
@@ -111,7 +102,7 @@ export default class ExchangeRatesController {
       const org = req.organization!;
       const user = req.user!;
 
-      const snapshot = await fetchAndSaveOrgRates(org._id, user._id);
+      const snapshot = await fetchAndSaveOrgRates(org, user);
 
       emitRatesUpdate(
         org._id.toString(),
@@ -156,11 +147,7 @@ export default class ExchangeRatesController {
   }
 
   /** GET /api/admin/exchange-rates/history — paginated snapshot history */
-  static async getHistory(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction,
-  ) {
+  static async getHistory(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const org = req.organization!;
       const { page: pageQ, limit: limitQ } = req.query as Record<

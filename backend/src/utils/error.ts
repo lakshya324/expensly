@@ -27,11 +27,13 @@ export function createError(
   // error.statusCode = status || 500;
   // throw error;
   const error = new AppError(status, message, code, details);
-  // logError(error, {
-  //   status,
-  //   code,
-  //   message,
-  //   details,
-  // });
+  if (code === "ERROR" && status >= 500)
+    logError(error, {
+      status,
+      code,
+      message,
+      details,
+    });
+
   throw error;
 }

@@ -51,7 +51,7 @@ const TicketSchema = new Schema<ITicket>(
       ref: "ExchangeRateSnapshot",
       default: null,
     },
-    convertedAmount: { type: Number, default: null },
+    // convertedAmount: { type: Number, default: null },
   },
   { timestamps: true },
 );
@@ -175,7 +175,7 @@ TicketSchema.methods.data = async function (
     exchangeRateSnapshotId: this.exchangeRateSnapshotId
       ? this.exchangeRateSnapshotId.toString()
       : null,
-    convertedAmount: this.convertedAmount,
+    // convertedAmount: this.convertedAmount,
     ratesChangedSinceApproval,
     createdAt: this.createdAt,
   };

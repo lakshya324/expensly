@@ -16,6 +16,8 @@ import {
 import { createError } from "../utils/error.js";
 import { logError, logInfo } from "../utils/logger.js";
 import { getJSON, setJSON, del } from "./cache.service.js";
+import { IOrganization } from "../types/organization.types.js";
+import { IUser } from "../types/user.types.js";
 
 // Cache TTL for external rate responses (1 hour)
 const RATE_CACHE_TTL = 3600;
@@ -69,10 +71,10 @@ export async function fetchExternalRates(
 // Get the current org snapshot
 // ---------------------------------------------------------------------------
 export async function getOrgRates(
-  orgId: Types.ObjectId | string,
+  org: IOrganization,
 ): Promise<IExchangeRateSnapshotData | null> {
-  const org = await Organization.findById(orgId);
-  if (!org) return null;
+  // const org = await Organization.findById(orgId);
+  // if (!org) return null;
 
   if (!org.currentRateSnapshotId) return null;
 
@@ -84,26 +86,26 @@ export async function getOrgRates(
 // Save a new snapshot and update org pointer
 // ---------------------------------------------------------------------------
 export async function setOrgRates(
-  orgId: Types.ObjectId | string,
-  userId: Types.ObjectId | string,
+  org: IOrganization,
+  user: IUser,
   rates: Record<string, number>,
-  source: "manual" | "fetched",
+  source: "manual" | "fetched" = "manual",
 ): Promise<IExchangeRateSnapshotData> {
-  const org = await Organization.findById(orgId);
-  if (!org) throw createError("Organization not found", 404, "ORG_NOT_FOUND");
+  // const org = await Organization.findById(orgId);
+  // if (!org) throw createError("Organization not found", 404, "ORG_NOT_FOUND");
 
   const snapshot = await ExchangeRateSnapshot.create({
     orgId: org._id,
     rates: new Map(Object.entries(rates)),
     baseCurrency: org.baseCurrency,
     source,
-    createdBy: userId,
+    createdBy: user._id,
   });
 
   org.currentRateSnapshotId = snapshot._id;
   await org.save();
 
-  logInfo(`Exchange rates updated for org ${orgId} (source: ${source})`);
+  logInfo(`Exchange rates updated for org ${org._id} (source: ${source})`);
   return snapshot.toData();
 }
 
@@ -111,14 +113,14 @@ export async function setOrgRates(
 // Fetch latest from external API and save for org
 // ---------------------------------------------------------------------------
 export async function fetchAndSaveOrgRates(
-  orgId: Types.ObjectId | string,
-  userId: Types.ObjectId | string,
+  org: IOrganization,
+  user: IUser,
 ): Promise<IExchangeRateSnapshotData> {
-  const org = await Organization.findById(orgId);
-  if (!org) throw createError("Organization not found", 404, "ORG_NOT_FOUND");
+  // const org = await Organization.findById(orgId);
+  // if (!org) throw createError("Organization not found", 404, "ORG_NOT_FOUND");
 
   const rates = await fetchExternalRates(org.baseCurrency);
-  return setOrgRates(orgId, userId, rates, "fetched");
+  return setOrgRates(org, user, rates, "fetched");
 }
 
 // ---------------------------------------------------------------------------
