@@ -73,7 +73,7 @@ export function AnalyticsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Currency Breakdown</CardTitle>
-              <CardDescription>Approved amount by currency</CardDescription>
+              <CardDescription>Approved amount by currency (converted to base currency)</CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? <Skeleton className="h-48 w-full" /> : (
@@ -93,9 +93,10 @@ export function AnalyticsPage() {
                           <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(v: number | undefined, _name: string | undefined, props: { payload?: { currency?: string } }) => {
+                      <Tooltip formatter={(_v: number | undefined, _name: string | undefined, props: { payload?: { currency?: string; originalTotal?: number } }) => {
                         const currency = props?.payload?.currency ?? '';
-                        return [formatCurrency(v ?? 0, currency as Currency), 'Total'];
+                        const originalTotal = props?.payload?.originalTotal ?? 0;
+                        return [formatCurrency(originalTotal, currency as Currency), 'Total'];
                       }} />
                     </PieChart>
                   </ResponsiveContainer>

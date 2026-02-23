@@ -108,6 +108,8 @@ export async function refreshOrgAnalytics(
   // Re-convert each approved ticket → current org baseCurrency using its locked snapshot
   let orgTotalAmountApproved = 0;
   const deptConvertedSpentMap = new Map<string, number>();
+  const currencyConvertedMap = new Map<string, number>(); // currency → converted total (base currency)
+  const currencyOriginalMap = new Map<string, number>();   // currency → raw total (original currency)
 
   for (const ticket of approvedTickets) {
     let amount: number;
@@ -125,6 +127,9 @@ export async function refreshOrgAnalytics(
     }
 
     orgTotalAmountApproved += amount;
+    const cur = ticket.currency as string;
+    currencyConvertedMap.set(cur, (currencyConvertedMap.get(cur) ?? 0) + amount);
+    currencyOriginalMap.set(cur, (currencyOriginalMap.get(cur) ?? 0) + ticket.amount);
     if (ticket.department) {
       const dId = ticket.department.toString();
       deptConvertedSpentMap.set(dId, (deptConvertedSpentMap.get(dId) ?? 0) + amount);
@@ -160,17 +165,12 @@ export async function refreshOrgAnalytics(
     { $project: { tag: "$_id", count: 1, _id: 0 } },
   ]);
 
-  // 4. Currency breakdown (approved tickets only, using convertedAmount if available)
-  const currencyAgg = await Ticket.aggregate([
-    { $match: { orgId: oid, status: TICKET_STATUS.APPROVED } },
-    {
-      $group: {
-        _id: "$currency",
-        total: { $sum: "$amount" },
-      },
-    },
-    { $project: { currency: "$_id", total: 1, _id: 0 } },
-  ]);
+  // 4. Currency breakdown — use converted totals (base currency) so relative size reflects real value
+  const currencyAgg = Array.from(currencyConvertedMap.entries()).map(([currency, total]) => ({
+    currency,
+    total: parseFloat(total.toFixed(2)),
+    originalTotal: parseFloat((currencyOriginalMap.get(currency) ?? total).toFixed(2)),
+  }));
 
   // 5. Dept-level stats
   const depts = await Department.find({ orgId: oid, isActive: true });

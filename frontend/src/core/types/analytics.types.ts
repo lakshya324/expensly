@@ -24,7 +24,7 @@ export interface OrgAnalytics {
   totalAmountPending: number;
   avgResolutionTimeMs: number;
   topTags: { tag: string; count: number }[];
-  currencyBreakdown: { currency: Currency; total: number }[];
+  currencyBreakdown: { currency: Currency; total: number; originalTotal: number }[];
 }
 
 export interface IOrgAnalyticsData {

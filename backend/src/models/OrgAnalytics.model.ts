@@ -42,7 +42,7 @@ const OrgAnalyticsSchema = new Schema<IOrgAnalytics>(
       avgResolutionTimeMs: { type: Number, default: 0 },
       topTags: { type: [TopTagSchema], default: [] },
       currencyBreakdown: {
-        type: [{ currency: String, total: Number }],
+        type: [{ currency: String, total: Number, originalTotal: Number }],
         default: [],
         _id: false,
       } as any,

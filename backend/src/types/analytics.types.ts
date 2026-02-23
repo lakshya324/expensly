@@ -27,7 +27,7 @@ export interface IOrgAnalytics extends Document {
     totalAmountPending: number;
     avgResolutionTimeMs: number;
     topTags: { tag: string; count: number }[];
-    currencyBreakdown: { currency: string; total: number }[];
+    currencyBreakdown: { currency: string; total: number; originalTotal: number }[];
   };
   departments: IDeptAnalytics[];
   generatedAt: Date;
@@ -59,7 +59,7 @@ export interface IOrgAnalyticsData {
     totalAmountPending: number;
     avgResolutionTimeMs: number;
     topTags: { tag: string; count: number }[];
-    currencyBreakdown: { currency: string; total: number }[];
+    currencyBreakdown: { currency: string; total: number; originalTotal: number }[];
   };
   departments: IDeptAnalyticsData[];
   generatedAt: Date;
