@@ -30,7 +30,10 @@ export class ReportsController {
       }
 
       const tickets = await Ticket.find(filter)
-        .populate('submittedBy', 'name email department')
+        .populate('submittedBy', 'name email')
+        .populate('department', 'name')
+        .populate({ path: 'managerApproval.reviewedBy', select: 'name' })
+        .populate({ path: 'financeApproval.reviewedBy', select: 'name' })
         .sort({ createdAt: -1 })
         .lean();
 
@@ -38,15 +41,17 @@ export class ReportsController {
 
       const now = new Date();
       const dateStr = now.toISOString().split('T')[0]!;
-      let filename = `EXPENSLY_expenses_export`;
-      if (from && to) filename += `_${from}_to_${to}`;
-      else if (from) filename += `_from_${from}`;
-      else if (to) filename += `_until_${to}`;
-      filename += `_${dateStr}.csv`;
+      const parts = ['Expensly', 'Expense Report'];
+      if (from && to) parts.push(`${from} to ${to}`);
+      else if (from) parts.push(`from ${from}`);
+      else if (to) parts.push(`until ${to}`);
+      parts.push(dateStr);
+      const filename = parts.join(' ') + '.csv';
 
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.status(200).send(csvContent);
+      // Prepend UTF-8 BOM so Excel opens the file correctly without re-encoding
+      res.status(200).send('\uFEFF' + csvContent);
     } catch (err) {
       next(err);
     }
