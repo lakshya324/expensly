@@ -3,6 +3,7 @@ import { AuthRequest } from "../types/types.js";
 
 export function buildTicketFilter(req: AuthRequest): Record<string, unknown> {
   const user = req.user!;
+  const org = req.organization!;
   const { status, department, from, to, search } = req.query as Record<
     string,
     string | undefined
