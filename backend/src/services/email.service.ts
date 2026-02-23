@@ -140,7 +140,6 @@ export async function sendTicketSubmittedEmail(
   recipientName: string,
   submitterName: string,
   ticketTitle: string,
-  ticketId: string,
   amount: number,
   currency: string,
 ): Promise<void> {
@@ -160,10 +159,6 @@ export async function sendTicketSubmittedEmail(
       <div class="label">Amount</div>
       <div class="value">${amount.toFixed(2)} ${currency}</div>
     </div>
-    <div class="info-card">
-      <div class="label">Ticket ID</div>
-      <div class="value" style="font-family: monospace; font-size: 13px;">${ticketId}</div>
-    </div>
     <div class="divider"></div>
     <p>Please log in to Expensly to review and take action on this ticket.</p>`,
   );
@@ -177,7 +172,6 @@ export async function sendTicketStatusEmail(
   to: string,
   userName: string,
   ticketTitle: string,
-  ticketId: string,
   newStatus: string,
   comments?: string | null,
 ): Promise<void> {
@@ -209,10 +203,6 @@ export async function sendTicketStatusEmail(
     </div>`
         : ""
     }
-    <div class="info-card">
-      <div class="label">Ticket ID</div>
-      <div class="value" style="font-family: monospace; font-size: 13px;">${ticketId}</div>
-    </div>
     <div class="divider"></div>
     <p>${
       isApproved

@@ -252,7 +252,6 @@ export default class TicketController {
             target.name,
             user.name,
             ticket.title,
-            ticket._id.toString(),
             ticket.amount,
             ticket.currency,
           );
@@ -613,7 +612,6 @@ export default class TicketController {
               submitter.email,
               submitter.name,
               ticket.title,
-              ticket._id.toString(),
               status,
               comments ?? null,
             );
