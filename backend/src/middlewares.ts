@@ -11,7 +11,7 @@ export default function middlewares(app: express.Application) {
   app.use(corsMiddleware);
 
   //! Fetching Client IP
-  app.set("trust proxy", true);
+  app.set("trust proxy", 1); // exactly one proxy hop (nginx proxy)
 
   //! Body Parsing
   app.use(express.json({ limit: "1mb" }));
