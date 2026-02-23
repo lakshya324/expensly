@@ -64,13 +64,20 @@ function baseTemplate(title: string, bodyHtml: string): string {
 </html>`;
 }
 
+interface MailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+}
+
 async function send(
   to: string,
   subject: string,
   html: string,
+  attachments?: MailAttachment[],
 ): Promise<void> {
   try {
-    await transport.sendMail({ from: FROM, to, subject, html });
+    await transport.sendMail({ from: FROM, to, subject, html, attachments });
     logInfo(`Email sent to ${to}: ${subject}`);
   } catch (err) {
     logError(err, {
@@ -275,6 +282,37 @@ export async function sendSignupRejectedEmail(
     <p>If you believe this is a mistake, please contact Expensly support.</p>`,
   );
   await send(to, `Organization "${orgName}" has been disabled`, html);
+}
+
+// ---------------------------------------------------------------------------
+// Report email — send generated CSV report to user
+// ---------------------------------------------------------------------------
+export async function sendReportEmail(
+  to: string,
+  name: string,
+  filename: string,
+  csvBuffer: Buffer,
+  downloadUrl: string,
+): Promise<void> {
+  const html = baseTemplate(
+    "Your Expensly Expense Report",
+    `<h2>Your Report is Ready 📊</h2>
+    <p>Hi <strong>${name}</strong>, your expense report has been generated and is attached to this email.</p>
+    <div class="info-card">
+      <div class="label">File</div>
+      <div class="value">${filename}</div>
+    </div>
+    <div class="divider"></div>
+    <p>You can also download the report directly using the button below. This link is valid for <strong>7 days</strong>.</p>
+    <a href="${downloadUrl}" class="btn" target="_blank">⬇️ Download Report</a>
+    <p style="font-size: 13px; color: #94a3b8;">If the button doesn't work, copy and paste this URL into your browser:<br/><span style="word-break: break-all; font-family: monospace; font-size: 12px;">${downloadUrl}</span></p>`,
+  );
+  await send(
+    to,
+    `Your Expensly Report — ${filename}`,
+    html,
+    [{ filename, content: csvBuffer, contentType: 'text/csv' }],
+  );
 }
 
 // ---------------------------------------------------------------------------

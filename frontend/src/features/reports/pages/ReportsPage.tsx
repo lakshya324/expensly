@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileDown, Download, Receipt, Loader2, Flag } from 'lucide-react';
+import { FileDown, Download, Receipt, Loader2, Flag, Mail, Clock, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { Button } from '@/shared/components/ui/Button';
@@ -8,6 +8,8 @@ import { Input } from '@/shared/components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/Card';
 import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
+import { listReports, emailReport } from '../api/reports.api';
+import type { ReportListItem } from '../api/reports.api';
 import { formatDateTime, formatCurrency, formatDate } from '@/core/utils/formatters';
 import { ROUTES } from '@/core/constants/constants';
 import type { IDepartmentData, ITicketData } from '@/core/types/ticket.types';
@@ -94,15 +96,6 @@ function getPresetDates(preset: DatePreset): { from: string; to: string } | null
   return null;
 }
 
-interface LastExport {
-  filename: string;
-  timestamp: string;
-  status: string;
-  department: string;
-  from: string;
-  to: string;
-}
-
 export function ReportsPage() {
   const navigate = useNavigate();
   const [departments, setDepartments] = useState<IDepartmentData[]>([]);
@@ -112,7 +105,9 @@ export function ReportsPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [exporting, setExporting] = useState(false);
-  const [lastExport, setLastExport] = useState<LastExport | null>(null);
+  const [reportHistory, setReportHistory] = useState<ReportListItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [emailingId, setEmailingId] = useState<string | null>(null);
 
   // Preview state
   const [previewTickets, setPreviewTickets] = useState<ITicketData[]>([]);
@@ -124,6 +119,20 @@ export function ReportsPage() {
     const dates = getPresetDates('this_month');
     if (dates) { setFrom(dates.from); setTo(dates.to); }
   }, []);
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const items = await listReports();
+      setReportHistory(items);
+    } catch {
+      // silently ignore — history is a nice-to-have
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadHistory(); }, [loadHistory]);
 
   useEffect(() => {
     apiClient
@@ -191,21 +200,25 @@ export function ReportsPage() {
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      const deptName = departments.find((d) => d._id === department)?.name ?? 'All';
-      setLastExport({
-        filename,
-        timestamp: new Date().toISOString(),
-        status: status || 'All',
-        department: deptName,
-        from: from || '—',
-        to: to || '—',
-      });
-
       toast.success('CSV exported successfully');
+      // Refresh history so the new report appears immediately
+      loadHistory();
     } catch {
       toast.error('Failed to export CSV');
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleEmailReport = async (id: string) => {
+    setEmailingId(id);
+    try {
+      await emailReport(id);
+      toast.success('Report emailed to your inbox');
+    } catch {
+      toast.error('Failed to email report');
+    } finally {
+      setEmailingId(null);
     }
   };
 
@@ -301,28 +314,13 @@ export function ReportsPage() {
               </CardContent>
             </Card>
 
-            {/* Last Export */}
-            {lastExport ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Last Export</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                    <dt className="text-[var(--muted-foreground)]">File</dt>
-                    <dd className="font-medium text-[var(--foreground)] truncate">{lastExport.filename}</dd>
-                    <dt className="text-[var(--muted-foreground)]">Exported at</dt>
-                    <dd className="text-[var(--foreground)]">{formatDateTime(lastExport.timestamp)}</dd>
-                    <dt className="text-[var(--muted-foreground)]">Status filter</dt>
-                    <dd className="capitalize text-[var(--foreground)]">{lastExport.status}</dd>
-                    <dt className="text-[var(--muted-foreground)]">Department</dt>
-                    <dd className="text-[var(--foreground)]">{lastExport.department}</dd>
-                    <dt className="text-[var(--muted-foreground)]">Date range</dt>
-                    <dd className="text-[var(--foreground)]">{lastExport.from} → {lastExport.to}</dd>
-                  </dl>
-                </CardContent>
-              </Card>
-            ) : (
+            {/* Report History */}
+            {historyLoading ? (
+              <div className="flex items-center gap-2 py-6 text-[var(--muted-foreground)] text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading report history…
+              </div>
+            ) : reportHistory.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-3 rounded-2xl border border-dashed border-[var(--border)]">
                 <div className="w-14 h-14 rounded-2xl bg-[var(--muted)] flex items-center justify-center">
                   <FileDown className="w-7 h-7 text-[var(--muted-foreground)]" />
@@ -332,6 +330,70 @@ export function ReportsPage() {
                   Configure the filters above and click "Export CSV" to download your first report.
                 </p>
               </div>
+            ) : (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Report History</CardTitle>
+                    <button
+                      onClick={loadHistory}
+                      className="p-1.5 rounded-lg hover:bg-[var(--muted)] text-[var(--muted-foreground)] transition-colors"
+                      title="Refresh history"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <CardDescription>Your last {reportHistory.length} generated report{reportHistory.length !== 1 ? 's' : ''}. Download or email any of them below.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ul className="divide-y divide-[var(--border)]">
+                    {reportHistory.map((report, idx) => (
+                      <li key={report._id} className="px-4 py-3.5 flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-2">
+                            {idx === 0 && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400 shrink-0">Latest</span>
+                            )}
+                            <p className="text-sm font-medium text-[var(--foreground)] truncate">{report.filename}</p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[var(--muted-foreground)]">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {formatDateTime(report.createdAt)}
+                            </span>
+                            <span>{report.ticketCount} ticket{report.ticketCount !== 1 ? 's' : ''}</span>
+                            {report.filters.status && <span className="capitalize">{report.filters.status.replace('_', ' ')}</span>}
+                            {(report.filters.from || report.filters.to) && (
+                              <span>{report.filters.from ?? '—'} → {report.filters.to ?? '—'}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <a
+                            href={report.downloadUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 rounded-lg hover:bg-[var(--muted)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                            title="Download report"
+                          >
+                            <Download className="w-4 h-4" />
+                          </a>
+                          <button
+                            onClick={() => handleEmailReport(report._id)}
+                            disabled={emailingId === report._id}
+                            className="p-1.5 rounded-lg hover:bg-[var(--muted)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors disabled:opacity-50"
+                            title="Email me this report"
+                          >
+                            {emailingId === report._id
+                              ? <Loader2 className="w-4 h-4 animate-spin" />
+                              : <Mail className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
             )}
           </div>
 

@@ -46,6 +46,8 @@ export const EP = {
 
   // Reports
   EXPORT_REPORT: '/users/reports/export',
+  REPORT_LIST: '/users/reports',
+  REPORT_EMAIL: (id: string) => `/users/reports/${id}/email`,
 
   // Superadmin — Organizations
   SA_ORGANIZATIONS: '/superadmin/organizations',

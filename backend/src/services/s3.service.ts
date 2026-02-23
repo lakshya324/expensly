@@ -72,3 +72,39 @@ export const buildReceiptKey = (
   const ext = mimetype.split('/')[1] ?? 'bin';
   return `expensly/${orgSlug}/${ticketId}.${ext}`;
 };
+
+/**
+ * Build a report S3 key using the pattern expensly/<orgSlug>/reports/<reportId>.csv.
+ */
+export const buildReportKey = (orgSlug: string, reportId: string): string =>
+  `expensly/${orgSlug}/reports/${reportId}.csv`;
+
+/** 7 days in seconds */
+const REPORT_URL_EXPIRY = 60 * 60 * 24 * 7;
+
+/**
+ * Generate a pre-signed GET URL for a stored report (7-day expiry).
+ */
+export const getReportSignedUrl = async (key: string): Promise<string> => {
+  const command = new GetObjectCommand({
+    Bucket: config.awsConfig.awsBucket,
+    Key: key,
+  });
+  return getSignedUrl(s3, command, { expiresIn: REPORT_URL_EXPIRY });
+};
+
+/**
+ * Fetch a report from S3 and return it as a Buffer.
+ */
+export const getReportBuffer = async (key: string): Promise<Buffer> => {
+  const { Body } = await s3.send(
+    new GetObjectCommand({ Bucket: config.awsConfig.awsBucket, Key: key }),
+  );
+  if (!Body) throw new Error('Empty S3 body for report key: ' + key);
+  // Body is a ReadableStream in the AWS SDK v3 Node runtime
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of Body as AsyncIterable<Uint8Array>) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+};
