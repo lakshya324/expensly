@@ -1,4 +1,4 @@
-import { ROLES } from "../config/constants.js";
+import { ROLES, TICKET_STATUS } from "../config/constants.js";
 import { AuthRequest } from "../types/types.js";
 
 export function buildTicketFilter(req: AuthRequest): Record<string, unknown> {
@@ -28,7 +28,7 @@ export function buildTicketFilter(req: AuthRequest): Record<string, unknown> {
         { submitterManagerId: user._id }, // See all tickets from team members
       ];
 
-  if (status) filter["status"] = status;
+  if (status && Object.values(TICKET_STATUS).includes(status as any)) filter["status"] = status;
   if (department) filter["department"] = department;
 
   if (from || to) {
