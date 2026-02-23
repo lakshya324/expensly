@@ -1,25 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Filter, X } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { DataTable, type Column } from '@/shared/components/data-display/DataTable';
 import { StatusBadge } from '@/shared/components/data-display/StatusBadge';
-import { Input } from '@/shared/components/ui/Input';
-import { Button } from '@/shared/components/ui/Button';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/shared/components/ui/Select';
+import { ExpenseFiltersBar } from '../components/ExpenseFiltersBar';
 import { useExpenses } from '../hooks/useExpenses';
 import { formatDate, formatCurrency } from '@/core/utils/formatters';
 import { ROUTES } from '@/core/constants/constants';
 import type { TicketStatus } from '@/core/types/api.types';
 import type { ITicketData } from '@/core/types/ticket.types';
-
-const STATUS_OPTIONS: { label: string; value: TicketStatus | '' }[] = [
-  { label: 'All statuses', value: '' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Awaiting Finance', value: 'awaiting_finance' },
-  { label: 'Approved', value: 'approved' },
-  { label: 'Rejected', value: 'rejected' },
-];
 
 const COLUMNS: Column<ITicketData>[] = [
   {
@@ -74,8 +63,17 @@ export function AdminExpensesPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<TicketStatus | ''>('');
-  const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+
+  // Debounce: commit search 500 ms after the user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   // Admin endpoint — returns all tickets for the org
   const { data, pagination, loading } = useExpenses({
@@ -87,61 +85,34 @@ export function AdminExpensesPage() {
 
   const clearFilters = () => {
     setStatusFilter('');
-    setSearch('');
     setSearchInput('');
+    setSearch('');
     setPage(1);
   };
 
-  const hasFilters = statusFilter || search;
+  const hasActiveFilters = !!searchInput || !!statusFilter;
 
   return (
     <AppShell title="All Expenses">
       <div className="space-y-4">
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3 items-end">
-          <div className="flex-1 min-w-[200px] max-w-sm">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setSearch(searchInput);
-                setPage(1);
-              }}
-            >
-              <Input
-                placeholder="Search title or description…"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-              />
-            </form>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-(--foreground)">All Expenses</h2>
+            <p className="text-sm text-(--muted-foreground)">Review and manage expense submissions across the organisation</p>
           </div>
-
-          <Select
-            value={statusFilter || 'all'}
-            onValueChange={(v) => {
-              setStatusFilter(v === 'all' ? '' : (v as TicketStatus));
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-[180px]">
-              <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value || 'all'} value={opt.value || 'all'}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters}>
-              <X className="w-4 h-4 mr-1.5" />
-              Clear
-            </Button>
-          )}
         </div>
+
+        {/* Filters */}
+        <ExpenseFiltersBar
+          searchInput={searchInput}
+          onSearchChange={(v) => setSearchInput(v)}
+          status={statusFilter}
+          onStatusChange={(v) => { setStatusFilter(v); setPage(1); }}
+          hasActiveFilters={hasActiveFilters}
+          onClear={clearFilters}
+          placeholder="Search by title or description…"
+        />
 
         {/* Table */}
         <DataTable
