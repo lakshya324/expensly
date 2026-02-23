@@ -16,6 +16,9 @@ router.get(
   TicketController.list,
 );
 
+//* Get Ticket Stats [GET /api/users/expenses/stats]
+router.get("/stats", TicketController.getStats);
+
 //* Create Ticket [POST /api/users/expenses]
 router.post(
   "/",

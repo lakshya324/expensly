@@ -10,6 +10,7 @@ export const EP = {
 
   // Expenses (user + admin)
   EXPENSES: '/users/expenses',
+  EXPENSE_STATS: '/users/expenses/stats',
   EXPENSE: (id: string) => `/users/expenses/${id}`,
   EXPENSE_FLAG: (id: string) => `/users/expenses/${id}/flag`,
   EXPENSE_STATUS: (id: string) => `/users/expenses/${id}/status`,

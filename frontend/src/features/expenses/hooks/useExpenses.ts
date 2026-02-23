@@ -143,6 +143,34 @@ export function useDeleteExpense(id: string, onSuccess?: () => void) {
   return { deleteExpense, loading };
 }
 
+export interface ExpenseStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+}
+
+export function useExpenseStats() {
+  const [data, setData] = useState<ExpenseStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get<ApiResponse<ExpenseStats>>(EP.EXPENSE_STATS);
+      setData(res.data.data);
+    } catch {
+      // silently fail — stats will remain null
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { data, loading, refetch: fetch };
+}
+
 export function useReceiptUrl(id: string) {
   const openReceipt = async () => {
     try {

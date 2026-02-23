@@ -6,7 +6,7 @@ import { DataTable, type Column } from '@/shared/components/data-display/DataTab
 import { StatusBadge } from '@/shared/components/data-display/StatusBadge';
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
-import { useExpenses } from '@/features/expenses/hooks/useExpenses';
+import { useExpenses, useExpenseStats } from '@/features/expenses/hooks/useExpenses';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { ROUTES } from '@/core/constants/constants';
 import { formatCurrency, formatRelativeTime } from '@/core/utils/formatters';
@@ -16,13 +16,13 @@ export function UserDashboardPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const { data: recent, loading: recentLoading } = useExpenses({ page: 1, limit: 5 });
-  const { data: allData } = useExpenses({ limit: 200 });
+  const { data: statsData, loading: statsLoading } = useExpenseStats();
 
   const stats = {
-    total: allData.length,
-    pending: allData.filter((t) => t.status === 'pending').length,
-    approved: allData.filter((t) => t.status === 'approved').length,
-    rejected: allData.filter((t) => t.status === 'rejected').length,
+    total:    statsData?.total    ?? 0,
+    pending:  statsData?.pending  ?? 0,
+    approved: statsData?.approved ?? 0,
+    rejected: statsData?.rejected ?? 0,
   };
 
   const recentColumns: Column<ITicketData>[] = [
@@ -69,10 +69,10 @@ export function UserDashboardPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Total Submitted" value={stats.total} icon={Receipt} color="brand" />
-          <StatCard title="Pending Review" value={stats.pending} icon={Clock} color="warning" />
-          <StatCard title="Approved" value={stats.approved} icon={CheckCircle2} color="success" />
-          <StatCard title="Rejected" value={stats.rejected} icon={XCircle} color="danger" />
+          <StatCard title="Total Submitted" value={statsLoading ? '—' : stats.total} icon={Receipt} color="brand" />
+          <StatCard title="Pending Review" value={statsLoading ? '—' : stats.pending} icon={Clock} color="warning" />
+          <StatCard title="Approved" value={statsLoading ? '—' : stats.approved} icon={CheckCircle2} color="success" />
+          <StatCard title="Rejected" value={statsLoading ? '—' : stats.rejected} icon={XCircle} color="danger" />
         </div>
 
         {/* Recent Expenses */}

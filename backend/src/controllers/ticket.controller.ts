@@ -47,6 +47,42 @@ import {
 
 export default class TicketController {
   /**
+   * GET /api/expenses/stats
+   * Returns per-status ticket counts for the requesting user (respects role/permission scope).
+   */
+  static async getStats(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const filter = buildTicketFilter(req);
+
+      const counts: { _id: string; count: number }[] = await Ticket.aggregate([
+        { $match: filter },
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]);
+
+      const map: Record<string, number> = {};
+      counts.forEach(({ _id, count }) => { map[_id] = count; });
+
+      const stats = {
+        total: counts.reduce((s, c) => s + c.count, 0),
+        pending: (map[TICKET_STATUS.PENDING] ?? 0) + (map[TICKET_STATUS.AWAITING_FINANCE] ?? 0),
+        approved: map[TICKET_STATUS.APPROVED] ?? 0,
+        rejected: map[TICKET_STATUS.REJECTED] ?? 0,
+      };
+
+      const payload: ResponsePayload<typeof stats> = {
+        success: true,
+        message: "Stats retrieved successfully",
+        timestamp: new Date().toISOString(),
+        data: stats,
+      };
+
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * GET /api/expenses
    */
   static async list(req: AuthRequest, res: Response, next: NextFunction) {
