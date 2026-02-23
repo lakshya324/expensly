@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, X } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
@@ -23,9 +23,19 @@ export function ExpensesPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<TicketStatus | ''>('');
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
 
-  const { data, pagination, loading } = useExpenses({ page, limit: 15, status: status || undefined });
+  // Debounce: commit search 500ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const { data, pagination, loading } = useExpenses({ page, limit: 15, status: status || undefined, search: search || undefined });
 
   const columns: Column<ITicketData>[] = [
     {
@@ -96,11 +106,20 @@ export function ExpensesPage() {
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
             <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search expenses..."
-              className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full pl-9 pr-8 py-2 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
+            {searchInput && (
+              <button
+                type="button"
+                onClick={() => setSearchInput('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-[var(--accent)] transition"
+              >
+                <X className="w-3.5 h-3.5 text-[var(--muted-foreground)]" />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-[var(--muted-foreground)]" />
