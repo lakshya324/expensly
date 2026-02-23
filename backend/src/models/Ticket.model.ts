@@ -57,11 +57,15 @@ const TicketSchema = new Schema<ITicket>(
 );
 
 TicketSchema.index({ orgId: 1 });
-TicketSchema.index({ submittedBy: 1 });
 TicketSchema.index({ submitterManagerId: 1 });
-TicketSchema.index({ orgId: 1, status: 1 });
-TicketSchema.index({ orgId: 1, department: 1 });
-TicketSchema.index({ createdAt: -1 });
+TicketSchema.index({ orgId: 1, status: 1 }); // kept for aggregation $match (no sort needed there)
+TicketSchema.index({ orgId: 1, department: 1 }); // kept for aggregation $match (no sort needed there)
+TicketSchema.index({ orgId: 1, createdAt: -1 }); // all ticket list & CSV export queries
+TicketSchema.index({ orgId: 1, status: 1, createdAt: -1 }); // status-filtered lists + analytics approved query
+TicketSchema.index({ orgId: 1, department: 1, createdAt: -1 }); // dept-filtered lists & CSV exports
+TicketSchema.index({ submittedBy: 1, createdAt: -1 }); // user-scope $or branch (most common regular user path)
+TicketSchema.index({ submitterManagerId: 1, createdAt: -1 }); // manager-scope $or branch
+TicketSchema.index({ "managerApproval.reviewedBy": 1 }); // restricted user $or branch (finance/manager role)
 
 TicketSchema.methods.data = async function (
   this: ITicket,

@@ -18,7 +18,7 @@ export interface IReport extends Document {
 
 const ReportSchema = new Schema<IReport>(
   {
-    orgId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
+    orgId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true },
     generatedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     s3Key: { type: String, required: true },
     filename: { type: String, required: true },
@@ -33,7 +33,7 @@ const ReportSchema = new Schema<IReport>(
   { timestamps: true }
 );
 
-// Index for fast per-user lookups sorted by newest first
-ReportSchema.index({ generatedBy: 1, createdAt: -1 });
+ReportSchema.index({ orgId: 1, createdAt: -1 }); // org-scoped report queries
+ReportSchema.index({ generatedBy: 1, createdAt: -1 }); // per-user report list sorted by newest first
 
 export const Report = mongoose.model<IReport>('Report', ReportSchema);

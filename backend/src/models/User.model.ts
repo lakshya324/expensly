@@ -49,6 +49,8 @@ const UserSchema = new Schema<IUser>(
 UserSchema.index({ orgId: 1 });
 UserSchema.index({ orgId: 1, department: 1 });
 UserSchema.index({ managerId: 1 });
+UserSchema.index({ orgId: 1, role: 1, isDisabled: 1 }); // admin notify + role-filtered listUsers
+UserSchema.index({ orgId: 1, createdAt: -1 }); // listUsers / listAllUsers sort
 
 UserSchema.pre("save", async function () {
   if (this.role !== ROLES.SUPER_ADMIN && !this.orgId)
