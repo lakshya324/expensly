@@ -479,11 +479,32 @@ export default class TicketController {
 
       const now = new Date();
 
+      // Determine which approval step this action belongs to.
+      // Manager step: ticket is still pending AND manager approval is outstanding
+      //   → manager approves  (target: awaiting_finance)
+      //   → manager rejects   (target: rejected)
+      // Finance step: anything else targeting approved/rejected
+      const isManagerStep =
+        ticket.status === TICKET_STATUS.PENDING &&
+        ticket.managerApproval !== null &&
+        ticket.managerApproval.approved === null &&
+        (status === TICKET_STATUS.AWAITING_FINANCE ||
+          status === TICKET_STATUS.REJECTED);
+
       // Manager / awaiting_finance step
-      if (
-        status === TICKET_STATUS.AWAITING_FINANCE ||
-        status === TICKET_STATUS.REJECTED
-      ) {
+      if (isManagerStep) {
+        // Only the submitter's assigned manager may act on this step.
+        if (
+          !ticket.submitterManagerId ||
+          !ticket.submitterManagerId.equals(user._id)
+        ) {
+          throw createError(
+            "You are not the manager of this ticket's submitter",
+            403,
+            "FORBIDDEN",
+          );
+        }
+
         if (ticket.managerApproval) {
           ticket.managerApproval.approved =
             status === TICKET_STATUS.AWAITING_FINANCE;
@@ -495,8 +516,8 @@ export default class TicketController {
 
       // Finance final approval / rejection
       if (
-        status === TICKET_STATUS.APPROVED ||
-        status === TICKET_STATUS.REJECTED
+        !isManagerStep &&
+        (status === TICKET_STATUS.APPROVED || status === TICKET_STATUS.REJECTED)
       ) {
         // Only users with canApprove permission (or admins) can do finance approval.
         // Priority: user-level permission → dept-level permission → role default.
