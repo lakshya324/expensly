@@ -1,0 +1,123 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* Brand — Indigo/Violet */
+  --color-brand-50: oklch(97% 0.016 286);
+  --color-brand-100: oklch(94% 0.032 286);
+  --color-brand-200: oklch(88% 0.064 286);
+  --color-brand-300: oklch(80% 0.1 286);
+  --color-brand-400: oklch(70% 0.14 286);
+  --color-brand-500: oklch(60% 0.18 286);
+  --color-brand-600: oklch(52% 0.2 286);
+  --color-brand-700: oklch(44% 0.18 286);
+  --color-brand-800: oklch(36% 0.15 286);
+  --color-brand-900: oklch(28% 0.12 286);
+  --color-brand-950: oklch(18% 0.08 286);
+
+  /* Surface — Slate */
+  --color-surface-0: oklch(100% 0 0);
+  --color-surface-50: oklch(98% 0.004 286);
+  --color-surface-100: oklch(96% 0.008 286);
+  --color-surface-200: oklch(92% 0.01 286);
+  --color-surface-300: oklch(86% 0.012 286);
+  --color-surface-400: oklch(72% 0.015 286);
+  --color-surface-500: oklch(58% 0.018 286);
+  --color-surface-600: oklch(46% 0.02 286);
+  --color-surface-700: oklch(36% 0.018 286);
+  --color-surface-800: oklch(26% 0.015 286);
+  --color-surface-900: oklch(18% 0.012 286);
+  --color-surface-950: oklch(11% 0.008 286);
+
+  /* Status colours */
+  --color-success-50: oklch(97% 0.02 145);
+  --color-success-500: oklch(55% 0.18 145);
+  --color-success-600: oklch(48% 0.18 145);
+
+  --color-warning-50: oklch(97% 0.03 75);
+  --color-warning-500: oklch(72% 0.2 75);
+  --color-warning-600: oklch(65% 0.2 75);
+
+  --color-danger-50: oklch(97% 0.02 25);
+  --color-danger-500: oklch(58% 0.22 25);
+  --color-danger-600: oklch(50% 0.22 25);
+
+  /* Typography */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Radius */
+  --radius: 0.625rem;
+}
+
+/* ─── CSS design tokens (light) ─── */
+:root {
+  --background: oklch(100% 0 0);
+  --foreground: oklch(14% 0.012 286);
+  --card: oklch(100% 0 0);
+  --card-foreground: oklch(14% 0.012 286);
+  --popover: oklch(100% 0 0);
+  --popover-foreground: oklch(14% 0.012 286);
+  --primary: oklch(52% 0.2 286);
+  --primary-foreground: oklch(98% 0.004 286);
+  --secondary: oklch(96% 0.008 286);
+  --secondary-foreground: oklch(20% 0.012 286);
+  --muted: oklch(96% 0.008 286);
+  --muted-foreground: oklch(50% 0.018 286);
+  --accent: oklch(94% 0.032 286);
+  --accent-foreground: oklch(20% 0.012 286);
+  --destructive: oklch(58% 0.22 25);
+  --destructive-foreground: oklch(98% 0 0);
+  --border: oklch(90% 0.01 286);
+  --input: oklch(90% 0.01 286);
+  --ring: oklch(52% 0.2 286);
+  --sidebar-bg: oklch(98% 0.006 286);
+  --sidebar-border: oklch(92% 0.01 286);
+}
+
+/* ─── Dark mode tokens ─── */
+.dark {
+  --background: oklch(11% 0.008 286);
+  --foreground: oklch(96% 0.006 286);
+  --card: oklch(14% 0.01 286);
+  --card-foreground: oklch(96% 0.006 286);
+  --popover: oklch(14% 0.01 286);
+  --popover-foreground: oklch(96% 0.006 286);
+  --primary: oklch(68% 0.18 286);
+  --primary-foreground: oklch(14% 0.01 286);
+  --secondary: oklch(20% 0.012 286);
+  --secondary-foreground: oklch(90% 0.01 286);
+  --muted: oklch(18% 0.012 286);
+  --muted-foreground: oklch(62% 0.015 286);
+  --accent: oklch(22% 0.015 286);
+  --accent-foreground: oklch(90% 0.01 286);
+  --destructive: oklch(62% 0.22 25);
+  --destructive-foreground: oklch(98% 0 0);
+  --border: oklch(22% 0.012 286);
+  --input: oklch(22% 0.012 286);
+  --ring: oklch(68% 0.18 286);
+  --sidebar-bg: oklch(13% 0.009 286);
+  --sidebar-border: oklch(20% 0.012 286);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: var(--ring);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: oklch(75% 0.01 286); border-radius: 3px; }
+.dark ::-webkit-scrollbar-thumb { background: oklch(30% 0.012 286); }
+
