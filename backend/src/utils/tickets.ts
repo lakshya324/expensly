@@ -34,7 +34,11 @@ export function buildTicketFilter(req: AuthRequest): Record<string, unknown> {
   if (from || to) {
     const dateRange: Record<string, Date> = {};
     if (from) dateRange["$gte"] = new Date(from);
-    if (to) dateRange["$lte"] = new Date(to);
+    if (to) {
+      const toDate = new Date(to);
+      toDate.setHours(23, 59, 59, 999);
+      dateRange["$lte"] = toDate;
+    }
     filter["createdAt"] = dateRange;
   }
 
