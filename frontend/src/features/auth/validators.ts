@@ -1,24 +1,26 @@
 import { z } from 'zod';
 
 export const loginSchema = z.object({
-  email: z.string().min(1, 'Email is required').email('Enter a valid email address'),
+  email: z.string().trim().min(1, 'Email is required').email('Enter a valid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
 export const otpSchema = z.object({
   otp: z
     .string()
+    .trim()
     .length(6, 'OTP must be exactly 6 digits')
     .regex(/^\d{6}$/, 'OTP must contain only digits'),
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().min(1, 'Email is required').email('Enter a valid email address'),
+  email: z.string().trim().min(1, 'Email is required').email('Enter a valid email address'),
 });
 
 export const resetPasswordSchema = z.object({
   otp: z
     .string()
+    .trim()
     .length(6, 'OTP must be exactly 6 digits')
     .regex(/^\d{6}$/, 'OTP must contain only digits'),
   newPassword: z.string().min(8, 'Password must be at least 8 characters'),
