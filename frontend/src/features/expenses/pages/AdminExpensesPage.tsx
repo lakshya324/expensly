@@ -151,7 +151,8 @@ export function AdminExpensesPage() {
           pagination={pagination ?? undefined}
           onPageChange={setPage}
           onRowClick={(row) => navigate(ROUTES.EXPENSE_DETAIL(row._id))}
-          emptyMessage="No expenses found"
+          getRowClassName={(row) => row.flagged ? 'border-l-4 border-l-yellow-500 bg-yellow-50/30 dark:bg-yellow-500/10' : ''}
+          emptyTitle="No expenses found"
         />
       </div>
     </AppShell>

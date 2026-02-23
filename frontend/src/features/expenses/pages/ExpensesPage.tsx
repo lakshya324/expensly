@@ -129,6 +129,7 @@ export function ExpensesPage() {
           pagination={pagination ?? undefined}
           onPageChange={setPage}
           onRowClick={(row) => navigate(ROUTES.EXPENSE_DETAIL(row._id))}
+          getRowClassName={(row) => row.flagged ? 'border-l-4 border-l-yellow-500 bg-yellow-50/30 dark:bg-yellow-500/10' : ''}
           emptyTitle="No expenses found"
           emptyDescription="Submit your first expense to get started."
         />

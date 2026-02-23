@@ -19,6 +19,7 @@ interface DataTableProps<T> {
   pagination?: PaginationMeta;
   onPageChange?: (page: number) => void;
   onRowClick?: (row: T) => void;
+  getRowClassName?: (row: T) => string;
   emptyTitle?: string;
   emptyDescription?: string;
   className?: string;
@@ -31,6 +32,7 @@ export function DataTable<T>({
   pagination,
   onPageChange,
   onRowClick,
+  getRowClassName,
   emptyTitle = 'No data found',
   emptyDescription,
   className,
@@ -77,6 +79,7 @@ export function DataTable<T>({
                   className={cn(
                     'transition-colors hover:bg-[var(--muted)]/40',
                     onRowClick && 'cursor-pointer',
+                    getRowClassName?.(row),
                   )}
                 >
                   {columns.map((col) => (

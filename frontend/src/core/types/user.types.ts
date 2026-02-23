@@ -1,4 +1,5 @@
 import type { Role, Currency } from './api.types';
+import type { IDepartmentData } from './ticket.types';
 
 export interface UserPermissions {
   canViewAllTickets: boolean | null;
@@ -24,7 +25,7 @@ export interface IUserData {
   role: Role;
   orgId: string | null;
   org: IOrganizationData | null;
-  department: { _id: string; name: string } | null;
+  department: IDepartmentData | null;
   manager: { _id: string; name: string; email: string; role: Role; isDisabled: boolean; createdAt: string; updatedAt: string } | null;
   permissions: UserPermissions;
   isDisabled: boolean;

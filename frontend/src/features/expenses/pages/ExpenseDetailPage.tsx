@@ -14,7 +14,6 @@ import { useExpense, useUpdateExpenseStatus, useFlagExpense, useReceiptUrl } fro
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { formatCurrency, formatDateTime, formatRelativeTime } from '@/core/utils/formatters';
 import { CURRENCY_SYMBOLS } from '@/core/constants/constants';
-import { ROUTES } from '@/core/constants/constants';
 
 export function ExpenseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,15 +22,20 @@ export function ExpenseDetailPage() {
   const { data: ticket, loading, setData } = useExpense(id!);
   const { toggleFlag, loading: flagLoading } = useFlagExpense(id!, setData);
   const { openReceipt } = useReceiptUrl(id!);
-  const [statusModal, setStatusModal] = useState<{ open: boolean; action: 'approved' | 'rejected' | null }>({
+  const [statusModal, setStatusModal] = useState<{ 
+    open: boolean; 
+    action: 'approved' | 'rejected' | null;
+    isManagerApproval: boolean;
+  }>({
     open: false,
     action: null,
+    isManagerApproval: false,
   });
   const [comments, setComments] = useState('');
 
   const { updateStatus, loading: statusLoading } = useUpdateExpenseStatus(id!, (updated) => {
     setData(updated);
-    setStatusModal({ open: false, action: null });
+    setStatusModal({ open: false, action: null, isManagerApproval: false });
     setComments('');
   });
 
@@ -47,10 +51,24 @@ export function ExpenseDetailPage() {
 
   if (!ticket) return null;
 
-  const canApprove =
-    user?.role === 'admin' &&
-    (user?.permissions?.canApprove ?? false) &&
+  // Check if user can do manager approval (must be the assigned reviewer)
+  const canApproveAsManager =
+    ticket.managerApproval &&
+    ticket.managerApproval.reviewedBy?._id === user?._id &&
+    ticket.managerApproval.approved === null &&
     (ticket.status === 'pending' || ticket.status === 'awaiting_finance');
+
+  // Check if user can do finance approval
+  // Priority: user role (admin) → user-level permission → dept-level permission
+  const hasFinancePermission =
+    user?.role === 'admin' ||
+    user?.permissions?.canApprove === true ||
+    (user?.permissions?.canApprove == null && user?.department?.permissions?.canApprove === true);
+
+  const canApproveAsFinance =
+    hasFinancePermission &&
+    ticket.financeApproval?.approved === null &&
+    (ticket.status === 'awaiting_finance' || ticket.status === 'pending');
 
   const isSubmitter = ticket.submittedBy._id === user?._id;
 
@@ -222,25 +240,47 @@ export function ExpenseDetailPage() {
                   {ticket.flagged ? 'Unflag' : 'Flag'} Expense
                 </Button>
               )}
-              {canApprove && (
+              {canApproveAsManager && (
                 <>
                   <Button
                     variant="success"
                     size="sm"
                     className="w-full"
-                    onClick={() => setStatusModal({ open: true, action: 'approved' })}
+                    onClick={() => setStatusModal({ open: true, action: 'approved', isManagerApproval: true })}
                   >
                     <CheckCircle className="w-4 h-4" />
-                    Approve
+                    Manager Approve
                   </Button>
                   <Button
                     variant="destructive"
                     size="sm"
                     className="w-full"
-                    onClick={() => setStatusModal({ open: true, action: 'rejected' })}
+                    onClick={() => setStatusModal({ open: true, action: 'rejected', isManagerApproval: true })}
                   >
                     <XCircle className="w-4 h-4" />
-                    Reject
+                    Manager Reject
+                  </Button>
+                </>
+              )}
+              {canApproveAsFinance && (
+                <>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setStatusModal({ open: true, action: 'approved', isManagerApproval: false })}
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Finance Approve
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setStatusModal({ open: true, action: 'rejected', isManagerApproval: false })}
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Finance Reject
                   </Button>
                 </>
               )}
@@ -253,11 +293,14 @@ export function ExpenseDetailPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {statusModal.action === 'approved' ? 'Approve Expense' : 'Reject Expense'}
+                {statusModal.isManagerApproval ? 'Manager ' : 'Finance '}
+                {statusModal.action === 'approved' ? 'Approve' : 'Reject'} Expense
               </DialogTitle>
               <DialogDescription>
                 {statusModal.action === 'approved'
-                  ? 'Confirm approval. The exchange rate will be locked at current rates.'
+                  ? statusModal.isManagerApproval
+                    ? 'Approve and forward to finance for final review.'
+                    : 'Confirm final approval. The exchange rate will be locked at current rates.'
                   : 'Please provide a reason for rejection.'}
               </DialogDescription>
             </DialogHeader>
@@ -274,13 +317,22 @@ export function ExpenseDetailPage() {
               />
             </div>
             <div className="flex gap-2 justify-end mt-4">
-              <Button variant="outline" onClick={() => setStatusModal({ open: false, action: null })} disabled={statusLoading}>
+              <Button variant="outline" onClick={() => setStatusModal({ open: false, action: null, isManagerApproval: false })} disabled={statusLoading}>
                 Cancel
               </Button>
               <Button
                 variant={statusModal.action === 'approved' ? 'success' : 'destructive'}
                 loading={statusLoading}
-                onClick={() => statusModal.action && updateStatus(statusModal.action, comments || undefined)}
+                onClick={() => {
+                  if (statusModal.action) {
+                    // Manager approval: send 'awaiting_finance' for approve, 'rejected' for reject
+                    // Finance approval: send 'approved' for approve, 'rejected' for reject
+                    const targetStatus = statusModal.isManagerApproval
+                      ? (statusModal.action === 'approved' ? 'awaiting_finance' : 'rejected')
+                      : statusModal.action;
+                    updateStatus(targetStatus, comments || undefined);
+                  }
+                }}
               >
                 {statusModal.action === 'approved' ? 'Approve' : 'Reject'}
               </Button>
