@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/sha
 import { Skeleton } from '@/shared/components/ui/Skeleton';
 import { useAnalytics } from '../hooks/useAnalytics';
 import { formatCurrency, formatDuration, formatPercent } from '@/core/utils/formatters';
+import type { Currency } from '@/core/types/api.types';
 
 const PIE_COLORS = ['#7c3aed', '#a855f7', '#c084fc', '#ddd6fe', '#ede9fe'];
 const BAR_COLOR = '#7c3aed';
@@ -92,7 +93,10 @@ export function AnalyticsPage() {
                           <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(v: number) => [`$${v.toFixed(2)}`, 'Total']} />
+                      <Tooltip formatter={(v: number, _name: string, props: { payload?: { currency?: string } }) => {
+                        const currency = props?.payload?.currency ?? '';
+                        return [formatCurrency(v, currency as Currency), 'Total'];
+                      }} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
