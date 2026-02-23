@@ -519,10 +519,10 @@ export default class TicketController {
             // Non-fatal — leave convertedAmount unset if rates unavailable
           }
 
-          // Increment department spent
+          // Increment department spent (use converted amount so it's always in org base currency)
           if (ticket.department) {
             await Department.findByIdAndUpdate(ticket.department, {
-              $inc: { spent: ticket.amount },
+              $inc: { spent: ticket.convertedAmount ?? ticket.amount },
             });
           }
         }
@@ -565,7 +565,7 @@ export default class TicketController {
 
       // Refresh pre-computed analytics after any status change
       try {
-        const analytics = await refreshOrgAnalytics(org._id);
+        const analytics = await refreshOrgAnalytics(org);
         emitAnalyticsUpdate(org._id.toString(), analytics, user._id.toString());
       } catch {
         // Non-fatal analytics refresh

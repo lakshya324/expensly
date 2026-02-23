@@ -38,7 +38,7 @@ export default class AnalyticsController {
   ) {
     try {
       const org = req.organization!;
-      const analytics = await refreshOrgAnalytics(org._id);
+      const analytics = await refreshOrgAnalytics(org);
 
       const payload: ResponsePayload<IOrgAnalyticsData> = {
         success: true,

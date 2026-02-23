@@ -35,7 +35,7 @@ export function startCronJobs(): void {
 
       await Promise.allSettled(
         orgs.map((org) =>
-          refreshOrgAnalytics(org._id.toString()).catch((err) =>
+          refreshOrgAnalytics(org).catch((err) =>
             logError(err, {
               message: `Analytics refresh failed for org ${org._id}`,
               code: "CRON_ANALYTICS_ERROR",
