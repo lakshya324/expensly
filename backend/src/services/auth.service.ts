@@ -80,6 +80,10 @@ export async function generateRefreshToken(
     expiresAt.setTime(expiresAt.getTime() + value * (multipliers[unit] ?? 0));
   }
 
+  // Revoke all existing tokens for this user before issuing a new one
+  // to prevent unbounded accumulation of stale tokens in the DB.
+  await RefreshToken.deleteMany({ userId });
+
   await RefreshToken.create({ tokenHash, userId, expiresAt });
   return raw;
 }
