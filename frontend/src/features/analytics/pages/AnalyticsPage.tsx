@@ -87,15 +87,15 @@ export function AnalyticsPage() {
                         cx="50%"
                         cy="50%"
                         outerRadius={80}
-                        label={({ currency, percent }) => `${currency} ${(percent * 100).toFixed(0)}%`}
+                        label={(props: any) => `${props.currency} ${((props.percent ?? 0) * 100).toFixed(0)}%`}
                       >
                         {data.org.currencyBreakdown.map((_, i) => (
                           <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(v: number, _name: string, props: { payload?: { currency?: string } }) => {
+                      <Tooltip formatter={(v: number | undefined, _name: string | undefined, props: { payload?: { currency?: string } }) => {
                         const currency = props?.payload?.currency ?? '';
-                        return [formatCurrency(v, currency as Currency), 'Total'];
+                        return [formatCurrency(v ?? 0, currency as Currency), 'Total'];
                       }} />
                     </PieChart>
                   </ResponsiveContainer>
@@ -146,7 +146,7 @@ export function AnalyticsPage() {
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} unit="%" />
                   <Tooltip
-                    formatter={(v: number) => [`${v.toFixed(1)}%`, 'Budget Used']}
+                    formatter={(v: number | undefined) => [`${(v ?? 0).toFixed(1)}%`, 'Budget Used']}
                     contentStyle={{
                       backgroundColor: 'var(--popover)',
                       border: '1px solid var(--border)',

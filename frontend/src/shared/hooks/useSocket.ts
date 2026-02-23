@@ -10,9 +10,9 @@ type ServerHandler<K extends keyof SocketEvents> = (payload: SocketEvents[K]) =>
  */
 export function useSocket<K extends keyof SocketEvents>(event: K, handler: ServerHandler<K>) {
   useEffect(() => {
-    socketClient.on(event, handler);
+    socketClient.on(event, handler as any);
     return () => {
-      socketClient.off(event, handler);
+      socketClient.off(event, handler as any);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event]);

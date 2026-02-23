@@ -15,5 +15,5 @@ export const updateUserSchema = z.object({
   managerId: z.string().optional(),
 });
 
-export type CreateUserFormValues = z.infer<typeof createUserSchema>;
+export type CreateUserFormValues = z.input<typeof createUserSchema>;
 export type UpdateUserFormValues = z.infer<typeof updateUserSchema>;

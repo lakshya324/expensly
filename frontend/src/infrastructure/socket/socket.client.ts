@@ -39,16 +39,16 @@ export const socketClient = {
     event: K,
     handler: ServerToClientEvents[K],
   ): () => void {
-    _socket?.on(event as string, handler as (...args: unknown[]) => void);
-    return () => _socket?.off(event as string, handler as (...args: unknown[]) => void);
+    _socket?.on(event as any, handler as any);
+    return () => _socket?.off(event as any, handler as any);
   },
 
   off<K extends keyof ServerToClientEvents>(event: K, handler: ServerToClientEvents[K]): void {
-    _socket?.off(event as string, handler as (...args: unknown[]) => void);
+    _socket?.off(event as any, handler as any);
   },
 
   emit<K extends keyof ClientToServerEvents>(event: K, payload?: ClientToServerEvents[K]): void {
-    _socket?.emit(event as string, ...(payload !== undefined ? [payload] : []));
+    _socket?.emit(event as any, ...(payload !== undefined ? [payload] : []));
   },
 
   get isConnected(): boolean {
