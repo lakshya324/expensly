@@ -33,6 +33,7 @@ export interface ITicketData {
   _id: string;
   title: string;
   submittedBy: { _id: string; name: string; email: string };
+  submitterManagerId: string | null;
   orgId: string;
   amount: number;
   currency: Currency;

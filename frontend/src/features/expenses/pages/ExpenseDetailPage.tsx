@@ -51,12 +51,12 @@ export function ExpenseDetailPage() {
 
   if (!ticket) return null;
 
-  // Check if user can do manager approval (must be the assigned reviewer)
+  // Check if user can do manager approval (current user must be the submitter's manager)
   const canApproveAsManager =
     ticket.managerApproval &&
-    ticket.managerApproval.reviewedBy?._id === user?._id &&
     ticket.managerApproval.approved === null &&
-    (ticket.status === 'pending' || ticket.status === 'awaiting_finance');
+    ticket.status === 'pending' &&
+    ticket.submitterManagerId === user?._id;
 
   // Check if user can do finance approval
   // Priority: user role (admin) → user-level permission → dept-level permission
