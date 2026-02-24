@@ -26,12 +26,13 @@ export function useLogin() {
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const res = await apiClient.post<{ data: { userId: string } }>(EP.AUTH_LOGIN, {
-        email,
-        password,
-      });
-      setOtpUserId(res.data.data.userId);
-      navigate(ROUTES.OTP);
+      const res = await apiClient.post<{
+        data: { userId: string; otpAlreadySent?: boolean; ttlSeconds?: number };
+      }>(EP.AUTH_LOGIN, { email, password });
+
+      const { userId, otpAlreadySent, ttlSeconds } = res.data.data;
+      setOtpUserId(userId);
+      navigate(ROUTES.OTP, { state: { otpAlreadySent: otpAlreadySent ?? false, ttlSeconds: ttlSeconds ?? 300 } });
     } catch (e) {
       toast.error(errMsg(e, 'Login failed. Please try again.'));
     } finally {

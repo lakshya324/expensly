@@ -76,6 +76,19 @@ export async function getString(key: string): Promise<string | null> {
 }
 
 /**
+ * Get the remaining TTL (in seconds) for a key.
+ * Returns -2 if key does not exist, -1 if no expiry, otherwise seconds remaining.
+ */
+export async function getTTL(key: string): Promise<number> {
+  try {
+    return await getRedisClient().ttl(key);
+  } catch (err) {
+    logError(err, { message: "Cache getTTL error", code: "CACHE_TTL_ERROR", key });
+    return -2;
+  }
+}
+
+/**
  * Delete all keys matching a pattern.
  * Uses SCAN to avoid blocking the Redis server.
  */

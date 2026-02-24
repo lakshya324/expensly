@@ -8,7 +8,7 @@ import {
   revokeAllUserTokens,
   generateOtp,
 } from "../services/auth.service.js";
-import { getJSON, setJSON, del } from "../services/cache.service.js";
+import { getJSON, setJSON, del, getTTL } from "../services/cache.service.js";
 import {
   sendOtpEmail,
   sendPasswordResetOtpEmail,
@@ -123,16 +123,21 @@ export default class AuthController {
         throw createError("Invalid credentials", 401, "INVALID_CREDENTIALS");
 
       // Generate OTP + persist in Redis keyed by userId
-      // Prevent duplicate OTPs: if one already exists, reject
+      // Prevent duplicate OTPs: if one already exists, return userId + TTL so the
+      // client can redirect straight to the OTP page without sending a new email.
       const userId = user._id.toString();
       const loginOtpKey = `${LOGIN_OTP_PREFIX}${userId}`;
       const existing = await getJSON<OtpRecord>(loginOtpKey);
       if (existing) {
-        throw createError(
-          "An OTP was already sent to your email. Please check your inbox or wait for it to expire before requesting a new one.",
-          429,
-          "OTP_ALREADY_SENT",
-        );
+        const ttlSeconds = await getTTL(loginOtpKey);
+        const payload: ResponsePayload<{ userId: string; otpAlreadySent: true; ttlSeconds: number }> = {
+          success: true,
+          message: "An OTP was already sent to your email. Please check your inbox.",
+          timestamp: new Date().toISOString(),
+          data: { userId, otpAlreadySent: true, ttlSeconds: ttlSeconds > 0 ? ttlSeconds : 0 },
+        };
+        res.status(200).json(payload);
+        return;
       }
 
       const otp = generateOtp();
@@ -144,11 +149,11 @@ export default class AuthController {
       const expiresInMinutes = Math.ceil(config.otpExpiresIn / 60);
       sendOtpEmail(user.email, user.name, otp, expiresInMinutes);
 
-      const payload: ResponsePayload<{ userId: string }> = {
+      const payload: ResponsePayload<{ userId: string; otpAlreadySent: false; ttlSeconds: number }> = {
         success: true,
         message: `A 6-digit OTP has been sent to your email. It expires in ${expiresInMinutes} minute(s).`,
         timestamp: new Date().toISOString(),
-        data: { userId },
+        data: { userId, otpAlreadySent: false, ttlSeconds: config.otpExpiresIn },
       };
       res.status(200).json(payload);
     } catch (err) {

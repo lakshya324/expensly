@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Wallet, Loader2, ShieldCheck, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useVerifyOTP, useResendOtp } from '../hooks/useAuth';
 import { useAuthStore } from '../store/authStore';
@@ -13,15 +13,31 @@ export function OTPPage() {
   const { resendOtp, loading: resending } = useResendOtp();
   const { otpUserId } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const routeState = (location.state ?? {}) as { otpAlreadySent?: boolean; ttlSeconds?: number };
+  const initialTimeLeft = routeState.ttlSeconds && routeState.ttlSeconds > 0 ? routeState.ttlSeconds : 300;
 
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
+  const [timeLeft, setTimeLeft] = useState(initialTimeLeft);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Redirect if no OTP session
   useEffect(() => {
     if (!otpUserId) navigate(ROUTES.LOGIN);
   }, [otpUserId, navigate]);
+
+  // Show toast when OTP was already sent (coming from a repeated login attempt)
+  useEffect(() => {
+    if (!routeState.otpAlreadySent) return;
+    const mins = Math.floor(initialTimeLeft / 60);
+    const secs = initialTimeLeft % 60;
+    const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+    toast.info(`OTP already sent. You can resend in ${timeStr}.`);
+    // Clear state so a page refresh doesn't re-fire the toast
+    window.history.replaceState({}, '');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Countdown timer
   useEffect(() => {
