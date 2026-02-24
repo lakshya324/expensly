@@ -65,6 +65,12 @@ The login flow is two-step:
 
 Zustand `useAuthStore` manages the in-progress `otpUserId` across the two-step flow.
 
+| Light | Dark |
+|---|---|
+| ![Login page](images/auth/login.png) | ![Login page (dark)](images/auth/login-dark.png) |
+
+![OTP page](images/auth/otp.png)
+
 ### `dashboard`
 
 **Pages:** `UserDashboardPage`, `AdminDashboardPage`
@@ -72,6 +78,18 @@ Zustand `useAuthStore` manages the in-progress `otpUserId` across the two-step f
 Each role sees its own dashboard:
 - **User** — recent tickets, per-status counts (`useExpenses` hook with stats query), quick actions.
 - **Admin** — org summary cards, budget overview, pending approval counts.
+
+**User dashboard**
+
+| Light | Dark |
+|---|---|
+| ![User dashboard](images/user/dashboard.png) | ![User dashboard (dark)](images/user/dashboard-dark.png) |
+
+**Admin dashboard**
+
+| Light | Dark |
+|---|---|
+| ![Admin dashboard](images/admin/dashboard.png) | ![Admin dashboard (dark)](images/admin/dashboard-dark.png) |
 
 ### `expenses`
 
@@ -86,6 +104,12 @@ Each role sees its own dashboard:
 
 `NewExpensePage` uses `react-hook-form` with Zod for client-side validation and `FormData` for multipart submission (receipt file + JSON fields).
 
+![Expenses list](images/expense/expenses.png)
+
+![New expense form](images/expense/new-expense.png)
+
+![Expense detail](images/expense/details.png)
+
 ### `analytics`
 
 **Page:** `AnalyticsPage`
@@ -99,11 +123,15 @@ Displays org-wide charts powered by Recharts:
 - Currency breakdown (pie chart)
 - Top tags (word cloud / list)
 
+![Analytics page](images/admin/analytics.png)
+
 ### `departments`
 
 **Page:** `DepartmentsPage`
 
 Admin-only. Inline CRUD for departments: create, rename, update budgets, set approval thresholds, manage tags, manually reset budget, activate / deactivate.
+
+![Departments page](images/admin/departments.png)
 
 ### `admin-users`
 
@@ -117,11 +145,15 @@ Admin-only. Paginated user list with roles, department assignment, enable/disabl
 
 Admin-only. View current rate snapshot, fetch latest from the external API, manually override individual rates, manage the org's active currency list, and browse snapshot history.
 
+![Exchange rates page](images/admin/exchange-rates.png)
+
 ### `reports`
 
 **Page:** `ReportsPage`
 
 Available to all roles. Export a filtered CSV of tickets (by status, department, date range). Up to 5 saved reports per user are listed; each can be re-downloaded or emailed.
+
+![Reports page](images/admin/reports.png)
 
 ### `profile`
 
@@ -129,11 +161,19 @@ Available to all roles. Export a filtered CSV of tickets (by status, department,
 
 Shared across all roles. Displays the logged-in user's name, email, role, department, and organization details.
 
+![Profile page](images/profile/profile.png)
+
 ### `superadmin`
 
 **Pages:** `SuperAdminOrgsPage`, `SuperAdminUsersPage`
 
 `super_admin` only. Full platform management — list/create/enable/disable orgs and users across all organizations.
+
+| Light | Dark |
+|---|---|
+| ![Super admin dashboard](images/super-admin/dashboard.png) | ![Super admin dashboard (dark)](images/super-admin/dashboard-dark.png) |
+
+![Super admin users](images/super-admin/users.png)
 
 ---
 

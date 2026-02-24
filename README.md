@@ -1,12 +1,12 @@
 # Expensly
 
-> A multi-tenant expense management platform for organizations — submit, review, approve, and track employee expenses with real-time updates, multi-currency support, and automated analytics.
+> A multi-tenant expense management platform for organizations - submit, review, approve, and track employee expenses with real-time updates, multi-currency support, and automated analytics.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Backend](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-green)](./backend)
-[![Frontend](https://img.shields.io/badge/Frontend-React%2019%20%2B%20Vite-blue)](./frontend)
+![Project Image](docs/images/readme.png)
 
-**Author:** Lakshya Sharma — [github.com/lakshya324](https://github.com/lakshya324) · [lakshya.off31@gmail.com](mailto:lakshya.off31@gmail.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE) [![Backend](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-green)](./backend) [![Frontend](https://img.shields.io/badge/Frontend-React%2019%20%2B%20Vite-blue)](./frontend)
+
+**Author:** Lakshya Sharma - [github.com/lakshya324](https://github.com/lakshya324) · [lakshya.off31@gmail.com](mailto:lakshya.off31@gmail.com)
 
 **Repository:** [github.com/lakshya324/expensly](https://github.com/lakshya324/expensly)
 

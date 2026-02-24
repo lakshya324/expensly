@@ -89,6 +89,12 @@ Step 2 — OTP
       · Returns: { accessToken, user }
 ```
 
+| Light | Dark |
+|---|---|
+| ![Login page](images/auth/login.png) | ![Login page (dark)](images/auth/login-dark.png) |
+
+![OTP verification](images/auth/otp.png)
+
 **Security properties:**
 - OTP is 6 digits and expires in 5 minutes.
 - After 5 failed attempts the OTP is invalidated and a new one must be requested.
@@ -157,6 +163,8 @@ POST /api/users/expenses  (multipart/form-data)
 7. Returns 201 with ticket object.
 ```
 
+![New expense form](images/expense/new-expense.png)
+
 **Files involved:** `ticket.controller.ts`, `Ticket.model.ts`, `s3.service.ts`, `email.service.ts`, `middleware/upload.ts`
 
 ---
@@ -183,6 +191,8 @@ PATCH /api/users/expenses/:id/status  { approved: true|false, comments? }
 · Sends status-change email to submitter
 ```
 
+![Manager approval](images/expense/manager-aproval.png)
+
 ### Finance Approval
 
 ```
@@ -198,6 +208,8 @@ PATCH /api/users/expenses/:id/status  { approved: true|false, comments? }
 · Invalidates analytics cache
 · Sends status-change email to submitter
 ```
+
+![Finance approval](images/expense/finance-aproval.png)
 
 ### Flagging
 
@@ -254,6 +266,8 @@ convertAmount(amount, fromCurrency, toCurrency, rates):
   result       = amountInBase * rates[toCurrency]  // or amountInBase if to === base
 ```
 
+![Exchange rates page](images/admin/exchange-rates.png)
+
 **Files involved:** `exchangeRates.controller.ts`, `exchangeRates.service.ts`, `ExchangeRateSnapshot.model.ts`, `cache.service.ts`
 
 ---
@@ -282,6 +296,8 @@ POST /api/admin/departments/:id/reset-budget
   dept.nextResetDate = calculateNextResetDate(dept.budgetResetPeriod)
   dept.save()
 ```
+
+![Departments page](images/admin/departments.png)
 
 **Files involved:** `department.controller.ts`, `Department.model.ts`, `budget.service.ts`
 
@@ -372,6 +388,8 @@ POST /api/users/reports/:id/email
 3. email.service sends HTML email with CSV as attachment to req.user.email
 ```
 
+![Reports page](images/admin/reports.png)
+
 **Files involved:** `reports.controller.ts`, `csv.service.ts`, `s3.service.ts`, `email.service.ts`, `Report.model.ts`
 
 ---
@@ -410,6 +428,8 @@ Recharts renders these views from the `/api/admin/analytics` response:
 - **Department budget usage** (horizontal bar) — spent vs budget per dept
 - **Currency split** (pie chart) — approved amounts by currency
 - **Top tags** (list/badge cloud)
+
+![Analytics page](images/admin/analytics.png)
 
 **Files involved:** `analytics.controller.ts`, `analytics.service.ts`, `OrgAnalytics.model.ts`, `cache.service.ts`
 
@@ -476,12 +496,18 @@ Within the `user` and `admin` roles, two boolean permissions can be overridden p
 - Enable or disable an entire organization — disabling immediately blocks all logins for that org's users.
 - Update org metadata (name, slug, base currency, active currencies).
 
+| Light | Dark |
+|---|---|
+| ![Super admin dashboard](images/super-admin/dashboard.png) | ![Super admin dashboard (dark)](images/super-admin/dashboard-dark.png) |
+
 ### Users panel
 
 - View all users across every org in a single paginated table.
 - Create users in any org.
 - Enable / disable individual users.
 - Update user details.
+
+![Super admin users](images/super-admin/users.png)
 
 ### First boot seeding
 
