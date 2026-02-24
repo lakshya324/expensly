@@ -10,9 +10,11 @@ interface TicketFilters {
   limit?: number;
   status?: TicketStatus | '';
   department?: string;
+  userId?: string;
   search?: string;
   from?: string;
   to?: string;
+  flagged?: 'true' | 'false';
 }
 
 export function useExpenses(filters: TicketFilters = {}) {

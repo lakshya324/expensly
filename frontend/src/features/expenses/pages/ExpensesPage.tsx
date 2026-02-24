@@ -18,6 +18,9 @@ export function ExpensesPage() {
   const [status, setStatus] = useState<TicketStatus | ''>('');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [flagged, setFlagged] = useState(false);
 
   // Debounce: commit search 500ms after user stops typing
   useEffect(() => {
@@ -28,16 +31,19 @@ export function ExpensesPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const { data, pagination, loading } = useExpenses({ page, limit: 15, status: status || undefined, search: search || undefined });
+  const { data, pagination, loading } = useExpenses({ page, limit: 15, status: status || undefined, search: search || undefined, from: dateFrom || undefined, to: dateTo || undefined, flagged: flagged ? 'true' : undefined });
 
   const clearFilters = () => {
     setSearchInput('');
     setSearch('');
     setStatus('');
+    setDateFrom('');
+    setDateTo('');
+    setFlagged(false);
     setPage(1);
   };
 
-  const hasActiveFilters = !!searchInput || !!status;
+  const hasActiveFilters = !!searchInput || !!status || !!dateFrom || !!dateTo || flagged;
 
   const columns: Column<ITicketData>[] = [
     {
@@ -111,6 +117,12 @@ export function ExpensesPage() {
           onStatusChange={(v) => { setStatus(v); setPage(1); }}
           hasActiveFilters={hasActiveFilters}
           onClear={clearFilters}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={(v) => { setDateFrom(v); setPage(1); }}
+          onDateToChange={(v) => { setDateTo(v); setPage(1); }}
+          flagged={flagged}
+          onFlaggedChange={(v) => { setFlagged(v); setPage(1); }}
         />
 
         {/* Table */}

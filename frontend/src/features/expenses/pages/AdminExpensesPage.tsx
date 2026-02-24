@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { DataTable, type Column } from '@/shared/components/data-display/DataTable';
@@ -7,8 +7,12 @@ import { ExpenseFiltersBar } from '../components/ExpenseFiltersBar';
 import { useExpenses } from '../hooks/useExpenses';
 import { formatDate, formatCurrency } from '@/core/utils/formatters';
 import { ROUTES } from '@/core/constants/constants';
-import type { TicketStatus } from '@/core/types/api.types';
-import type { ITicketData } from '@/core/types/ticket.types';
+import { EP } from '@/infrastructure/api/endpoints';
+import apiClient from '@/infrastructure/api/client';
+import type { TicketStatus, ApiResponse, PaginatedData } from '@/core/types/api.types';
+import type { ITicketData, IDepartmentData } from '@/core/types/ticket.types';
+import type { IUserData } from '@/core/types/user.types';
+import type { ComboboxOption } from '@/shared/components/ui/SearchCombobox';
 
 const COLUMNS: Column<ITicketData>[] = [
   {
@@ -65,37 +69,88 @@ export function AdminExpensesPage() {
   const [statusFilter, setStatusFilter] = useState<TicketStatus | ''>('');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [departmentId, setDepartmentId] = useState('');
+  const [departmentLabel, setDepartmentLabel] = useState('');
+  const [userId, setUserId] = useState('');
+  const [userLabel, setUserLabel] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [flagged, setFlagged] = useState(false);
 
-  // Debounce: commit search 500 ms after the user stops typing
+  // Debounce title/description search
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchInput);
-      setPage(1);
-    }, 500);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 500);
+    return () => clearTimeout(t);
   }, [searchInput]);
 
-  // Admin endpoint — returns all tickets for the org
+  // ── Combobox fetch functions (debounce is handled inside SearchCombobox) ──
+
+  const fetchDepartments = useCallback(async (query: string): Promise<ComboboxOption[]> => {
+    const res = await apiClient.get<ApiResponse<PaginatedData<IDepartmentData>>>(
+      EP.ADMIN_DEPARTMENTS,
+      { params: { search: query, active: true, limit: 15 } },
+    );
+    return res.data.data.data.map((d) => ({ id: d._id, label: d.name }));
+  }, []);
+
+  const fetchUsers = useCallback(async (query: string): Promise<ComboboxOption[]> => {
+    const res = await apiClient.get<ApiResponse<PaginatedData<IUserData>>>(
+      EP.ADMIN_USERS,
+      { params: { search: query, department: departmentId, limit: 15 } },
+    );
+    return res.data.data.data.map((u) => ({
+      id: u._id,
+      label: u.name,
+      sublabel: u.email,
+    }));
+  }, [departmentId]);
+
+  const handleDepartmentChange = (id: string, label: string) => {
+    setDepartmentId(id);
+    setDepartmentLabel(label);
+    setUserId('');
+    setUserLabel('');
+    setPage(1);
+  };
+
+  const handleUserChange = (id: string, label: string) => {
+    setUserId(id);
+    setUserLabel(label);
+    setPage(1);
+  };
+
+  // Expenses query
   const { data, pagination, loading } = useExpenses({
     page,
     limit: 15,
     status: statusFilter || undefined,
     search: search || undefined,
+    department: departmentId || undefined,
+    userId: userId || undefined,
+    from: dateFrom || undefined,
+    to: dateTo || undefined,
+    flagged: flagged ? 'true' : undefined,
   });
 
   const clearFilters = () => {
     setStatusFilter('');
     setSearchInput('');
     setSearch('');
+    setDepartmentId(''); setDepartmentLabel('');
+    setUserId(''); setUserLabel('');
+    setDateFrom('');
+    setDateTo('');
+    setFlagged(false);
     setPage(1);
   };
 
-  const hasActiveFilters = !!searchInput || !!statusFilter;
+  const hasActiveFilters =
+    !!searchInput || !!statusFilter || !!departmentId || !!userId ||
+    !!dateFrom || !!dateTo || flagged;
 
   return (
     <AppShell title="All Expenses">
       <div className="space-y-4">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 className="text-xl font-bold text-(--foreground)">All Expenses</h2>
@@ -103,7 +158,6 @@ export function AdminExpensesPage() {
           </div>
         </div>
 
-        {/* Filters */}
         <ExpenseFiltersBar
           searchInput={searchInput}
           onSearchChange={(v) => setSearchInput(v)}
@@ -112,9 +166,22 @@ export function AdminExpensesPage() {
           hasActiveFilters={hasActiveFilters}
           onClear={clearFilters}
           placeholder="Search by title or description…"
+          fetchDepartments={fetchDepartments}
+          departmentId={departmentId}
+          departmentLabel={departmentLabel}
+          onDepartmentChange={handleDepartmentChange}
+          fetchUsers={fetchUsers}
+          userId={userId}
+          userLabel={userLabel}
+          onUserChange={handleUserChange}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={(v) => { setDateFrom(v); setPage(1); }}
+          onDateToChange={(v) => { setDateTo(v); setPage(1); }}
+          flagged={flagged}
+          onFlaggedChange={(v) => { setFlagged(v); setPage(1); }}
         />
 
-        {/* Table */}
         <DataTable
           columns={COLUMNS}
           data={data}

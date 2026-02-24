@@ -9,6 +9,8 @@ interface UserFilters {
   page?: number;
   limit?: number;
   department?: string;
+  /** When false the API call is skipped and empty data is returned. Defaults to true. */
+  enabled?: boolean;
 }
 
 type ApiErr = { response?: { data?: { message?: string } } };
@@ -16,15 +18,22 @@ const errMsg = (e: unknown, fallback: string) =>
   (e as ApiErr)?.response?.data?.message ?? fallback;
 
 export function useAdminUsers(filters: UserFilters = {}) {
+  const { enabled = true, ...queryFilters } = filters;
   const [data, setData] = useState<IUserData[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
 
   const fetch = useCallback(async () => {
+    if (!enabled) {
+      setData([]);
+      setPagination(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const params = Object.fromEntries(
-        Object.entries(filters).filter(([, v]) => v !== undefined && v !== ''),
+        Object.entries(queryFilters).filter(([, v]) => v !== undefined && v !== ''),
       );
       const res = await apiClient.get<ApiResponse<PaginatedData<IUserData>>>(EP.ADMIN_USERS, {
         params,
