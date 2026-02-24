@@ -110,10 +110,15 @@ export function AppRouter() {
         </Route>
 
         {/* User routes */}
-        <Route element={<PrivateRoute roles={['user', 'admin']} />}>
+        <Route element={<PrivateRoute roles={['user']} />}>
           <Route path={ROUTES.USER_DASHBOARD} element={<UserDashboardPage />} />
           <Route path={ROUTES.EXPENSES} element={<ExpensesPage />} />
           <Route path={ROUTES.EXPENSE_NEW} element={<NewExpensePage />} />
+          <Route path="/expenses/:id" element={<ExpenseDetailPage />} />
+        </Route>
+
+        {/* Expense detail accessible by both users and admins */}
+        <Route element={<PrivateRoute roles={['user', 'admin']} />}>
           <Route path="/expenses/:id" element={<ExpenseDetailPage />} />
         </Route>
 
