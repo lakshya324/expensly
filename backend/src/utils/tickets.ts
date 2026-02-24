@@ -4,7 +4,7 @@ import { AuthRequest } from "../types/types.js";
 export function buildTicketFilter(req: AuthRequest): Record<string, unknown> {
   const user = req.user!;
   const org = req.organization!;
-  const { status, department, from, to, search } = req.query as Record<
+  const { status, department, userId, from, to, search, flagged, minAmount, maxAmount } = req.query as Record<
     string,
     string | undefined
   >;
@@ -31,6 +31,15 @@ export function buildTicketFilter(req: AuthRequest): Record<string, unknown> {
 
   if (status && Object.values(TICKET_STATUS).includes(status as any)) filter["status"] = status;
   if (department) filter["department"] = department;
+  if (userId) filter["submittedBy"] = userId;
+  if (flagged === 'true') filter["flagged"] = true;
+  
+  if (minAmount || maxAmount) {
+    const amtRange: Record<string, number> = {};
+    if (minAmount) amtRange["$gte"] = parseFloat(minAmount);
+    if (maxAmount) amtRange["$lte"] = parseFloat(maxAmount);
+    filter["amount"] = amtRange;
+  }
 
   if (from || to) {
     const dateRange: Record<string, Date> = {};
