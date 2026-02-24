@@ -27,6 +27,7 @@ export default class AdminController {
         page: pageQ,
         limit: limitQ,
         department: deptQ,
+        search: searchQ,
       } = req.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(pageQ ?? "") || DEFAULT_PAGE);
       const limit = Math.min(
@@ -40,6 +41,12 @@ export default class AdminController {
         role: { $ne: ROLES.SUPER_ADMIN },
       };
       if (deptQ) filter["department"] = new Types.ObjectId(deptQ);
+      if (searchQ) {
+        filter["$or"] = [
+          { name: { $regex: searchQ, $options: "i" } },
+          { email: { $regex: searchQ, $options: "i" } },
+        ];
+      }
 
       const [users, total] = await Promise.all([
         User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
