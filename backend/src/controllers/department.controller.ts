@@ -28,6 +28,7 @@ export default class DepartmentController {
         page: pageQ,
         limit: limitQ,
         active,
+        search: searchQ,
       } = req.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(pageQ ?? "") || DEFAULT_PAGE);
       const limit = Math.min(
@@ -38,6 +39,7 @@ export default class DepartmentController {
 
       const filter: Record<string, unknown> = { orgId: org._id };
       if (active !== undefined) filter["isActive"] = active === "true";
+      if (searchQ) filter["name"] = { $regex: searchQ, $options: "i" };
 
       const [depts, total] = await Promise.all([
         Department.find(filter).sort({ name: 1 }).skip(skip).limit(limit),
