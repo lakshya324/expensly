@@ -121,33 +121,30 @@ export function ProfilePage() {
         {/* Appearance */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Sun className="w-4 h-4 text-brand-600" />
-              Appearance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-3">
-              Choose how Expensly looks to you.
-            </p>
-            <div className="flex gap-3 flex-wrap">
-              {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
-                <button
-                  key={value}
-                  onClick={() => setTheme(value)}
-                  className={[
-                    'flex flex-col items-center gap-2 rounded-xl border-2 px-5 py-3 text-sm font-medium transition-all',
-                    theme === value
-                      ? 'border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300'
-                      : 'border-border bg-card text-muted-foreground hover:bg-muted',
-                  ].join(' ')}
-                >
-                  <Icon className="w-5 h-5" />
-                  {label}
-                </button>
-              ))}
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Sun className="w-4 h-4 text-brand-600" />
+                Appearance
+              </CardTitle>
+              <div className="flex gap-2">
+                {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+                  <button
+                    key={value}
+                    onClick={() => setTheme(value)}
+                    className={[
+                      'flex items-center gap-1.5 rounded-lg border-2 px-3 py-1.5 text-xs font-medium transition-all',
+                      theme === value
+                        ? 'border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300'
+                        : 'border-border bg-card text-muted-foreground hover:bg-muted',
+                    ].join(' ')}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </CardContent>
+          </CardHeader>
         </Card>
 
         {/* Org info (admin only shows org details) */}
