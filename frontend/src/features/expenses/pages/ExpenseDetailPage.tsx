@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Flag, Download, CheckCircle, XCircle, Loader2, Clock, User
+  ArrowLeft, Flag, Download, CheckCircle, XCircle, Loader2, Clock, User, AlertTriangle
 } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { Button } from '@/shared/components/ui/Button';
@@ -26,16 +26,18 @@ export function ExpenseDetailPage() {
     open: boolean; 
     action: 'approved' | 'rejected' | null;
     isManagerApproval: boolean;
+    requiresOverrideWarning: boolean;
   }>({
     open: false,
     action: null,
     isManagerApproval: false,
+    requiresOverrideWarning: false,
   });
   const [comments, setComments] = useState('');
 
   const { updateStatus, loading: statusLoading } = useUpdateExpenseStatus(id!, (updated) => {
     setData(updated);
-    setStatusModal({ open: false, action: null, isManagerApproval: false });
+    setStatusModal({ open: false, action: null, isManagerApproval: false, requiresOverrideWarning: false });
     setComments('');
   });
 
@@ -51,11 +53,12 @@ export function ExpenseDetailPage() {
 
   if (!ticket) return null;
 
-  // Check if user can do manager approval (current user must be the submitter's manager)
+  // Check if user can do manager approval (only the actual assigned manager — not admin)
   const canApproveAsManager =
-    ticket.managerApproval &&
+    ticket.managerApproval !== null &&
     ticket.managerApproval.approved === null &&
     ticket.status === 'pending' &&
+    user?.role !== 'admin' &&
     ticket.submitterManagerId === user?._id;
 
   // Check if user can do finance approval
@@ -65,10 +68,22 @@ export function ExpenseDetailPage() {
     user?.permissions?.canApprove === true ||
     (user?.permissions?.canApprove == null && user?.department?.permissions?.canApprove === true);
 
+  // Non-admin finance users may only approve once manager step is done (awaiting_finance).
+  // Admins can also act directly on a pending ticket (with an override warning).
   const canApproveAsFinance =
     hasFinancePermission &&
     ticket.financeApproval?.approved === null &&
-    (ticket.status === 'awaiting_finance' || ticket.status === 'pending');
+    (
+      ticket.status === 'awaiting_finance' ||
+      (user?.role === 'admin' && ticket.status === 'pending')
+    );
+
+  // True when an admin approves a pending ticket that still has an unreviewed manager step.
+  const needsManagerOverride =
+    user?.role === 'admin' &&
+    ticket.status === 'pending' &&
+    ticket.managerApproval !== null &&
+    ticket.managerApproval.approved === null;
 
   const isSubmitter = ticket.submittedBy._id === user?._id;
 
@@ -246,7 +261,7 @@ export function ExpenseDetailPage() {
                     variant="success"
                     size="sm"
                     className="w-full"
-                    onClick={() => setStatusModal({ open: true, action: 'approved', isManagerApproval: true })}
+                    onClick={() => setStatusModal({ open: true, action: 'approved', isManagerApproval: true, requiresOverrideWarning: false })}
                   >
                     <CheckCircle className="w-4 h-4" />
                     Manager Approve
@@ -255,7 +270,7 @@ export function ExpenseDetailPage() {
                     variant="destructive"
                     size="sm"
                     className="w-full"
-                    onClick={() => setStatusModal({ open: true, action: 'rejected', isManagerApproval: true })}
+                    onClick={() => setStatusModal({ open: true, action: 'rejected', isManagerApproval: true, requiresOverrideWarning: false })}
                   >
                     <XCircle className="w-4 h-4" />
                     Manager Reject
@@ -268,16 +283,16 @@ export function ExpenseDetailPage() {
                     variant="success"
                     size="sm"
                     className="w-full"
-                    onClick={() => setStatusModal({ open: true, action: 'approved', isManagerApproval: false })}
+                    onClick={() => setStatusModal({ open: true, action: 'approved', isManagerApproval: false, requiresOverrideWarning: needsManagerOverride && true })}
                   >
                     <CheckCircle className="w-4 h-4" />
-                    Finance Approve
+                    {needsManagerOverride ? 'Override & Approve' : 'Finance Approve'}
                   </Button>
                   <Button
                     variant="destructive"
                     size="sm"
                     className="w-full"
-                    onClick={() => setStatusModal({ open: true, action: 'rejected', isManagerApproval: false })}
+                    onClick={() => setStatusModal({ open: true, action: 'rejected', isManagerApproval: false, requiresOverrideWarning: false })}
                   >
                     <XCircle className="w-4 h-4" />
                     Finance Reject
@@ -289,12 +304,13 @@ export function ExpenseDetailPage() {
         </div>
 
         {/* Status Change Dialog */}
-        <Dialog open={statusModal.open} onOpenChange={(o) => setStatusModal((p) => ({ ...p, open: o }))}>
+        <Dialog open={statusModal.open} onOpenChange={(o) => { if (!o) setStatusModal({ open: false, action: null, isManagerApproval: false, requiresOverrideWarning: false }); }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {statusModal.isManagerApproval ? 'Manager ' : 'Finance '}
-                {statusModal.action === 'approved' ? 'Approve' : 'Reject'} Expense
+                {statusModal.requiresOverrideWarning
+                  ? 'Override & Approve Expense'
+                  : `${statusModal.isManagerApproval ? 'Manager ' : 'Finance '}${statusModal.action === 'approved' ? 'Approve' : 'Reject'} Expense`}
               </DialogTitle>
               <DialogDescription>
                 {statusModal.action === 'approved'
@@ -304,6 +320,17 @@ export function ExpenseDetailPage() {
                   : 'Please provide a reason for rejection.'}
               </DialogDescription>
             </DialogHeader>
+
+            {/* Admin override warning */}
+            {statusModal.requiresOverrideWarning && (
+              <div className="flex gap-2.5 items-start rounded-lg bg-warning-50 dark:bg-warning-500/10 border border-warning-200 dark:border-warning-500/30 px-3.5 py-3">
+                <AlertTriangle className="w-4 h-4 text-warning-600 dark:text-warning-400 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-warning-700 dark:text-warning-400">
+                  Manager approval is still pending. Approving now will <strong>automatically override</strong> and skip the manager review step.
+                </p>
+              </div>
+            )}
+
             <div className="mt-2">
               <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
                 Comments {statusModal.action === 'rejected' && <span className="text-danger-500">*</span>}
@@ -317,7 +344,7 @@ export function ExpenseDetailPage() {
               />
             </div>
             <div className="flex gap-2 justify-end mt-4">
-              <Button variant="outline" onClick={() => setStatusModal({ open: false, action: null, isManagerApproval: false })} disabled={statusLoading}>
+              <Button variant="outline" onClick={() => setStatusModal({ open: false, action: null, isManagerApproval: false, requiresOverrideWarning: false })} disabled={statusLoading}>
                 Cancel
               </Button>
               <Button

@@ -483,6 +483,7 @@ export default class TicketController {
       //   → manager approves  (target: awaiting_finance)
       //   → manager rejects   (target: rejected)
       // Finance step: anything else targeting approved/rejected
+      // Admin can approve/reject at either step, but non-admins must follow the step order.
       const isManagerStep =
         ticket.status === TICKET_STATUS.PENDING &&
         ticket.managerApproval !== null &&
@@ -492,10 +493,11 @@ export default class TicketController {
 
       // Manager / awaiting_finance step
       if (isManagerStep) {
-        // Only the submitter's assigned manager may act on this step.
+        // Only the submitter's assigned manager (or admins) may act on this step.
         if (
-          !ticket.submitterManagerId ||
-          !ticket.submitterManagerId.equals(user._id)
+          user.role !== ROLES.ADMIN &&
+          (!ticket.submitterManagerId ||
+            !ticket.submitterManagerId.equals(user._id))
         ) {
           throw createError(
             "You are not the manager of this ticket's submitter",
