@@ -14,7 +14,14 @@ export function buildTicketFilter(req: AuthRequest): Record<string, unknown> {
   // Determine if user should see only their own tickets.
   // Priority: user-level permission → dept-level permission → role default.
   const dept = req.userDepartment ?? null;
+  
+  // Cando: Users with canApprove permission also get full visibility so they can act on tickets.
+  // const hasApprovePermission =
+  //   user.permissions?.canApprove === true ||
+  //   (user.permissions?.canApprove == null && dept?.permissions?.canApprove === true);
+  
   const canViewAll =
+    // hasApprovePermission ||
     user.permissions?.canViewAllTickets === true ||
     (user.permissions?.canViewAllTickets == null && (
       dept?.permissions?.canViewAllTickets === true ||
