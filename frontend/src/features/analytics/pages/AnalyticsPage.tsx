@@ -9,7 +9,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/Card';
 import { Skeleton } from '@/shared/components/ui/Skeleton';
 import { useAnalytics } from '../hooks/useAnalytics';
-import { formatCurrency, formatDuration, formatPercent } from '@/core/utils/formatters';
+import { formatCurrency, formatDuration, formatPercent, formatRelativeTime } from '@/core/utils/formatters';
 import type { Currency } from '@/core/types/api.types';
 
 const PIE_COLORS = ['#7c3aed', '#a855f7', '#c084fc', '#ddd6fe', '#ede9fe'];
@@ -26,7 +26,7 @@ export function AnalyticsPage() {
           <div>
             <h2 className="text-xl font-bold text-[var(--foreground)]">Analytics</h2>
             <p className="text-sm text-[var(--muted-foreground)]">
-              {data?.generatedAt ? `Last updated: ${new Date(data.generatedAt).toLocaleString()}` : 'Organisation expense insights'}
+              {data?.generatedAt ? `Last updated: ${formatRelativeTime(data.generatedAt)}` : 'Organisation expense insights'}
             </p>
           </div>
           <Button variant="outline" loading={refreshing} onClick={refresh}>
