@@ -23,6 +23,7 @@ export function NewExpensePage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+  const [tagHighlight, setTagHighlight] = useState(-1);
   const tagInputRef = useRef<HTMLInputElement>(null);
   const [receipt, setReceipt] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -54,18 +55,36 @@ export function NewExpensePage() {
     }
   };
 
-  const addTagFromInput = useCallback(() => {
-    const trimmed = tagInput.trim().toLowerCase();
-    if (trimmed && !selectedTags.includes(trimmed) && selectedTags.length < 5) {
-      setSelectedTags((prev) => [...prev, trimmed]);
-    }
+  const closeTagDropdown = useCallback(() => {
+    setTagDropdownOpen(false);
+    setTagHighlight(-1);
+  }, []);
+
+  const addTagsFromString = useCallback((raw: string) => {
+    const parts = raw
+      .split(/[,\s]+/)
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+    setSelectedTags((prev) => {
+      const merged = [...prev];
+      for (const part of parts) {
+        if (merged.length >= 5) break;
+        if (!merged.includes(part)) merged.push(part);
+      }
+      return merged;
+    });
     setTagInput('');
     setTagDropdownOpen(false);
-  }, [tagInput, selectedTags]);
+    setTagHighlight(-1);
+  }, []);
+
+  const addTagFromInput = useCallback(() => {
+    addTagsFromString(tagInput);
+  }, [tagInput, addTagsFromString]);
 
   const filteredSuggestions = deptTags.filter(
     (t) => t.toLowerCase().includes(tagInput.toLowerCase()) && !selectedTags.includes(t),
-  );
+  ).slice(0, 6);
 
   const handleFile = (file: File) => {
     const valid = ['image/jpeg', 'image/png', 'application/pdf'];
@@ -188,24 +207,47 @@ export function NewExpensePage() {
                       ref={tagInputRef}
                       type="text"
                       value={tagInput}
-                      onChange={(e) => { setTagInput(e.target.value); setTagDropdownOpen(true); }}
+                      onChange={(e) => { setTagInput(e.target.value); setTagDropdownOpen(true); setTagHighlight(-1); }}
                       onFocus={() => setTagDropdownOpen(true)}
-                      onBlur={() => setTimeout(() => setTagDropdownOpen(false), 150)}
+                      onBlur={() => setTimeout(() => closeTagDropdown(), 150)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') { e.preventDefault(); addTagFromInput(); }
-                        if (e.key === 'Escape') setTagDropdownOpen(false);
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setTagDropdownOpen(true);
+                          setTagHighlight((i) => Math.min(i + 1, filteredSuggestions.length - 1));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setTagHighlight((i) => Math.max(i - 1, -1));
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (tagHighlight >= 0 && filteredSuggestions[tagHighlight]) {
+                            toggleTag(filteredSuggestions[tagHighlight]);
+                            setTagInput('');
+                            closeTagDropdown();
+                          } else {
+                            addTagFromInput();
+                          }
+                        } else if (e.key === 'Escape') {
+                          closeTagDropdown();
+                        }
                       }}
-                      placeholder={deptTags.length > 0 ? 'Type or pick a suggestion…' : 'Type a tag and press Enter'}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const pasted = e.clipboardData.getData('text');
+                        addTagsFromString(tagInput + pasted);
+                      }}
+                      placeholder="Add tags…"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                     {tagDropdownOpen && filteredSuggestions.length > 0 && (
                       <div className="absolute z-10 mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] shadow-lg overflow-hidden">
-                        {filteredSuggestions.slice(0, 6).map((tag) => (
+                        {filteredSuggestions.map((tag, i) => (
                           <button
                             key={tag}
                             type="button"
-                            onMouseDown={(e) => { e.preventDefault(); toggleTag(tag); setTagInput(''); setTagDropdownOpen(false); }}
-                            className="w-full text-left px-3.5 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--accent)] flex items-center gap-2 transition"
+                            onMouseEnter={() => setTagHighlight(i)}
+                            onMouseDown={(e) => { e.preventDefault(); toggleTag(tag); setTagInput(''); closeTagDropdown(); }}
+                            className={`w-full text-left px-3.5 py-2 text-sm text-[var(--foreground)] flex items-center gap-2 transition ${i === tagHighlight ? 'bg-[var(--accent)]' : 'hover:bg-[var(--accent)]'}`}
                           >
                             <Tag className="w-3.5 h-3.5 text-[var(--muted-foreground)]" />
                             {tag}
