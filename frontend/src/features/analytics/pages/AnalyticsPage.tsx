@@ -86,7 +86,7 @@ export function AnalyticsPage() {
                         nameKey="currency"
                         cx="50%"
                         cy="50%"
-                        outerRadius={80}
+                        outerRadius={75}
                         label={(props: any) => `${props.currency} ${((props.percent ?? 0) * 100).toFixed(0)}%`}
                       >
                         {data.org.currencyBreakdown.map((_, i) => (
