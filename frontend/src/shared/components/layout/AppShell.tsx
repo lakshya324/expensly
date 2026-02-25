@@ -11,6 +11,7 @@ import {
 import { ROUTES } from '@/core/constants/constants';
 import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
+import { ConfirmDialog } from '@/shared/components/feedback/ConfirmDialog';
 
 interface NavItem {
   label: string;
@@ -57,6 +58,7 @@ function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { logout } = useLogout();
   const { theme, toggleTheme } = useTheme();
   const nav = getNav(user?.role);
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
 
   return (
     <aside
@@ -115,7 +117,7 @@ function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
         {/* Logout */}
         <button
-          onClick={logout}
+          onClick={() => setLogoutConfirm(true)}
           title="Logout"
           className={cn(
             'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[var(--muted-foreground)] hover:bg-danger-50 hover:text-danger-500 dark:hover:bg-danger-500/10 transition-all',
@@ -126,6 +128,17 @@ function Sidebar({ collapsed, onToggle }: SidebarProps) {
           {!collapsed && <span>Logout</span>}
         </button>
       </div>
+
+      <ConfirmDialog
+        open={logoutConfirm}
+        onOpenChange={setLogoutConfirm}
+        title="Log out?"
+        description="You'll be signed out of your account. Any unsaved changes will be lost."
+        confirmLabel="Log out"
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={() => { setLogoutConfirm(false); logout(); }}
+      />
 
       {/* Collapse toggle */}
       <button
