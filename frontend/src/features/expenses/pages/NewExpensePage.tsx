@@ -200,7 +200,7 @@ export function NewExpensePage() {
                     />
                     {tagDropdownOpen && filteredSuggestions.length > 0 && (
                       <div className="absolute z-10 mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] shadow-lg overflow-hidden">
-                        {filteredSuggestions.map((tag) => (
+                        {filteredSuggestions.slice(0, 6).map((tag) => (
                           <button
                             key={tag}
                             type="button"
@@ -221,6 +221,7 @@ export function NewExpensePage() {
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {deptTags
                       .filter((t) => !selectedTags.includes(t))
+                      .slice(0, 12)
                       .map((tag) => (
                         <button
                           key={tag}
