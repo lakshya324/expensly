@@ -115,6 +115,13 @@
   }
 }
 
+/* Suppress all transitions during theme switch to prevent staggered repaints */
+.no-transitions,
+.no-transitions * {
+  transition: none !important;
+  animation: none !important;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

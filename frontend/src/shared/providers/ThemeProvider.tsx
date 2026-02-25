@@ -10,6 +10,30 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+/**
+ * Applies the theme class to <html> synchronously and suppresses all CSS
+ * transitions for one frame so every element repaints at the same time.
+ */
+function applyTheme(theme: Theme) {
+  const root = document.documentElement;
+  // Freeze transitions so nothing animates from old → new colours
+  root.classList.add('no-transitions');
+
+  if (theme === 'dark') {
+    root.classList.add('dark');
+  } else {
+    root.classList.remove('dark');
+  }
+  localStorage.setItem('expensly-theme', theme);
+
+  // Re-enable transitions after the browser has painted the new frame
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      root.classList.remove('no-transitions');
+    });
+  });
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     const stored = localStorage.getItem('expensly-theme') as Theme | null;
@@ -17,18 +41,24 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
+  // Apply on initial mount (no transition suppression needed — page hasn't painted yet)
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    localStorage.setItem('expensly-theme', theme);
-  }, [theme]);
+    if (theme === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const setTheme = (t: Theme) => setThemeState(t);
-  const toggleTheme = () => setThemeState((p) => (p === 'dark' ? 'light' : 'dark'));
+  const setTheme = (t: Theme) => {
+    applyTheme(t);
+    setThemeState(t);
+  };
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    setThemeState(next);
+  };
 
   return (
     <ThemeContext value={{ theme, toggleTheme, setTheme }}>
