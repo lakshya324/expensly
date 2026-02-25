@@ -68,13 +68,20 @@ export function ExpenseDetailPage() {
     user?.permissions?.canApprove === true ||
     (user?.permissions?.canApprove == null && user?.department?.permissions?.canApprove === true);
 
-  // Non-admin finance users may only approve once manager step is done (awaiting_finance).
-  // Admins can also act directly on a pending ticket (with an override warning).
+  // Finance users can act when:
+  //   - status is 'awaiting_finance' (manager already approved)
+  //   - status is 'pending' AND manager step is done or not required (ticket has no manager approval, or it was already approved)
+  //   - admin can also override a still-pending manager step
+  const managerStepDoneOrNotNeeded =
+    ticket.managerApproval === null ||
+    ticket.managerApproval.approved === true;
+
   const canApproveAsFinance =
     hasFinancePermission &&
     ticket.financeApproval?.approved === null &&
     (
       ticket.status === 'awaiting_finance' ||
+      (ticket.status === 'pending' && managerStepDoneOrNotNeeded) ||
       (user?.role === 'admin' && ticket.status === 'pending')
     );
 
@@ -243,7 +250,7 @@ export function ExpenseDetailPage() {
                   View Receipt
                 </Button>
               )}
-              {(isSubmitter || user?.role === 'admin') && (
+              {(isSubmitter || user?.role === 'admin' || hasFinancePermission) && (
                 <Button
                   variant="outline"
                   size="sm"
