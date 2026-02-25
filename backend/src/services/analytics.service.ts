@@ -3,18 +3,27 @@
  *
  * Computes and stores pre-computed analytics snapshots at org + dept level.
  * Call refreshOrgAnalytics() after ticket approvals/rejections or from the cron job.
+ *
+ * Implementation note:
+ * All computation is done inside MongoDB using aggregation pipelines ($facet,
+ * $lookup, $getField) - no approved tickets are loaded into Node.js memory.
+ *
+ * Two pipelines are used:
+ *
+ * 1. Overview pipeline
+ * $facet over ALL tickets: counts, resolution times, tags
+ *
+ * 2. Amounts pipeline
+ * approved tickets only → $lookup exchange snapshot → $addFields convertedAmount (via $getField on the rates Map) → $facet for org total, currency breakdown, dept amounts
  */
 import { Types } from "mongoose";
 import { Ticket } from "../models/Ticket.model.js";
 import { Department } from "../models/Department.model.js";
-import { Organization } from "../models/Organization.model.js";
-import { ExchangeRateSnapshot } from "../models/ExchangeRateSnapshot.model.js";
 import { OrgAnalytics } from "../models/OrgAnalytics.model.js";
-import { TICKET_STATUS } from "../config/constants.js";
+import { CURRENCIES, TICKET_STATUS } from "../config/constants.js";
 import { IOrgAnalyticsData } from "../types/analytics.types.js";
-import { logError, logInfo } from "../utils/logger.js";
+import { logInfo } from "../utils/logger.js";
 import { getJSON, setJSON, del } from "./cache.service.js";
-import { convertAmount } from "./exchangeRates.service.js";
 import { IOrganization } from "../types/organization.types.js";
 
 // Cache keys
@@ -24,7 +33,9 @@ export const analyticsCacheKey = (orgId: string) => `cache:analytics:${orgId}`;
 // ---------------------------------------------------------------------------
 // Invalidate cached analytics for an org
 // ---------------------------------------------------------------------------
-export async function invalidateAnalyticsCache(orgId: Types.ObjectId | string): Promise<void> {
+export async function invalidateAnalyticsCache(
+  orgId: Types.ObjectId | string,
+): Promise<void> {
   await del(analyticsCacheKey(orgId.toString()));
 }
 
@@ -35,240 +46,329 @@ export async function refreshOrgAnalytics(
   org: IOrganization,
 ): Promise<IOrgAnalyticsData> {
   const oid = org._id;
+  const orgBaseCurrency: string = org.baseCurrency || CURRENCIES[0];
 
-  // 0. Load org base currency (needed for correct conversion)
-  const orgBaseCurrency: string = org.baseCurrency || "USD"; // default to USD if not set
-
-  // 1. Aggregate org-level stats (counts + pending amount — no cross-currency conversion needed here)
-  const orgStats = await Ticket.aggregate([
+  //! Pipeline 1: Overview (counts, resolution times, tags)
+  // Runs a single $facet over ALL tickets (no currency conversion needed here)
+  const [overview] = await Ticket.aggregate([
     { $match: { orgId: oid } },
     {
-      $group: {
-        _id: null,
-        totalTickets: { $sum: 1 },
-        totalApproved: {
-          $sum: { $cond: [{ $eq: ["$status", TICKET_STATUS.APPROVED] }, 1, 0] },
-        },
-        totalRejected: {
-          $sum: { $cond: [{ $eq: ["$status", TICKET_STATUS.REJECTED] }, 1, 0] },
-        },
-        totalPending: {
-          $sum: { $cond: [{ $eq: ["$status", TICKET_STATUS.PENDING] }, 1, 0] },
-        },
-        totalAwaitingFinance: {
-          $sum: { $cond: [{ $eq: ["$status", TICKET_STATUS.AWAITING_FINANCE] }, 1, 0] },
-        },
-        totalAmountPending: {
-          $sum: {
-            $cond: [
-              { $in: ["$status", [TICKET_STATUS.PENDING, TICKET_STATUS.AWAITING_FINANCE]] },
-              "$amount",
-              0,
-            ],
+      $facet: {
+        // Org-level ticket counts + pending amount
+        orgStats: [
+          {
+            $group: {
+              _id: null,
+              totalTickets: { $sum: 1 },
+              totalApproved: {
+                $sum: {
+                  $cond: [{ $eq: ["$status", TICKET_STATUS.APPROVED] }, 1, 0],
+                },
+              },
+              totalRejected: {
+                $sum: {
+                  $cond: [{ $eq: ["$status", TICKET_STATUS.REJECTED] }, 1, 0],
+                },
+              },
+              totalPending: {
+                $sum: {
+                  $cond: [{ $eq: ["$status", TICKET_STATUS.PENDING] }, 1, 0],
+                },
+              },
+              totalAwaitingFinance: {
+                $sum: {
+                  $cond: [
+                    { $eq: ["$status", TICKET_STATUS.AWAITING_FINANCE] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+              totalAmountPending: {
+                $sum: {
+                  $cond: [
+                    {
+                      $in: [
+                        "$status",
+                        [TICKET_STATUS.PENDING, TICKET_STATUS.AWAITING_FINANCE],
+                      ],
+                    },
+                    "$amount",
+                    0,
+                  ],
+                },
+              },
+            },
           },
-        },
+        ],
+
+        // Org-level avg resolution time
+        orgResolutionTime: [
+          {
+            $match: {
+              status: TICKET_STATUS.APPROVED,
+              "financeApproval.reviewedAt": { $ne: null },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              avg: {
+                $avg: {
+                  $subtract: ["$financeApproval.reviewedAt", "$createdAt"],
+                },
+              },
+            },
+          },
+        ],
+
+        // Org-level top tags
+        topTags: [
+          { $unwind: "$tags" },
+          { $group: { _id: "$tags", count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 10 },
+          { $project: { _id: 0, tag: "$_id", count: 1 } },
+        ],
+
+        // Dept-level ticket counts (no amounts - those come from pipeline 2)
+        deptCounts: [
+          {
+            $group: {
+              _id: "$department",
+              totalTickets: { $sum: 1 },
+              totalApproved: {
+                $sum: {
+                  $cond: [{ $eq: ["$status", TICKET_STATUS.APPROVED] }, 1, 0],
+                },
+              },
+              totalRejected: {
+                $sum: {
+                  $cond: [{ $eq: ["$status", TICKET_STATUS.REJECTED] }, 1, 0],
+                },
+              },
+              totalPending: {
+                $sum: {
+                  $cond: [{ $eq: ["$status", TICKET_STATUS.PENDING] }, 1, 0],
+                },
+              },
+              totalAwaitingFinance: {
+                $sum: {
+                  $cond: [
+                    { $eq: ["$status", TICKET_STATUS.AWAITING_FINANCE] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ],
+
+        // Dept-level avg resolution time
+        deptResolutionTimes: [
+          {
+            $match: {
+              status: TICKET_STATUS.APPROVED,
+              "financeApproval.reviewedAt": { $ne: null },
+            },
+          },
+          {
+            $group: {
+              _id: "$department",
+              avgResolutionMs: {
+                $avg: {
+                  $subtract: ["$financeApproval.reviewedAt", "$createdAt"],
+                },
+              },
+            },
+          },
+        ],
+
+        // Dept-level top tags
+        deptTopTags: [
+          { $unwind: "$tags" },
+          {
+            $group: {
+              _id: { dept: "$department", tag: "$tags" },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { count: -1 } },
+          {
+            $group: {
+              _id: "$_id.dept",
+              tags: { $push: { tag: "$_id.tag", count: "$count" } },
+            },
+          },
+        ],
       },
     },
   ]);
 
-  // 1b. Re-derive totalAmountApproved + dept spent using locked snapshots.
-  //     This ensures amounts are always expressed in the *current* org baseCurrency,
-  //     even if baseCurrency changed after a ticket was approved.
-  const approvedTickets = await Ticket.find(
-    { orgId: oid, status: TICKET_STATUS.APPROVED },
-    { amount: 1, currency: 1, exchangeRateSnapshotId: 1, department: 1 },
-  ).lean();
+  //! Pipeline 2: Approved amounts with inline currency conversion
+  // Scope to approved tickets only, then $lookup the locked exchange rate
+  // snapshot and compute convertedAmount inside MongoDB using $getField on
+  // the rates Map no documents leave the database for amount calculation.
+  const [amounts] = await Ticket.aggregate([
+    { $match: { orgId: oid, status: TICKET_STATUS.APPROVED } },
 
-  // Batch-load all unique locked snapshots
-  const uniqueSnapshotIds = [
-    ...new Set(
-      approvedTickets
-        .filter((t) => t.exchangeRateSnapshotId)
-        .map((t) => t.exchangeRateSnapshotId!.toString()),
-    ),
-  ];
-  const snapshotDocs = uniqueSnapshotIds.length > 0
-    ? await ExchangeRateSnapshot.find(
-        { _id: { $in: uniqueSnapshotIds.map((id) => new Types.ObjectId(id)) } },
-        { rates: 1, baseCurrency: 1 },
-      ).lean()
-    : [];
-  const snapshotMap = new Map(
-    snapshotDocs.map((s) => [
-      s._id.toString(),
-      {
-        rates: s.rates instanceof Map
-          ? Object.fromEntries(s.rates as Map<string, number>)
-          : (s.rates as unknown as Record<string, number>),
-        baseCurrency: s.baseCurrency as string,
+    // Join with the locked snapshot for each ticket
+    {
+      $lookup: {
+        from: "exchangeratesnapshots",
+        let: { snapId: "$exchangeRateSnapshotId" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$snapId"] } } },
+          { $project: { _id: 0, rates: 1 } },
+        ],
+        as: "snapshot",
       },
+    },
+
+    // Compute convertedAmount in org baseCurrency using the locked snapshot rates.
+    // Formula: amount * (rates[orgBaseCurrency] / rates[ticket.currency])
+    // Falls back to raw amount when currencies match or snapshot is unavailable.
+    {
+      $addFields: {
+        convertedAmount: {
+          $cond: {
+            if: { $eq: ["$currency", orgBaseCurrency] },
+            then: "$amount",
+            else: {
+              $cond: {
+                if: { $gt: [{ $size: "$snapshot" }, 0] },
+                then: {
+                  $let: {
+                    vars: { rates: { $arrayElemAt: ["$snapshot.rates", 0] } },
+                    in: {
+                      $divide: [
+                        {
+                          $multiply: [
+                            "$amount",
+                            {
+                              $ifNull: [
+                                // orgBaseCurrency is a JS string resolved at query-build time
+                                {
+                                  $getField: {
+                                    field: orgBaseCurrency,
+                                    input: "$$rates",
+                                  },
+                                },
+                                1,
+                              ],
+                            },
+                          ],
+                        },
+                        {
+                          $ifNull: [
+                            // ticket.currency is a document field - prefix with $
+                            {
+                              $getField: {
+                                field: "$currency",
+                                input: "$$rates",
+                              },
+                            },
+                            1,
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                },
+                else: "$amount",
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // Compute org total, per-currency breakdown, and per-dept totals in one shot
+    {
+      $facet: {
+        orgAmounts: [
+          {
+            $group: {
+              _id: null,
+              totalAmountApproved: { $sum: "$convertedAmount" },
+            },
+          },
+        ],
+
+        currencyBreakdown: [
+          {
+            $group: {
+              _id: "$currency",
+              convertedTotal: { $sum: "$convertedAmount" },
+              originalTotal: { $sum: "$amount" },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              currency: "$_id",
+              total: { $round: ["$convertedTotal", 2] },
+              originalTotal: { $round: ["$originalTotal", 2] },
+            },
+          },
+        ],
+
+        deptAmounts: [
+          {
+            $group: {
+              _id: "$department",
+              totalAmountApproved: { $sum: "$convertedAmount" },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+
+  //! Assemble results
+  const orgStat = overview?.orgStats?.[0] ?? {};
+  const orgAmountStat = amounts?.orgAmounts?.[0] ?? {};
+
+  const deptCountMap = new Map<string, any>(
+    (overview?.deptCounts ?? []).map((d: any) => [d._id?.toString(), d]),
+  );
+  const deptResMap = new Map<string, number>(
+    (overview?.deptResolutionTimes ?? []).map((d: any) => [
+      d._id?.toString(),
+      d.avgResolutionMs,
+    ]),
+  );
+  const deptTagsMap = new Map<string, any[]>(
+    (overview?.deptTopTags ?? []).map((d: any) => [
+      d._id?.toString(),
+      (d.tags as any[]).slice(0, 10),
+    ]),
+  );
+  const deptAmountsMap = new Map<string, number>(
+    (amounts?.deptAmounts ?? []).map((d: any) => [
+      d._id?.toString(),
+      d.totalAmountApproved,
     ]),
   );
 
-  // Re-convert each approved ticket → current org baseCurrency using its locked snapshot
-  let orgTotalAmountApproved = 0;
-  const deptConvertedSpentMap = new Map<string, number>();
-  const currencyConvertedMap = new Map<string, number>(); // currency → converted total (base currency)
-  const currencyOriginalMap = new Map<string, number>();   // currency → raw total (original currency)
-
-  for (const ticket of approvedTickets) {
-    let amount: number;
-    const snapshotId = ticket.exchangeRateSnapshotId?.toString();
-    const snapshot = snapshotId ? snapshotMap.get(snapshotId) : null;
-
-    if (snapshot && (ticket.currency as string) !== orgBaseCurrency) {
-      try {
-        amount = convertAmount(ticket.amount, ticket.currency as string, orgBaseCurrency, snapshot.rates);
-      } catch {
-        amount = ticket.amount; // fallback: missing rate in snapshot
-      }
-    } else {
-      amount = ticket.amount; // already in base currency or no snapshot
-    }
-
-    orgTotalAmountApproved += amount;
-    const cur = ticket.currency as string;
-    currencyConvertedMap.set(cur, (currencyConvertedMap.get(cur) ?? 0) + amount);
-    currencyOriginalMap.set(cur, (currencyOriginalMap.get(cur) ?? 0) + ticket.amount);
-    if (ticket.department) {
-      const dId = ticket.department.toString();
-      deptConvertedSpentMap.set(dId, (deptConvertedSpentMap.get(dId) ?? 0) + amount);
-    }
-  }
-
-  // 2. Avg resolution time for approved tickets (createdAt → financeApproval.reviewedAt)
-  const resolutionAgg = await Ticket.aggregate([
-    {
-      $match: {
-        orgId: oid,
-        status: TICKET_STATUS.APPROVED,
-        "financeApproval.reviewedAt": { $ne: null },
-      },
-    },
-    {
-      $project: {
-        resolutionMs: {
-          $subtract: ["$financeApproval.reviewedAt", "$createdAt"],
-        },
-      },
-    },
-    { $group: { _id: null, avg: { $avg: "$resolutionMs" } } },
-  ]);
-
-  // 3. Top tags at org level
-  const topTagsAgg = await Ticket.aggregate([
-    { $match: { orgId: oid } },
-    { $unwind: "$tags" },
-    { $group: { _id: "$tags", count: { $sum: 1 } } },
-    { $sort: { count: -1 } },
-    { $limit: 10 },
-    { $project: { tag: "$_id", count: 1, _id: 0 } },
-  ]);
-
-  // 4. Currency breakdown — use converted totals (base currency) so relative size reflects real value
-  const currencyAgg = Array.from(currencyConvertedMap.entries()).map(([currency, total]) => ({
-    currency,
-    total: parseFloat(total.toFixed(2)),
-    originalTotal: parseFloat((currencyOriginalMap.get(currency) ?? total).toFixed(2)),
-  }));
-
-  // 5. Dept-level stats
+  // Load active depts to cross-reference budget and persist corrected spent values
   const depts = await Department.find({ orgId: oid, isActive: true });
 
-  const deptStatsAgg = await Ticket.aggregate([
-    { $match: { orgId: oid } },
-    {
-      $group: {
-        _id: "$department",
-        totalTickets: { $sum: 1 },
-        totalApproved: {
-          $sum: { $cond: [{ $eq: ["$status", TICKET_STATUS.APPROVED] }, 1, 0] },
-        },
-        totalRejected: {
-          $sum: { $cond: [{ $eq: ["$status", TICKET_STATUS.REJECTED] }, 1, 0] },
-        },
-        totalPending: {
-          $sum: { $cond: [{ $eq: ["$status", TICKET_STATUS.PENDING] }, 1, 0] },
-        },
-        totalAwaitingFinance: {
-          $sum: {
-            $cond: [
-              { $eq: ["$status", TICKET_STATUS.AWAITING_FINANCE] },
-              1,
-              0,
-            ],
-          },
-        },
-        totalAmountApproved: {
-          $sum: {
-            $cond: [
-              { $eq: ["$status", TICKET_STATUS.APPROVED] },
-              { $ifNull: ["$convertedAmount", "$amount"] },
-              0,
-            ],
-          },
-        },
-      },
-    },
-  ]);
-
-  // Dept resolution times
-  const deptResAgg = await Ticket.aggregate([
-    {
-      $match: {
-        orgId: oid,
-        status: TICKET_STATUS.APPROVED,
-        "financeApproval.reviewedAt": { $ne: null },
-      },
-    },
-    {
-      $group: {
-        _id: "$department",
-        avgResolutionMs: {
-          $avg: { $subtract: ["$financeApproval.reviewedAt", "$createdAt"] },
-        },
-      },
-    },
-  ]);
-
-  // Dept top tags
-  const deptTagsAgg = await Ticket.aggregate([
-    { $match: { orgId: oid } },
-    { $unwind: "$tags" },
-    {
-      $group: {
-        _id: { dept: "$department", tag: "$tags" },
-        count: { $sum: 1 },
-      },
-    },
-    { $sort: { count: -1 } },
-    {
-      $group: {
-        _id: "$_id.dept",
-        tags: { $push: { tag: "$_id.tag", count: "$count" } },
-      },
-    },
-  ]);
-
-  // Build dept analytics array
-  const deptStatsMap = new Map(deptStatsAgg.map((d) => [d._id?.toString(), d]));
-  const deptResMap = new Map(deptResAgg.map((d) => [d._id?.toString(), d.avgResolutionMs]));
-  const deptTagsMap = new Map(
-    deptTagsAgg.map((d) => [d._id?.toString(), (d.tags as any[]).slice(0, 10)]),
-  );
-
-  // Persist corrected spent values (re-converted to current org baseCurrency via locked snapshots)
+  // Update each dept's spent field to the freshly computed converted value
   await Promise.all(
     depts.map((dept) => {
-      const correctSpent = deptConvertedSpentMap.get(dept._id.toString()) ?? 0;
-      return Department.findByIdAndUpdate(dept._id, { $set: { spent: correctSpent } });
+      const correctSpent = deptAmountsMap.get(dept._id.toString()) ?? 0;
+      return Department.findByIdAndUpdate(dept._id, {
+        $set: { spent: correctSpent },
+      });
     }),
   );
 
   const departments = depts.map((dept) => {
     const dId = dept._id.toString();
-    const stats = deptStatsMap.get(dId) ?? {};
-    const correctSpent = deptConvertedSpentMap.get(dId) ?? 0;
+    const counts = deptCountMap.get(dId) ?? {};
+    const correctSpent = deptAmountsMap.get(dId) ?? 0;
     const budgetUsagePercent =
       dept.budget > 0
         ? parseFloat(((correctSpent / dept.budget) * 100).toFixed(2))
@@ -277,11 +377,11 @@ export async function refreshOrgAnalytics(
     return {
       departmentId: dept._id,
       name: dept.name,
-      totalTickets: stats.totalTickets ?? 0,
-      totalApproved: stats.totalApproved ?? 0,
-      totalRejected: stats.totalRejected ?? 0,
-      totalPending: stats.totalPending ?? 0,
-      totalAwaitingFinance: stats.totalAwaitingFinance ?? 0,
+      totalTickets: counts.totalTickets ?? 0,
+      totalApproved: counts.totalApproved ?? 0,
+      totalRejected: counts.totalRejected ?? 0,
+      totalPending: counts.totalPending ?? 0,
+      totalAwaitingFinance: counts.totalAwaitingFinance ?? 0,
       totalAmountApproved: correctSpent,
       budgetUsagePercent,
       topTags: deptTagsMap.get(dId) ?? [],
@@ -289,24 +389,25 @@ export async function refreshOrgAnalytics(
     };
   });
 
-  const orgStatData = orgStats[0] ?? {};
-
+  // Persist snapshot
   const doc = await OrgAnalytics.findOneAndUpdate(
     { orgId: oid },
     {
       $set: {
         orgId: oid,
         org: {
-          totalTickets: orgStatData.totalTickets ?? 0,
-          totalApproved: orgStatData.totalApproved ?? 0,
-          totalRejected: orgStatData.totalRejected ?? 0,
-          totalPending: orgStatData.totalPending ?? 0,
-          totalAwaitingFinance: orgStatData.totalAwaitingFinance ?? 0,
-          totalAmountApproved: orgTotalAmountApproved,
-          totalAmountPending: orgStatData.totalAmountPending ?? 0,
-          avgResolutionTimeMs: resolutionAgg[0]?.avg ?? 0,
-          topTags: topTagsAgg,
-          currencyBreakdown: currencyAgg,
+          totalTickets: orgStat.totalTickets ?? 0,
+          totalApproved: orgStat.totalApproved ?? 0,
+          totalRejected: orgStat.totalRejected ?? 0,
+          totalPending: orgStat.totalPending ?? 0,
+          totalAwaitingFinance: orgStat.totalAwaitingFinance ?? 0,
+          totalAmountApproved: parseFloat(
+            (orgAmountStat.totalAmountApproved ?? 0).toFixed(2),
+          ),
+          totalAmountPending: orgStat.totalAmountPending ?? 0,
+          avgResolutionTimeMs: overview?.orgResolutionTime?.[0]?.avg ?? 0,
+          topTags: overview?.topTags ?? [],
+          currencyBreakdown: amounts?.currencyBreakdown ?? [],
         },
         departments,
         generatedAt: new Date(),
