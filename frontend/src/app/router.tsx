@@ -114,7 +114,7 @@ export function AppRouter() {
           <Route path={ROUTES.USER_DASHBOARD} element={<UserDashboardPage />} />
           <Route path={ROUTES.EXPENSES} element={<ExpensesPage />} />
           <Route path={ROUTES.EXPENSE_NEW} element={<NewExpensePage />} />
-          <Route path="/expenses/:id" element={<ExpenseDetailPage />} />
+          {/* <Route path="/expenses/:id" element={<ExpenseDetailPage />} /> */}
         </Route>
 
         {/* Expense detail accessible by both users and admins */}
