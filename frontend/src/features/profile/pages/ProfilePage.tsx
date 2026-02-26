@@ -3,7 +3,7 @@ import { AppShell } from '@/shared/components/layout/AppShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { useAuthStore } from '@/features/auth/store/authStore';
-import { useTheme } from '@/shared/providers/ThemeProvider';
+import { useTheme } from '@/shared/hooks/useTheme';
 import { formatDate } from '@/core/utils/formatters';
 
 

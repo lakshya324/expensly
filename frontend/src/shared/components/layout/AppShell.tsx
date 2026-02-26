@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { cn } from '@/shared/utils/cn';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useLogout } from '@/features/auth/hooks/useAuth';
-import { useTheme } from '@/shared/providers/ThemeProvider';
+import { useTheme } from '@/shared/hooks/useTheme';
 import {
   LayoutDashboard, Receipt, Users, Building2, BarChart3,
   TrendingUp, FileDown, LogOut, Sun, Moon, ChevronLeft, ChevronRight,
