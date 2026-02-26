@@ -71,31 +71,21 @@ TicketSchema.methods.data = async function (
   this: ITicket,
   org: IOrganization,
 ): Promise<ITicketData> {
-  // Load department from its own collection
-  const dept = this.department
-    ? await Department.findById(this.department)
-    : null;
-
   const fetchUsers = [this.submittedBy];
   if (this.managerApproval?.reviewedBy)
     fetchUsers.push(this.managerApproval.reviewedBy);
   if (this.financeApproval?.reviewedBy)
     fetchUsers.push(this.financeApproval.reviewedBy);
 
-  const users = await User.find({ _id: { $in: fetchUsers } }).select(
-    "_id name email role department",
-  );
+  // Fetch ticket dept and all involved users in parallel — independent queries.
+  const [dept, users] = await Promise.all([
+    this.department ? Department.findById(this.department) : Promise.resolve(null),
+    User.find({ _id: { $in: fetchUsers } }).select("_id name email role department"),
+  ]);
 
   const submittedBy = users.find((u) => u._id.equals(this.submittedBy));
   if (!submittedBy)
     createError("Submitted by user not found", 500, "DATA_ERROR");
-
-  // Resolve reviewer dept data
-  const resolveReviewerDept = async (deptId: mongoose.Types.ObjectId | null | undefined) => {
-    if (!deptId) return null;
-    const d = await Department.findById(deptId);
-    return d ? d.toData() : null;
-  };
 
   const managerReviewer = this.managerApproval?.reviewedBy
     ? users.find((u) => u._id.equals(this.managerApproval!.reviewedBy!))
@@ -104,12 +94,41 @@ TicketSchema.methods.data = async function (
     ? users.find((u) => u._id.equals(this.financeApproval!.reviewedBy!))
     : null;
 
-  const [managerReviewerDept, financeReviewerDept, submittedByDept] =
-    await Promise.all([
-      resolveReviewerDept(managerReviewer?.department as mongoose.Types.ObjectId | null | undefined),
-      resolveReviewerDept(financeReviewer?.department as mongoose.Types.ObjectId | null | undefined),
-      resolveReviewerDept(submittedBy?.department as mongoose.Types.ObjectId | null | undefined),
-    ]);
+  // Collect all unique reviewer department IDs and fetch them in one query
+  // instead of up to 3 individual Department.findById calls.
+  const reviewerDeptIds = [
+    managerReviewer?.department,
+    financeReviewer?.department,
+    submittedBy?.department,
+  ].filter(Boolean) as mongoose.Types.ObjectId[];
+
+  const uniqueReviewerDeptIds = [
+    ...new Map(reviewerDeptIds.map((id) => [id.toString(), id])).values(),
+  ];
+
+  const reviewerDepts =
+    uniqueReviewerDeptIds.length > 0
+      ? await Department.find({ _id: { $in: uniqueReviewerDeptIds } })
+      : [];
+  const reviewerDeptMap = new Map(
+    reviewerDepts.map((d) => [d._id.toString(), d]),
+  );
+
+  const resolveDept = (deptId: mongoose.Types.ObjectId | null | undefined) => {
+    if (!deptId) return null;
+    const d = reviewerDeptMap.get(deptId.toString());
+    return d ? d.toData() : null;
+  };
+
+  const managerReviewerDept = resolveDept(
+    managerReviewer?.department as mongoose.Types.ObjectId | null | undefined,
+  );
+  const financeReviewerDept = resolveDept(
+    financeReviewer?.department as mongoose.Types.ObjectId | null | undefined,
+  );
+  const submittedByDept = resolveDept(
+    submittedBy?.department as mongoose.Types.ObjectId | null | undefined,
+  );
 
   const managerApproval: IApprovalData | null = this.managerApproval
     ? {

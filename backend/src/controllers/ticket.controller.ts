@@ -44,6 +44,7 @@ import {
   sendTicketSubmittedEmail,
   sendTicketStatusEmail,
 } from "../services/email.service.js";
+import { listTicketsPaginated } from "../services/ticket.service.js";
 
 export default class TicketController {
   /**
@@ -98,24 +99,27 @@ export default class TicketController {
         MAX_LIMIT,
         Math.max(1, parseInt(limitQ ?? "") || DEFAULT_LIMIT),
       );
-      const skip = (page - 1) * limit;
-
       const filter = buildTicketFilter(req);
+      const orgSnapshotId = org.currentRateSnapshotId
+        ? org.currentRateSnapshotId.toString()
+        : null;
 
-      const [tickets, total] = await Promise.all([
-        Ticket.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
-        Ticket.countDocuments(filter),
-      ]);
+      const { data: ticketDataList, total } = await listTicketsPaginated(
+        filter,
+        page,
+        limit,
+        orgSnapshotId,
+      );
 
       const payload: ResponsePaginationPayload<ITicketData> = {
         success: true,
         message: "Tickets retrieved successfully",
         timestamp: new Date().toISOString(),
         data: {
-          data: await Promise.all(tickets.map(async (t) => await t.data(org))),
+          data: ticketDataList,
           pagination: {
             page,
-            pageSize: tickets.length,
+            pageSize: ticketDataList.length,
             totalItems: total,
             totalPages: Math.ceil(total / limit),
           },
@@ -127,7 +131,7 @@ export default class TicketController {
         message: "Error listing tickets",
         code: "TICKET_LIST_ERROR",
       });
-      createError("Failed to list tickets", 500, "TICKET_LIST_ERROR");
+      next(err);
     }
   }
 
@@ -176,7 +180,18 @@ export default class TicketController {
           : (JSON.parse(tags) as string[])
         : [];
 
+      // Pre-generate the MongoDB _id so we can build the S3 receipt key before
+      // the DB insert, eliminating the second ticket.save() when a file is attached.
+      const newTicketId = new mongoose.Types.ObjectId();
+      const receiptKey = req.file
+        ? buildReceiptKey(newTicketId.toString(), org.slug, req.file.mimetype)
+        : null;
+      if (receiptKey) {
+        await uploadFile(receiptKey, req.file!.buffer, req.file!.mimetype);
+      }
+
       const ticket = await Ticket.create({
+        _id: newTicketId,
         title,
         submittedBy: user._id,
         submitterManagerId: user.managerId ?? null,
@@ -186,7 +201,7 @@ export default class TicketController {
         department,
         description: description ?? "",
         tags: parsedTags,
-        receiptKey: null,
+        receiptKey,
         status: TICKET_STATUS.PENDING,
         managerApproval: needsManagerApproval
           ? {
@@ -206,17 +221,6 @@ export default class TicketController {
         ...(timestamp && { createdAt: new Date(timestamp) }),
       });
 
-      if (req.file) {
-        const properKey = buildReceiptKey(
-          ticket._id.toString(),
-          org.slug,
-          req.file.mimetype,
-        );
-        await uploadFile(properKey, req.file.buffer, req.file.mimetype);
-        ticket.receiptKey = properKey;
-        await ticket.save();
-      }
-
       // Add any new tags into the department's tag pool
       if (parsedTags.length > 0) {
         await Department.findByIdAndUpdate(dept._id, {
@@ -230,18 +234,17 @@ export default class TicketController {
       // Notify manager and org admins about new submission (non-blocking)
       try {
         const notifyTargets: { email: string; name: string }[] = [];
-        if (user.managerId) {
-          const manager = await User.findById(user.managerId).select(
-            "email name",
-          );
-          if (manager)
-            notifyTargets.push({ email: manager.email, name: manager.name });
-        }
-        const admins = await User.find({
-          orgId: org._id,
-          role: ROLES.ADMIN,
-          isDisabled: false,
-        }).select("email name");
+        // Fetch manager and org admins in parallel — both independent of each other.
+        const [manager, admins] = await Promise.all([
+          user.managerId
+            ? User.findById(user.managerId).select("email name").lean()
+            : Promise.resolve(null),
+          User.find({ orgId: org._id, role: ROLES.ADMIN, isDisabled: false })
+            .select("email name")
+            .lean(),
+        ]);
+        if (manager)
+          notifyTargets.push({ email: manager.email, name: manager.name });
         for (const admin of admins) {
           if (!notifyTargets.some((t) => t.email === admin.email))
             notifyTargets.push({ email: admin.email, name: admin.name });
@@ -554,7 +557,7 @@ export default class TicketController {
         };
 
         if (status === TICKET_STATUS.APPROVED) {
-          // Lock exchange rate snapshot
+          // Lock exchange rate snapshot using a fresh read to get the latest pointer.
           const freshOrg = await Organization.findById(org._id).select(
             "currentRateSnapshotId baseCurrency",
           );
@@ -562,11 +565,12 @@ export default class TicketController {
             ticket.exchangeRateSnapshotId = freshOrg.currentRateSnapshotId;
           }
 
-          // Compute converted amount into org base currency
+          // Compute converted amount into org base currency using the same
+          // snapshot that was just locked onto the ticket.
           let convertedAmount = ticket.amount;
           if (ticket.currency !== org.baseCurrency) {
             try {
-              const snapshot = await getOrgRates(org);
+              const snapshot = freshOrg ? await getOrgRates(freshOrg as any) : null;
               if (snapshot) {
                 convertedAmount = convertAmount(
                   ticket.amount,

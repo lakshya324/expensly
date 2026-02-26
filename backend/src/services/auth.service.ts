@@ -5,8 +5,7 @@ import { Response } from "express";
 import config from "../config/env.config.js";
 import { BCRYPT_ROUNDS, REFRESH_TOKEN_COOKIE } from "../config/constants.js";
 import { createError } from "../utils/error.js";
-import { logError } from "../utils/logger.js";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { RefreshToken } from "../models/RefreshToken.model.js";
 import { CookieOptions } from "express";
 import { IUser } from "../types/user.types.js";
@@ -80,30 +79,35 @@ export async function generateRefreshToken(
     expiresAt.setTime(expiresAt.getTime() + value * (multipliers[unit] ?? 0));
   }
 
-  // Revoke all existing tokens for this user before issuing a new one
-  // to prevent unbounded accumulation of stale tokens in the DB.
-  await RefreshToken.deleteMany({ userId });
-
-  await RefreshToken.create({ tokenHash, userId, expiresAt });
+  // Revoke all existing tokens and issue a new one atomically... so that a
+  // crash between the two operations cannot leave the user without any token.
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    await RefreshToken.deleteMany({ userId }, { session });
+    await RefreshToken.create([{ tokenHash, userId, expiresAt }], { session });
+    await session.commitTransaction();
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
+  }
   return raw;
 }
 export async function verifyRefreshToken(raw: string): Promise<Types.ObjectId> {
   const tokenHash = hashToken(raw);
-  const record = await RefreshToken.findOne({ tokenHash });
+  const record = await RefreshToken.findOneAndDelete({ tokenHash });
 
   if (!record)
-    createError(
+    throw createError(
       "Refresh token not found or already used",
       401,
       "INVALID_REFRESH_TOKEN",
     );
-  if (record.expiresAt < new Date()) {
-    await record.deleteOne();
-    createError("Refresh token expired", 401, "EXPIRED_REFRESH_TOKEN");
-  }
+  if (record.expiresAt < new Date())
+    throw createError("Refresh token expired", 401, "EXPIRED_REFRESH_TOKEN");
 
-  // delete token after use to prevent reuse (single-use token)
-  await record.deleteOne();
   return record.userId;
 }
 

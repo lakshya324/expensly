@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import mongoose from "mongoose";
 import {
   hashPassword,
   comparePassword,
@@ -49,34 +50,46 @@ export default class AuthController {
           adminPassword: string;
         };
 
-      const [existingOrg, existingUser] = await Promise.all([
-        Organization.findOne({ slug: orgSlug }),
-        User.findOne({ email: adminEmail.toLowerCase() }),
-      ]);
-
-      if (existingOrg)
-        createError("Organization slug already in use", 400, "ORG_SLUG_TAKEN");
-
-      if (existingUser)
-        createError("Admin email already in use", 400, "EMAIL_TAKEN");
-
       const passwordHash = await hashPassword(adminPassword);
 
-      const org = await Organization.create({
-        name: orgName,
-        slug: orgSlug,
-        isDisabled: true,
-      });
-
-      await User.create({
-        name: userName,
-        email: adminEmail,
-        passwordHash,
-        role: ROLES.ADMIN,
-        orgId: org._id,
-        department: null,
-        isDisabled: true,
-      });
+      // Wrap both writes in a transaction so a failed User.create cannot
+      // leave an orphaned Organization document with no admin.
+      const session = await mongoose.startSession();
+      session.startTransaction();
+      try {
+        const [org] = await Organization.create(
+          [{ name: orgName, slug: orgSlug, isDisabled: true }],
+          { session },
+        );
+        await User.create(
+          [
+            {
+              name: userName,
+              email: adminEmail.toLowerCase(),
+              passwordHash,
+              role: ROLES.ADMIN,
+              orgId: org._id,
+              department: null,
+              isDisabled: true,
+            },
+          ],
+          { session },
+        );
+        await session.commitTransaction();
+      } catch (err: any) {
+        await session.abortTransaction();
+        // Unique index violations — no pre-check round-trip needed
+        if (err.code === 11000) {
+          const key = err.keyValue as Record<string, unknown>;
+          if (key?.slug)
+            throw createError("Organization slug already in use", 409, "ORG_SLUG_TAKEN");
+          if (key?.email)
+            throw createError("Admin email already in use", 409, "EMAIL_TAKEN");
+        }
+        throw err;
+      } finally {
+        session.endSession();
+      }
 
       const payload: ResponsePayload = {
         success: true,
@@ -206,10 +219,11 @@ export default class AuthController {
         );
       }
 
-      // OTP correct — consume
-      await del(loginOtpKey);
-
-      const user = await User.findById(userId);
+      // delete OTP record and find user
+      const [, user] = await Promise.all([
+        del(loginOtpKey),
+        User.findById(userId),
+      ]);
       if (!user || user.isDisabled)
         throw createError("User not found or disabled", 401, "INVALID_SESSION");
 
@@ -390,10 +404,11 @@ export default class AuthController {
         );
       }
 
-      // OTP correct — consume and update password
-      await del(resetKey);
-
-      const user = await User.findById(userId);
+      // deleting OTP and finding user
+      const [, user] = await Promise.all([
+        del(resetKey),
+        User.findById(userId),
+      ]);
       if (!user || user.isDisabled)
         throw createError("User not found or disabled", 400, "INVALID_REQUEST");
 

@@ -21,6 +21,7 @@ import {
 import { isValidObjectId, Types } from "mongoose";
 import { logError } from "../utils/logger.js";
 import { User } from "../models/User.model.js";
+import { Department } from "../models/Department.model.js";
 import { IUserData } from "../types/user.types.js";
 import {
   sendSignupApprovedEmail,
@@ -28,6 +29,7 @@ import {
   sendWelcomeEmail,
 } from "../services/email.service.js";
 import { hashPassword } from "../services/auth.service.js";
+import { listUsersPaginated } from "../services/user.service.js";
 
 export default class SuperAdminController {
   /**
@@ -88,7 +90,10 @@ export default class SuperAdminController {
 
       res.status(200).json(payload);
     } catch (err) {
-      logError(err, { message: "Error listing organizations", code: "LIST_ORGS_ERROR" });
+      logError(err, {
+        message: "Error listing organizations",
+        code: "LIST_ORGS_ERROR",
+      });
       next(err);
     }
   }
@@ -110,9 +115,17 @@ export default class SuperAdminController {
       };
 
       if (!name?.trim())
-        throw createError("Organization name is required", 400, "VALIDATION_ERROR");
+        throw createError(
+          "Organization name is required",
+          400,
+          "VALIDATION_ERROR",
+        );
       if (!slug?.trim())
-        throw createError("Organization slug is required", 400, "VALIDATION_ERROR");
+        throw createError(
+          "Organization slug is required",
+          400,
+          "VALIDATION_ERROR",
+        );
 
       const normalizedSlug = slug
         .toLowerCase()
@@ -120,16 +133,24 @@ export default class SuperAdminController {
         .replace(/-+/g, "-")
         .trim();
 
-      const existing = await Organization.findOne({ slug: normalizedSlug });
-      if (existing)
-        throw createError("Organization slug already in use", 409, "ORG_SLUG_TAKEN");
-
-      const org = await Organization.create({
-        name: name.trim(),
-        slug: normalizedSlug,
-        baseCurrency: baseCurrency ?? "USD",
-        isDisabled: isDisabled ?? false,
-      });
+      let org: IOrganization;
+      try {
+        org = await Organization.create({
+          name: name.trim(),
+          slug: normalizedSlug,
+          baseCurrency: baseCurrency ?? "USD",
+          isDisabled: isDisabled ?? false,
+        });
+      } catch (err: any) {
+        // Rely on the unique index instead of a pre-check findOne round-trip
+        if (err.code === 11000)
+          throw createError(
+            "Organization slug already in use",
+            409,
+            "ORG_SLUG_TAKEN",
+          );
+        throw err;
+      }
 
       const payload: ResponsePayload<IOrganizationData> = {
         success: true,
@@ -140,7 +161,10 @@ export default class SuperAdminController {
 
       res.status(201).json(payload);
     } catch (err) {
-      logError(err, { message: "Error creating organization", code: "CREATE_ORG_ERROR" });
+      logError(err, {
+        message: "Error creating organization",
+        code: "CREATE_ORG_ERROR",
+      });
       next(err);
     }
   }
@@ -188,7 +212,10 @@ export default class SuperAdminController {
 
       res.status(200).json(payload);
     } catch (err) {
-      logError(err, { message: "Error updating organization", code: "UPDATE_ORG_ERROR" });
+      logError(err, {
+        message: "Error updating organization",
+        code: "UPDATE_ORG_ERROR",
+      });
       next(err);
     }
   }
@@ -203,7 +230,8 @@ export default class SuperAdminController {
   ): Promise<void> {
     try {
       const orgId = req.params["id"];
-      const isDisabled = req.body["isDisabled"] === true || req.body["isDisabled"] === "true";
+      const isDisabled =
+        req.body["isDisabled"] === true || req.body["isDisabled"] === "true";
 
       if (!orgId || !isValidObjectId(orgId))
         throw createError("Invalid organization ID", 400, "VALIDATION_ERROR");
@@ -216,7 +244,10 @@ export default class SuperAdminController {
 
       // Email org admin (non-blocking)
       try {
-        const orgAdmin = await User.findOne({ orgId: org._id, role: ROLES.ADMIN }).select("email name");
+        const orgAdmin = await User.findOne({
+          orgId: org._id,
+          role: ROLES.ADMIN,
+        }).select("email name");
         if (orgAdmin) {
           if (!isDisabled) {
             sendSignupApprovedEmail(orgAdmin.email, orgAdmin.name, org.name);
@@ -236,7 +267,10 @@ export default class SuperAdminController {
 
       res.status(200).json(payload);
     } catch (err) {
-      logError(err, { message: "Error toggling organization status", code: "TOGGLE_ORG_STATUS_ERROR" });
+      logError(err, {
+        message: "Error toggling organization status",
+        code: "TOGGLE_ORG_STATUS_ERROR",
+      });
       next(err);
     }
   }
@@ -262,12 +296,11 @@ export default class SuperAdminController {
         MAX_LIMIT,
         Math.max(1, parseInt(limitQ ?? "") || DEFAULT_LIMIT),
       );
-      const skip = (page - 1) * limit;
-
       const filter: Record<string, unknown> = {
         role: { $ne: ROLES.SUPER_ADMIN },
       };
-      if (orgId && isValidObjectId(orgId)) filter["orgId"] = new Types.ObjectId(orgId);
+      if (orgId && isValidObjectId(orgId))
+        filter["orgId"] = new Types.ObjectId(orgId);
       if (role) filter["role"] = role;
       if (search) {
         filter["$or"] = [
@@ -276,20 +309,22 @@ export default class SuperAdminController {
         ];
       }
 
-      const [users, total] = await Promise.all([
-        User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
-        User.countDocuments(filter),
-      ]);
+      // fetching using one MongoDB round-trip using aggregation pipeline
+      const { data: usersData, total } = await listUsersPaginated(
+        filter,
+        page,
+        limit,
+      );
 
       const payload: ResponsePaginationPayload<IUserData> = {
         success: true,
         message: "Users retrieved successfully",
         timestamp: new Date().toISOString(),
         data: {
-          data: await Promise.all(users.map((u) => u.data())),
+          data: usersData,
           pagination: {
             page,
-            pageSize: users.length,
+            pageSize: usersData.length,
             totalItems: total,
             totalPages: Math.ceil(total / limit),
           },
@@ -298,7 +333,10 @@ export default class SuperAdminController {
 
       res.status(200).json(payload);
     } catch (err) {
-      logError(err, { message: "Error listing all users", code: "LIST_ALL_USERS_ERROR" });
+      logError(err, {
+        message: "Error listing all users",
+        code: "LIST_ALL_USERS_ERROR",
+      });
       next(err);
     }
   }
@@ -330,32 +368,41 @@ export default class SuperAdminController {
 
       const assignedRole = (role as any) ?? ROLES.USER;
       if (![ROLES.ADMIN, ROLES.USER].includes(assignedRole))
-        throw createError("Role must be 'admin' or 'user'", 400, "VALIDATION_ERROR");
+        throw createError(
+          "Role must be 'admin' or 'user'",
+          400,
+          "VALIDATION_ERROR",
+        );
 
       if (!orgId || !isValidObjectId(orgId))
         throw createError("A valid orgId is required", 400, "VALIDATION_ERROR");
 
-      const [existingUser, org] = await Promise.all([
-        User.findOne({ email: email.toLowerCase() }),
-        Organization.findById(orgId),
-      ]);
-      if (existingUser)
-        throw createError("Email already in use", 409, "EMAIL_TAKEN");
+      // checking org existence before user creation to avoid orphaned users in case of invalid orgId
+      const org = await Organization.findById(orgId);
       if (!org)
         throw createError("Organization not found", 404, "ORG_NOT_FOUND");
 
       const passwordHash = await hashPassword(password);
-      const user = await User.create({
-        name: name.trim(),
-        email: email.toLowerCase().trim(),
-        passwordHash,
-        role: assignedRole,
-        orgId: new Types.ObjectId(orgId),
-        isDisabled: isDisabled ?? false,
-      });
+      let user;
+      try {
+        user = await User.create({
+          name: name.trim(),
+          email: email.toLowerCase().trim(),
+          passwordHash,
+          role: assignedRole,
+          orgId: org._id,
+          isDisabled: isDisabled ?? false,
+        });
+      } catch (err: any) {
+        if (err.code === 11000)
+          throw createError("Email already in use", 409, "EMAIL_TAKEN");
+        throw err;
+      }
 
       // Send welcome email (non-blocking)
-      sendWelcomeEmail(user.email, user.name, org.name, password).catch(() => {});
+      sendWelcomeEmail(user.email, user.name, org.name, password).catch(
+        () => {},
+      );
 
       const payload: ResponsePayload<IUserData> = {
         success: true,
@@ -366,7 +413,10 @@ export default class SuperAdminController {
 
       res.status(201).json(payload);
     } catch (err) {
-      logError(err, { message: "Error creating user", code: "CREATE_USER_ERROR" });
+      logError(err, {
+        message: "Error creating user",
+        code: "CREATE_USER_ERROR",
+      });
       next(err);
     }
   }
@@ -398,15 +448,22 @@ export default class SuperAdminController {
       if (name !== undefined) user.name = name.trim();
       if (role !== undefined) {
         if (![ROLES.ADMIN, ROLES.USER].includes(role as any))
-          throw createError("Role must be 'admin' or 'user'", 400, "VALIDATION_ERROR");
+          throw createError(
+            "Role must be 'admin' or 'user'",
+            400,
+            "VALIDATION_ERROR",
+          );
         user.role = role as any;
       }
+
+      let org: IOrganization | null = null;
       if (orgId !== undefined) {
         if (!isValidObjectId(orgId))
           throw createError("Invalid orgId", 400, "VALIDATION_ERROR");
-        const org = await Organization.findById(orgId);
-        if (!org) throw createError("Organization not found", 404, "ORG_NOT_FOUND");
-        user.orgId = new Types.ObjectId(orgId);
+        org = await Organization.findById(orgId);
+        if (!org)
+          throw createError("Organization not found", 404, "ORG_NOT_FOUND");
+        user.orgId = org._id;
       }
 
       await user.save();
@@ -415,12 +472,15 @@ export default class SuperAdminController {
         success: true,
         message: "User updated successfully",
         timestamp: new Date().toISOString(),
-        data: await user.data(),
+        data: await user.data(org ? org : undefined),
       };
 
       res.status(200).json(payload);
     } catch (err) {
-      logError(err, { message: "Error updating user", code: "UPDATE_USER_ERROR" });
+      logError(err, {
+        message: "Error updating user",
+        code: "UPDATE_USER_ERROR",
+      });
       next(err);
     }
   }
@@ -435,7 +495,8 @@ export default class SuperAdminController {
   ): Promise<void> {
     try {
       const userId = req.params["id"];
-      const isDisabled = req.body["isDisabled"] === true || req.body["isDisabled"] === "true";
+      const isDisabled =
+        req.body["isDisabled"] === true || req.body["isDisabled"] === "true";
 
       if (!userId || !isValidObjectId(userId))
         throw createError("Invalid user ID", 400, "VALIDATION_ERROR");
@@ -456,7 +517,10 @@ export default class SuperAdminController {
 
       res.status(200).json(payload);
     } catch (err) {
-      logError(err, { message: "Error toggling user status", code: "TOGGLE_USER_STATUS_ERROR" });
+      logError(err, {
+        message: "Error toggling user status",
+        code: "TOGGLE_USER_STATUS_ERROR",
+      });
       next(err);
     }
   }

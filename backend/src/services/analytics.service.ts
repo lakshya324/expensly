@@ -353,17 +353,19 @@ export async function refreshOrgAnalytics(
   );
 
   // Load active depts to cross-reference budget and persist corrected spent values
-  const depts = await Department.find({ orgId: oid, isActive: true });
+  const depts = await Department.find({ orgId: oid, isActive: true }).lean();
 
-  // Update each dept's spent field to the freshly computed converted value
-  await Promise.all(
-    depts.map((dept) => {
-      const correctSpent = deptAmountsMap.get(dept._id.toString()) ?? 0;
-      return Department.findByIdAndUpdate(dept._id, {
-        $set: { spent: correctSpent },
-      });
-    }),
-  );
+  // Update each dept's spent field in a single bulkWrite...
+  if (depts.length > 0) {
+    await Department.bulkWrite(
+      depts.map((dept) => ({
+        updateOne: {
+          filter: { _id: dept._id },
+          update: { $set: { spent: deptAmountsMap.get(dept._id.toString()) ?? 0 } },
+        },
+      })),
+    );
+  }
 
   const departments = depts.map((dept) => {
     const dId = dept._id.toString();

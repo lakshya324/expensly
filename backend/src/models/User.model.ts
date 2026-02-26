@@ -51,6 +51,7 @@ UserSchema.index({ orgId: 1, department: 1 });
 UserSchema.index({ managerId: 1 });
 UserSchema.index({ orgId: 1, role: 1, isDisabled: 1 }); // admin notify + role-filtered listUsers
 UserSchema.index({ orgId: 1, createdAt: -1 }); // listUsers / listAllUsers sort
+UserSchema.index({ email: 1, isDisabled: 1 }); // login + disabled check in one index scan
 
 UserSchema.pre("save", async function () {
   if (this.role !== ROLES.SUPER_ADMIN && !this.orgId)
@@ -73,20 +74,24 @@ UserSchema.methods.data = async function (
   //   );
 
   let orgData = org;
-  let managerData = null;
 
   if (this.orgId && !org) {
     orgData = await Organization.findById(this.orgId);
-    // if (!orgData)
-    //   createError("Organization not found for the user", 404, "ORG_NOT_FOUND");
   }
 
-  if (this.managerId) {
-    const manager = await User.findById(this.managerId).select(
-      "_id name email role isDisabled createdAt updatedAt",
-    );
-    if (manager) {
-      managerData = {
+  // Fetch manager and department concurrently...
+  const [manager, dept] = await Promise.all([
+    this.managerId
+      ? User.findById(this.managerId)
+          .select("_id name email role isDisabled createdAt updatedAt")
+      : Promise.resolve(null),
+    this.department
+      ? Department.findById(this.department)
+      : Promise.resolve(null),
+  ]);
+
+  const managerData = manager
+    ? {
         _id: manager._id.toString(),
         name: manager.name,
         email: manager.email,
@@ -94,15 +99,8 @@ UserSchema.methods.data = async function (
         isDisabled: manager.isDisabled,
         createdAt: manager.createdAt.toISOString(),
         updatedAt: manager.updatedAt.toISOString(),
-      };
-    }
-  }
-
-  let departmentData = null;
-  if (this.department) {
-    const dept = await Department.findById(this.department);
-    if (dept) departmentData = dept.toData();
-  }
+      }
+    : null;
 
   return {
     _id: this._id.toString(),
@@ -110,7 +108,7 @@ UserSchema.methods.data = async function (
     email: this.email,
     role: this.role,
     org: orgData ? orgData.data() : null,
-    department: departmentData,
+    department: dept ? dept.toData() : null,
     permissions: {
       canViewAllTickets: this.permissions?.canViewAllTickets ?? null,
       canApprove: this.permissions?.canApprove ?? null,

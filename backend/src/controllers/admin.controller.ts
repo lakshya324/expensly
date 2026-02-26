@@ -1,7 +1,12 @@
 import { Response, NextFunction } from "express";
 import { hashPassword } from "../services/auth.service.js";
 import { createError } from "../utils/error.js";
-import { ROLES, DEFAULT_PAGE, DEFAULT_LIMIT, MAX_LIMIT } from "../config/constants.js";
+import {
+  ROLES,
+  DEFAULT_PAGE,
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
+} from "../config/constants.js";
 import { AuthRequest } from "../types/types.js";
 import { User } from "../models/User.model.js";
 import { Department } from "../models/Department.model.js";
@@ -9,8 +14,9 @@ import {
   ResponsePaginationPayload,
   ResponsePayload,
 } from "../types/payloads.types.js";
-import { IUserData, IUserPermissions } from "../types/user.types.js";
-import { Types } from "mongoose";
+import { IUser, IUserData, IUserPermissions } from "../types/user.types.js";
+import mongoose, { isValidObjectId, Types } from "mongoose";
+import { listUsersPaginated } from "../services/user.service.js";
 import {
   emitUserUpdate,
   emitUserDisable,
@@ -34,8 +40,6 @@ export default class AdminController {
         MAX_LIMIT,
         Math.max(1, parseInt(limitQ ?? "") || DEFAULT_LIMIT),
       );
-      const skip = (page - 1) * limit;
-
       const filter: Record<string, unknown> = {
         orgId: org._id,
         role: { $ne: ROLES.SUPER_ADMIN },
@@ -48,20 +52,22 @@ export default class AdminController {
         ];
       }
 
-      const [users, total] = await Promise.all([
-        User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-        User.countDocuments(filter),
-      ]);
+      const { data: usersData, total } = await listUsersPaginated(
+        filter,
+        page,
+        limit,
+        org.data(),
+      );
 
       const payload: ResponsePaginationPayload<IUserData> = {
         success: true,
         message: "Users retrieved successfully",
         timestamp: new Date().toISOString(),
         data: {
-          data: await Promise.all(users.map((u) => new User(u).data(org))),
+          data: usersData,
           pagination: {
             page,
-            pageSize: users.length,
+            pageSize: usersData.length,
             totalItems: total,
             totalPages: Math.ceil(total / limit),
           },
@@ -85,29 +91,53 @@ export default class AdminController {
         managerId?: string;
       };
 
-      const dept = await Department.findOne({
-        _id: new Types.ObjectId(department),
+      const managerObjectId = managerId ? new Types.ObjectId(managerId) : null;
+      const deptObjectId = new Types.ObjectId(department);
+
+      const dept = await Department.exists({
+        _id: deptObjectId,
         orgId: org._id,
         isActive: true,
       });
       if (!dept)
-        throw createError("Department not found or inactive", 400, "INVALID_DEPARTMENT");
+        throw createError(
+          "Department not found or inactive",
+          400,
+          "INVALID_DEPARTMENT",
+        );
 
-      const existing = await User.findOne({ email: email.toLowerCase() });
-      if (existing)
-        throw createError("Email already exists", 409, "DUPLICATE_EMAIL");
+      // check manager is valid
+      if (managerObjectId) {
+        const managerExists = await User.exists({
+          _id: managerObjectId,
+          orgId: org._id,
+          department: deptObjectId,
+          isDisabled: false,
+        });
+        if (!managerExists)
+          throw createError("Manager not found", 400, "INVALID_MANAGER");
+      }
 
       const passwordHash = await hashPassword(password);
 
-      const newUser = await User.create({
-        name,
-        email: email.toLowerCase(),
-        passwordHash,
-        role: ROLES.USER,
-        orgId: org._id,
-        department: new Types.ObjectId(department),
-        managerId: managerId ? new Types.ObjectId(managerId) : null,
-      });
+      let newUser: IUser;
+
+      try {
+        newUser = await User.create({
+          name,
+          email: email.toLowerCase(),
+          passwordHash,
+          role: ROLES.USER,
+          orgId: org._id,
+          department: deptObjectId,
+          managerId: managerId ? managerObjectId : null,
+        });
+      } catch (err: any) {
+        if (err.code === 11000) {
+          throw createError("Email already exists", 409, "DUPLICATE_EMAIL");
+        }
+        throw err;
+      }
 
       const userData = await newUser.data(org);
       emitUserUpdate(org._id.toString(), userData, org._id.toString());
@@ -141,20 +171,37 @@ export default class AdminController {
         managerId?: string | null;
       };
 
+      const managerObjectId = managerId ? new Types.ObjectId(managerId) : null;
+      const deptObjectId = department ? new Types.ObjectId(department) : null;
+
       if (name !== undefined) editUser.name = name;
       if (department !== undefined) {
-        const dept = await Department.findOne({
-          _id: new Types.ObjectId(department),
+        const dept = await Department.exists({
+          _id: deptObjectId,
           orgId: org._id,
           isActive: true,
         });
         if (!dept)
-          throw createError("Department not found or inactive", 400, "INVALID_DEPARTMENT");
-        editUser.department = new Types.ObjectId(department);
+          throw createError(
+            "Department not found or inactive",
+            400,
+            "INVALID_DEPARTMENT",
+          );
+        editUser.department = deptObjectId;
       }
-      if (managerId !== undefined)
+      if (managerId !== undefined) {
+        const exist = await User.exists({
+          _id: managerObjectId,
+          orgId: org._id,
+          department: deptObjectId,
+          isDisabled: false,
+        });
+        if (!exist)
+          throw createError("Manager not found", 400, "INVALID_MANAGER");
+
         editUser.managerId =
           managerId === null ? null : new Types.ObjectId(managerId);
+      }
 
       await editUser.save();
 
@@ -180,8 +227,12 @@ export default class AdminController {
   ) {
     try {
       const org = req.organization!;
-      const userId = req.params["id"]!;
-      const isDisabled = req.body["isDisabled"] === true || req.body["isDisabled"] === "true";
+      const userId = req.params["id"]! as string;
+      const isDisabled =
+        req.body["isDisabled"] === true || req.body["isDisabled"] === "true";
+
+      if (!isValidObjectId(userId))
+        throw createError("Invalid user ID", 400, "INVALID_USER_ID");
 
       const user = await User.findOne({ _id: userId, orgId: org._id });
       if (!user) throw createError("User not found", 404, "NOT_FOUND");
@@ -216,11 +267,14 @@ export default class AdminController {
   ) {
     try {
       const org = req.organization!;
-      const userId = req.params["id"]!;
+      const userId = req.params["id"]! as string;
       const { canViewAllTickets, canApprove } = req.body as {
         canViewAllTickets?: boolean | null;
         canApprove?: boolean | null;
       };
+
+      if (!isValidObjectId(userId))
+        throw createError("Invalid user ID", 400, "INVALID_USER_ID");
 
       const user = await User.findOne({ _id: userId, orgId: org._id });
       if (!user) throw createError("User not found", 404, "NOT_FOUND");

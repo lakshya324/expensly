@@ -47,23 +47,24 @@ export function calculateNextResetDate(
 
 // ---------------------------------------------------------------------------
 // Reset a single department's budget
+// @deprecated - now handled by processDueBudgetResets with better efficiency and reliability
 // ---------------------------------------------------------------------------
-export async function resetDepartmentBudget(
-  dept: IDepartment,
-): Promise<void> {
-  const nextResetDate = calculateNextResetDate(dept.budgetResetPeriod);
+// export async function resetDepartmentBudget(
+//   dept: IDepartment,
+// ): Promise<void> {
+//   const nextResetDate = calculateNextResetDate(dept.budgetResetPeriod);
 
-  await Department.findByIdAndUpdate(dept._id, {
-    $set: {
-      spent: 0,
-      nextResetDate,
-    },
-  });
+//   await Department.findByIdAndUpdate(dept._id, {
+//     $set: {
+//       spent: 0,
+//       nextResetDate,
+//     },
+//   });
 
-  logInfo(
-    `Budget reset for dept ${dept._id} (${dept.name}). Next reset: ${nextResetDate?.toISOString() ?? "none"}`,
-  );
-}
+//   logInfo(
+//     `Budget reset for dept ${dept._id} (${dept.name}). Next reset: ${nextResetDate?.toISOString() ?? "none"}`,
+//   );
+// }
 
 // ---------------------------------------------------------------------------
 // Process all departments due for budget reset (called by cron)
@@ -75,11 +76,24 @@ export async function processDueBudgetResets(): Promise<number> {
     budgetResetPeriod: { $ne: BUDGET_RESET_PERIODS.NONE },
     nextResetDate: { $lte: now },
     isActive: true,
-  });
+  }).lean();
 
   if (dueDepts.length === 0) return 0;
 
-  await Promise.all(dueDepts.map((dept) => resetDepartmentBudget(dept)));
+  // Single bulkWrite instead of N parallel findByIdAndUpdate round-trips.
+  await Department.bulkWrite(
+    dueDepts.map((dept) => ({
+      updateOne: {
+        filter: { _id: dept._id },
+        update: {
+          $set: {
+            spent: 0,
+            nextResetDate: calculateNextResetDate(dept.budgetResetPeriod),
+          },
+        },
+      },
+    })),
+  );
 
   logInfo(`Budget reset processed for ${dueDepts.length} department(s)`);
   return dueDepts.length;

@@ -5,7 +5,7 @@
  * - Admin can manually set rates or fetch latest from external API.
  * - Approved tickets lock in the snapshot ID so historical rates are preserved.
  */
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { ExchangeRateSnapshot } from "../models/ExchangeRateSnapshot.model.js";
 import { Organization } from "../models/Organization.model.js";
 import { CURRENCIES, DEFAULT_BASE_CURRENCY, Currency } from "../config/constants.js";
@@ -91,19 +91,35 @@ export async function setOrgRates(
   rates: Record<string, number>,
   source: "manual" | "fetched" = "manual",
 ): Promise<IExchangeRateSnapshotData> {
-  // const org = await Organization.findById(orgId);
-  // if (!org) throw createError("Organization not found", 404, "ORG_NOT_FOUND");
-
-  const snapshot = await ExchangeRateSnapshot.create({
-    orgId: org._id,
-    rates: new Map(Object.entries(rates)),
-    baseCurrency: org.baseCurrency,
-    source,
-    createdBy: user._id,
-  });
-
-  org.currentRateSnapshotId = snapshot._id;
-  await org.save();
+  // Wrap snapshot create + org pointer update in a transaction...
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  let snapshot: IExchangeRateSnapshot;
+  try {
+    [snapshot] = await ExchangeRateSnapshot.create(
+      [
+        {
+          orgId: org._id,
+          rates: new Map(Object.entries(rates)),
+          baseCurrency: org.baseCurrency,
+          source,
+          createdBy: user._id,
+        },
+      ],
+      { session },
+    );
+    await Organization.updateOne(
+      { _id: org._id },
+      { $set: { currentRateSnapshotId: snapshot._id } },
+      { session },
+    );
+    await session.commitTransaction();
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
+  }
 
   logInfo(`Exchange rates updated for org ${org._id} (source: ${source})`);
   return snapshot.toData();

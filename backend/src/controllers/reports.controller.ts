@@ -73,29 +73,28 @@ export class ReportsController {
         const s3Key = buildReportKey(org.slug, (reportDoc._id as mongoose.Types.ObjectId).toString());
         reportDoc.s3Key = s3Key;
 
-        await uploadFile(s3Key, csvBuffer, 'text/csv');
-        await reportDoc.save();
+        // Upload to S3 and saving to DB... independent operations
+        await Promise.all([
+          uploadFile(s3Key, csvBuffer, 'text/csv'),
+          reportDoc.save(),
+        ]);
 
-        // Prune: keep only the latest MAX_SAVED_REPORTS per user
-        const allReports = await Report.find({ generatedBy: user._id })
+        // keep only the latest MAX_SAVED_REPORTS per user.
+        const toDelete = await Report.find({ generatedBy: user._id })
           .sort({ createdAt: -1 })
+          .skip(MAX_SAVED_REPORTS)
           .select('_id s3Key')
           .lean();
 
-        if (allReports.length > MAX_SAVED_REPORTS) {
-          const toDelete = allReports.slice(MAX_SAVED_REPORTS);
-          await Promise.all(
-            toDelete.map(async (r) => {
-              try { await deleteFile(r.s3Key); } catch { /* ignore S3 error */ }
-            }),
-          );
+        if (toDelete.length > 0) {
+          await Promise.all(toDelete.map((r) => deleteFile(r.s3Key).catch(() => {})));
           await Report.deleteMany({ _id: { $in: toDelete.map((r) => r._id) } });
         }
-      } catch {
+      } catch (err) {
         // S3/DB persistence failure never blocks the CSV download
       }
-      // ----------------------------------------------------------------
 
+      // Streaming the CSV directly in the response with appropriate headers for download
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.status(200).send(csvBuffer);
