@@ -9,10 +9,10 @@ export default function App() {
   return (
     <ThemeProvider>
       <BrowserRouter>
+        <Analytics />
         <AuthProvider>
           <AppRouter />
           <Toaster richColors position="top-right" closeButton />
-          <Analytics />
         </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>
