@@ -86,22 +86,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       : "light";
   });
 
-  // Apply on initial mount (no transition suppression needed — page hasn't painted yet)
+  // Apply on initial mount
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark") root.classList.add("dark");
-    else root.classList.remove("dark");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // const root = document.documentElement;
+    // if (theme === "dark") root.classList.add("dark");
+    // else root.classList.remove("dark");
+    applyTheme(theme);
+  }, [theme]);
 
   const setTheme = (t: Theme) => {
-    applyTheme(t);
+    // applyTheme(t);
     setThemeState(t);
   };
 
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
-    applyTheme(next);
+    // applyTheme(next);
     setThemeState(next);
   };
 
