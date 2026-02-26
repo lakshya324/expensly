@@ -1,11 +1,10 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { tokenStore } from '../storage/token.store';
 import type { ApiResponse } from '@/core/types/api.types';
-
-const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
+import { API_BASE } from '@/config/env.config';
 
 export const apiClient = axios.create({
-  baseURL: BASE_URL,
+  baseURL: API_BASE,
   withCredentials: true, // send refresh-token cookie
   headers: { 'Content-Type': 'application/json' },
 });
