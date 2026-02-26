@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import { tokenStore } from '../storage/token.store';
 import type { SocketEvents } from '@/core/types/socket.types';
+import { WS_BASE } from '@/config/env.config';
 
 type ServerToClientEvents = {
   [K in keyof SocketEvents]: (payload: SocketEvents[K]) => void;
@@ -18,7 +19,7 @@ export const socketClient = {
   connect(): void {
     if (_socket?.connected) return;
 
-    _socket = io('/', {
+    _socket = io(WS_BASE, {
       withCredentials: true,
       auth: { token: tokenStore.get() },
       transports: ['websocket', 'polling'],
