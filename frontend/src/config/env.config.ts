@@ -5,7 +5,7 @@ function requireVite(key: string) {
 }
 
 // Base URL for API calls
-export const API_BASE = requireVite("VITE_API_BASE");
+export const API_BASE = requireVite("VITE_API_URL");
 
 // Local storage key for theme preference
 export const THEME_STORAGE_KEY =
