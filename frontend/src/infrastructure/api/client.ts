@@ -9,7 +9,7 @@ export const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ─── Request: attach access token ────────────────────────────────────────────
+//! Request: attach access token
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = tokenStore.get();
   if (token && config.headers) {
@@ -18,7 +18,7 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// ─── Track if a refresh is already in-flight ─────────────────────────────────
+//! Track if a refresh is already in-flight
 let _refreshPromise: Promise<string> | null = null;
 
 async function refreshAccessToken(): Promise<string> {
@@ -38,7 +38,7 @@ async function refreshAccessToken(): Promise<string> {
   return _refreshPromise;
 }
 
-// ─── Response: on 401, refresh once and retry ────────────────────────────────
+//! Response: on 401, refresh once and retry
 apiClient.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
@@ -57,7 +57,7 @@ apiClient.interceptors.response.use(
         originalRequest.headers!['Authorization'] = `Bearer ${newToken}`;
         return apiClient(originalRequest);
       } catch {
-        // Refresh failed → force logout
+        // Refresh failed -> force logout
         tokenStore.clear();
         window.dispatchEvent(new CustomEvent('auth:logout'));
         return Promise.reject(error);
