@@ -12,4 +12,4 @@ export const WS_BASE = requireVite("VITE_WS_URL");
 
 // Local storage key for theme preference
 export const THEME_STORAGE_KEY =
-  (import.meta.env.VITE_THEME_STORAGE_KEY as string) ?? "expensly-theme";
+  (import.meta.env.THEME_STORAGE_KEY as string) ?? "expensly-theme";
