@@ -1,0 +1,117 @@
+import { Response, NextFunction } from "express";
+import { AuthRequest } from "../types/types.js";
+import {
+  getThread,
+  postMessage,
+  editMessage,
+  deleteMessage,
+} from "../services/discussion.service.js";
+import { ResponsePayload } from "../types/payloads.types.js";
+import { IDiscussionMessageData } from "../types/discussion.types.js";
+
+/**
+ * DiscussionController — all methods proxy to the discussion service which
+ * currently returns 501 Not Implemented. Wire real logic in the service
+ * when the Expense Discussion feature is built.
+ */
+export default class DiscussionController {
+  /** GET /api/users/expenses/:ticketId/discussion */
+  static async getThread(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const org = req.organization!;
+      const ticketId = req.params["ticketId"] as string;
+      const page = parseInt((req.query["page"] as string) ?? "") || 1;
+      const { data, total } = await getThread(
+        org._id.toString(),
+        ticketId,
+        page,
+      );
+      const payload: ResponsePayload<{ data: IDiscussionMessageData[]; total: number }> = {
+        success: true,
+        message: "Thread retrieved successfully",
+        timestamp: new Date().toISOString(),
+        data: { data, total },
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** POST /api/users/expenses/:ticketId/discussion */
+  static async postMessage(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const org = req.organization!;
+      const user = req.user!;
+      const ticketId = req.params["ticketId"] as string;
+      const { text } = req.body as { text?: string };
+      const msg = await postMessage({
+        ticketId,
+        orgId: org._id.toString(),
+        authorId: user._id.toString(),
+        text: text ?? "",
+      });
+      const payload: ResponsePayload<IDiscussionMessageData> = {
+        success: true,
+        message: "Message posted",
+        timestamp: new Date().toISOString(),
+        data: msg,
+      };
+      res.status(201).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** PATCH /api/users/expenses/:ticketId/discussion/:messageId */
+  static async editMessage(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const org = req.organization!;
+      const user = req.user!;
+      const { messageId } = req.params as { messageId: string };
+      const { text } = req.body as { text?: string };
+      const msg = await editMessage(org._id.toString(), messageId, user._id.toString(), {
+        text: text ?? "",
+      });
+      const payload: ResponsePayload<IDiscussionMessageData> = {
+        success: true,
+        message: "Message updated",
+        timestamp: new Date().toISOString(),
+        data: msg,
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** DELETE /api/users/expenses/:ticketId/discussion/:messageId */
+  static async deleteMessage(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const org = req.organization!;
+      const user = req.user!;
+      const { messageId } = req.params as { messageId: string };
+      await deleteMessage(org._id.toString(), messageId, user._id.toString());
+      const payload: ResponsePayload = {
+        success: true,
+        message: "Message deleted",
+        timestamp: new Date().toISOString(),
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+}

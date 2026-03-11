@@ -22,6 +22,9 @@ import {
   emitUserDisable,
 } from "../websocket/handlers/user.handler.js";
 import { sendWelcomeEmail } from "../services/email.service.js";
+import { getAuditLog, logAction } from "../services/auditLog.service.js";
+import { IAuditLogData } from "../types/auditLog.types.js";
+import { AUDIT_ACTION, ENTITY_TYPE, EntityType } from "../config/constants.js";
 
 export default class AdminController {
   //! Users
@@ -141,6 +144,13 @@ export default class AdminController {
 
       const userData = await newUser.data(org);
       emitUserUpdate(org._id.toString(), userData, org._id.toString());
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: org._id.toString(),
+        action: AUDIT_ACTION.USER_CREATED,
+        entityType: ENTITY_TYPE.USER,
+        entityId: newUser._id.toString(),
+      }).catch(() => {});
 
       // Welcome email (non-blocking)
       sendWelcomeEmail(newUser.email, newUser.name, org.name, password);
@@ -207,6 +217,13 @@ export default class AdminController {
 
       const userData = await editUser.data(org);
       emitUserUpdate(org._id.toString(), userData, org._id.toString());
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: org._id.toString(),
+        action: AUDIT_ACTION.USER_UPDATED,
+        entityType: ENTITY_TYPE.USER,
+        entityId: editUser._id.toString(),
+      }).catch(() => {});
 
       const payload: ResponsePayload<IUserData> = {
         success: true,
@@ -247,6 +264,13 @@ export default class AdminController {
         userData,
         org._id.toString(),
       );
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: org._id.toString(),
+        action: isDisabled ? AUDIT_ACTION.USER_DISABLED : AUDIT_ACTION.USER_ENABLED,
+        entityType: ENTITY_TYPE.USER,
+        entityId: user._id.toString(),
+      }).catch(() => {});
 
       const responsePayload: ResponsePayload<boolean> = {
         success: true,
@@ -283,6 +307,14 @@ export default class AdminController {
         user.permissions.canViewAllTickets = canViewAllTickets;
       if (canApprove !== undefined) user.permissions.canApprove = canApprove;
       await user.save();
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: org._id.toString(),
+        action: AUDIT_ACTION.PERMISSIONS_UPDATED,
+        entityType: ENTITY_TYPE.USER,
+        entityId: user._id.toString(),
+        metadata: { canViewAllTickets, canApprove },
+      }).catch(() => {});
 
       const userData = await user.data(org);
       emitUserUpdate(org._id.toString(), userData, org._id.toString());
@@ -294,6 +326,54 @@ export default class AdminController {
         data: {
           canViewAllTickets: user.permissions.canViewAllTickets ?? null,
           canApprove: user.permissions.canApprove ?? null,
+        },
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** GET /api/admin/audit-log */
+  static async getAuditLog(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const org = req.organization!;
+      const {
+        page: pageQ,
+        limit: limitQ,
+        entityId,
+        entityType,
+      } = req.query as Record<string, string | undefined>;
+      const page = Math.max(1, parseInt(pageQ ?? "") || DEFAULT_PAGE);
+      const limit = Math.min(
+        MAX_LIMIT,
+        Math.max(1, parseInt(limitQ ?? "") || DEFAULT_LIMIT),
+      );
+
+      const { data, total } = await getAuditLog({
+        orgId: org._id.toString(),
+        entityId,
+        entityType: entityType as EntityType | undefined,
+        page,
+        limit,
+      });
+
+      const payload: ResponsePaginationPayload<IAuditLogData> = {
+        success: true,
+        message: "Audit log retrieved successfully",
+        timestamp: new Date().toISOString(),
+        data: {
+          data,
+          pagination: {
+            page,
+            pageSize: data.length,
+            totalItems: total,
+            totalPages: Math.ceil(total / limit),
+          },
         },
       };
       res.status(200).json(payload);

@@ -9,8 +9,8 @@ import {
 } from "../config/constants.js";
 import {
   uploadFile,
-  getReceiptSignedUrl,
-  deleteFile,
+  getReceiptSignedUrls,
+  deleteFiles,
   buildReceiptKey,
 } from "../services/s3.service.js";
 import { createError } from "../utils/error.js";
@@ -45,6 +45,13 @@ import {
   sendTicketStatusEmail,
 } from "../services/email.service.js";
 import { listTicketsPaginated } from "../services/ticket.service.js";
+import { extractReceiptData } from "../services/ocr.service.js";
+import { enqueueJob } from "../services/queue.service.js";
+import { OCR_STATUS } from "../config/constants.js";
+import {
+  logAction,
+} from "../services/auditLog.service.js";
+import { AUDIT_ACTION, ENTITY_TYPE } from "../config/constants.js";
 
 export default class TicketController {
   /**
@@ -201,7 +208,7 @@ export default class TicketController {
         department,
         description: description ?? "",
         tags: parsedTags,
-        receiptKey,
+        receiptKeys: receiptKey ? [receiptKey] : [],
         status: TICKET_STATUS.PENDING,
         managerApproval: needsManagerApproval
           ? {
@@ -229,6 +236,13 @@ export default class TicketController {
       }
 
       const ticketData = await ticket.data(org);
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: user._id.toString(),
+        action: AUDIT_ACTION.CREATED,
+        entityType: ENTITY_TYPE.TICKET,
+        entityId: ticket._id.toString(),
+      }).catch(() => {});
       emitNewTicket(org._id.toString(), ticketData, user._id.toString());
 
       // Notify manager and org admins about new submission (non-blocking)
@@ -390,12 +404,12 @@ export default class TicketController {
           "FORBIDDEN",
         );
 
-      if (ticket.receiptKey) {
+      if (ticket.receiptKeys.length > 0) {
         try {
-          await deleteFile(ticket.receiptKey);
+          await deleteFiles(ticket.receiptKeys);
         } catch {
           logError(
-            new Error(`Failed to delete receipt file for ticket ${ticket._id}`),
+            new Error(`Failed to delete receipt files for ticket ${ticket._id}`),
             {
               message: "Receipt deletion error",
               code: "RECEIPT_DELETE_ERROR",
@@ -406,6 +420,13 @@ export default class TicketController {
       }
 
       await ticket.deleteOne();
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: user._id.toString(),
+        action: AUDIT_ACTION.DELETED,
+        entityType: ENTITY_TYPE.TICKET,
+        entityId: ticket._id.toString(),
+      }).catch(() => {});
       emitTicketDelete(org._id.toString(), ticket._id.toString());
 
       const payload: ResponsePayload = {
@@ -441,6 +462,13 @@ export default class TicketController {
         body?.flagged !== undefined ? body.flagged === true : !ticket.flagged;
       ticket.flagged = newFlagged;
       await ticket.save();
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: user._id.toString(),
+        action: newFlagged ? AUDIT_ACTION.FLAGGED : AUDIT_ACTION.UNFLAGGED,
+        entityType: ENTITY_TYPE.TICKET,
+        entityId: ticket._id.toString(),
+      }).catch(() => {});
 
       const ticketData = await ticket.data(org);
       emitTicketFlag(org._id.toString(), ticketData, user._id.toString());
@@ -595,6 +623,14 @@ export default class TicketController {
 
       ticket.status = status;
       await ticket.save();
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: user._id.toString(),
+        action: AUDIT_ACTION.STATUS_CHANGED,
+        entityType: ENTITY_TYPE.TICKET,
+        entityId: ticket._id.toString(),
+        metadata: { status },
+      }).catch(() => {});
 
       const ticketData = await ticket.data(org);
       emitTicketStatusChange(
@@ -648,11 +684,10 @@ export default class TicketController {
   }
 
   /**
-   * GET /api/expenses/:id/receipt
+   * GET /api/users/expenses/:id/receipt
    */
   static async getReceipt(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const user = req.user!;
       const org = req.organization!;
       const ticketId = req.params["id"] as string;
 
@@ -660,18 +695,70 @@ export default class TicketController {
         _id: ticketId,
         orgId: org._id,
       });
-      if (!ticket) createError("Ticket not found", 404, "NOT_FOUND");
-      if (!ticket.receiptKey)
-        createError("No receipt attached to this ticket", 404, "NO_RECEIPT");
+      if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
+      if (!ticket.receiptKeys || ticket.receiptKeys.length === 0)
+        throw createError("No receipt attached to this ticket", 404, "NO_RECEIPT");
 
-      const signedUrl = await getReceiptSignedUrl(ticket.receiptKey);
-      const payload: ResponsePayload<string> = {
+      const signedUrls = await getReceiptSignedUrls(ticket.receiptKeys);
+      const payload: ResponsePayload<string[]> = {
         success: true,
-        message: "Receipt URL retrieved successfully",
-        data: signedUrl,
+        message: "Receipt URL(s) retrieved successfully",
+        data: signedUrls,
         timestamp: new Date().toISOString(),
       };
       res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/users/expenses/:id/ocr-scan
+   * Queue an OCR + AI validation job for the first receipt attached to a ticket.
+   * Returns 202 Accepted immediately; results are pushed via WebSocket.
+   */
+  static async ocrScan(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const org = req.organization!;
+      const ticketId = req.params["id"] as string;
+
+      const ticket = await Ticket.findOne({
+        _id: ticketId,
+        orgId: org._id,
+      });
+      if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
+      if (!ticket.receiptKeys || ticket.receiptKeys.length === 0)
+        throw createError("No receipt attached to this ticket", 400, "NO_RECEIPT");
+
+      // Mark the ticket as OCR-queued immediately so the UI can show a loading state
+      ticket.ocrData = {
+        status: OCR_STATUS.PROCESSING,
+        merchantName: null,
+        amount: null,
+        currency: null,
+        transactionDate: null,
+        taxAmount: null,
+        suggestedCategory: null,
+        rawText: null,
+        confidence: null,
+        processedAt: null,
+      };
+      await ticket.save();
+
+      await enqueueJob({
+        jobType: "ocr_scan",
+        ticketId: ticket._id.toString(),
+        receiptKey: ticket.receiptKeys[0]!,
+        orgId: org._id.toString(),
+      });
+
+      const payload: ResponsePayload<{ status: string; ticketId: string }> = {
+        success: true,
+        message: "OCR scan queued — results will be pushed via WebSocket",
+        data: { status: "queued", ticketId },
+        timestamp: new Date().toISOString(),
+      };
+      res.status(202).json(payload);
     } catch (err) {
       next(err);
     }

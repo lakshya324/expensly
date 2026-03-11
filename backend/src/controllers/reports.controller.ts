@@ -62,6 +62,7 @@ export class ReportsController {
 
       // --- Persist to S3 & DB (best-effort, non-blocking to client) ---
       try {
+        console.log(`Persisting report for user ${user._id} with filters:`, { status, department, from, to });
         const reportDoc = new Report({
           orgId: org._id,
           generatedBy: user._id,
