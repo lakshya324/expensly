@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.993.0",
+    "@aws-sdk/client-sqs": "^3.1005.0",
     "@aws-sdk/s3-request-presigner": "^3.993.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
@@ -36,9 +37,12 @@
     "multer-s3": "^3.0.1",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.1",
+    "openai": "^6.27.0",
+    "sharp": "^0.34.5",
     "socket.io": "^4.8.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "tesseract.js": "^7.0.0",
     "tsc-watch": "^7.2.0",
     "ws": "^8.19.0"
   },
