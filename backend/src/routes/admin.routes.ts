@@ -36,4 +36,18 @@ router.patch(
 //* Audit Log [GET /api/admin/audit-log]
 router.get("/audit-log", AdminController.getAuditLog);
 
+//? Policies
+
+//* List Policies [GET /api/admin/policies]
+router.get("/policies", AdminController.listPolicies);
+
+//* Create Policy [POST /api/admin/policies]
+router.post("/policies", AdminController.createPolicy);
+
+//* Update Policy [PATCH /api/admin/policies/:id]
+router.patch("/policies/:id", AdminController.updatePolicy);
+
+//* Delete Policy [DELETE /api/admin/policies/:id]
+router.delete("/policies/:id", AdminController.deletePolicy);
+
 export default router;

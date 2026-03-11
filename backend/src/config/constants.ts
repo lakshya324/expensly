@@ -88,6 +88,16 @@ export const AI_VALIDATION_STATUS = {
 
 export type AiValidationStatus = (typeof AI_VALIDATION_STATUS)[keyof typeof AI_VALIDATION_STATUS];
 
+// ─── Permission keys ──────────────────────────────────────────────────────────
+export const PERMISSION_KEY = {
+  VIEW_ALL_TICKETS: 'view_all_tickets',
+  APPROVE_FINANCE: 'approve_finance',
+  EXPORT_REPORTS: 'export_reports',
+  VIEW_ANALYTICS: 'view_analytics',
+} as const;
+
+export type PermissionKey = (typeof PERMISSION_KEY)[keyof typeof PERMISSION_KEY];
+
 // ─── Expense bundle status ────────────────────────────────────────────────────
 export const BUNDLE_STATUS = {
   DRAFT: 'draft',

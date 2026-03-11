@@ -58,21 +58,23 @@ export const updateDepartmentValidation = [
 ];
 
 export const updateDepartmentPermissionsValidation = [
-  body("canViewAllTickets")
-    .isBoolean()
-    .withMessage("canViewAllTickets must be a boolean"),
-  body("canApprove")
-    .isBoolean()
-    .withMessage("canApprove must be a boolean"),
+  body("permissions")
+    .optional()
+    .isObject()
+    .withMessage("permissions must be an object"),
+  body("policyId")
+    .optional({ nullable: true })
+    .custom((v) => v === null || typeof v === "string")
+    .withMessage("policyId must be a string or null"),
 ];
 
 export const updateUserPermissionsValidation = [
-  body("canViewAllTickets")
+  body("permissions")
+    .optional()
+    .isObject()
+    .withMessage("permissions must be an object"),
+  body("policyId")
     .optional({ nullable: true })
-    .custom((v) => v === null || typeof v === "boolean")
-    .withMessage("canViewAllTickets must be a boolean or null"),
-  body("canApprove")
-    .optional({ nullable: true })
-    .custom((v) => v === null || typeof v === "boolean")
-    .withMessage("canApprove must be a boolean or null"),
+    .custom((v) => v === null || typeof v === "string")
+    .withMessage("policyId must be a string or null"),
 ];

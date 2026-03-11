@@ -1,14 +1,10 @@
 import { Document, Types } from "mongoose";
-import { Role } from "../config/constants.js";
+import { Role, PermissionKey } from "../config/constants.js";
 import { IOrganization, IOrganizationData } from "./organization.types.js";
 import { IDepartmentData } from "./department.types.js";
 
-export interface IUserPermissions {
-  /** Override dept-level canViewAllTickets. null = inherit from dept */
-  canViewAllTickets: boolean | null;
-  /** Override dept-level canApprove. null = inherit from dept */
-  canApprove: boolean | null;
-}
+/** null = inherit from dept/policy chain; true/false = explicit override */
+export type IUserPermissions = { [K in PermissionKey]: boolean | null };
 
 export interface IUser extends Document {
   _id: Types.ObjectId;
@@ -20,6 +16,7 @@ export interface IUser extends Document {
   department: Types.ObjectId | null;
   managerId: Types.ObjectId | null;
   permissions: IUserPermissions;
+  policyId: Types.ObjectId | null;
   isDisabled: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -36,7 +33,8 @@ export interface IUserData {
   org: IOrganizationData | null;
   department: IDepartmentData | null;
   permissions: IUserPermissions;
-  manager: Omit<IUserData, "org" | "department" | "manager" | "permissions"> | null;
+  policyId: string | null;
+  manager: Omit<IUserData, "org" | "department" | "manager" | "permissions" | "policyId"> | null;
   isDisabled: boolean;
   createdAt: string;
   updatedAt: string;

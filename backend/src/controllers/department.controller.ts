@@ -9,6 +9,8 @@ import {
   DEFAULT_LIMIT,
   MAX_LIMIT,
   TICKET_STATUS,
+  PERMISSION_KEY,
+  PermissionKey,
 } from "../config/constants.js";
 import { createError } from "../utils/error.js";
 import {
@@ -209,15 +211,24 @@ export default class DepartmentController {
       });
       if (!dept) throw createError("Department not found", 404, "NOT_FOUND");
 
-      const { canViewAllTickets, canApprove } = req.body as {
-        canViewAllTickets?: boolean;
-        canApprove?: boolean;
+      const { permissions, policyId } = req.body as {
+        permissions?: Record<string, boolean>;
+        policyId?: string | null;
       };
 
-      if (canViewAllTickets !== undefined)
-        dept.permissions.canViewAllTickets = canViewAllTickets;
-      if (canApprove !== undefined)
-        dept.permissions.canApprove = canApprove;
+      if (permissions && typeof permissions === "object") {
+        const validKeys = Object.values(PERMISSION_KEY) as string[];
+        for (const [key, value] of Object.entries(permissions)) {
+          if (validKeys.includes(key) && typeof value === "boolean") {
+            (dept.permissions as Record<string, boolean>)[key] = value;
+          }
+        }
+        dept.markModified("permissions");
+      }
+
+      if (policyId !== undefined) {
+        dept.policyId = policyId ? new Types.ObjectId(policyId) : null;
+      }
 
       await dept.save();
 

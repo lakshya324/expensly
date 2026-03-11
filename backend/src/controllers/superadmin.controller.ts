@@ -28,6 +28,7 @@ import {
   sendSignupRejectedEmail,
   sendWelcomeEmail,
 } from "../services/email.service.js";
+import { seedSystemPolicies } from "../services/policy.service.js";
 import { hashPassword } from "../services/auth.service.js";
 import { listUsersPaginated } from "../services/user.service.js";
 
@@ -151,6 +152,9 @@ export default class SuperAdminController {
           );
         throw err;
       }
+
+      // Seed system policies (non-blocking — failure must not break org creation)
+      seedSystemPolicies(org._id.toString(), req.user!._id.toString()).catch(() => {});
 
       const payload: ResponsePayload<IOrganizationData> = {
         success: true,

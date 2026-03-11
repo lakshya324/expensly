@@ -21,8 +21,15 @@ const DepartmentSchema = new Schema<IDepartment>(
       default: {},
     },
     permissions: {
-      canViewAllTickets: { type: Boolean, default: false },
-      canApprove: { type: Boolean, default: false },
+      view_all_tickets: { type: Boolean, default: false },
+      approve_finance: { type: Boolean, default: false },
+      export_reports: { type: Boolean, default: false },
+      view_analytics: { type: Boolean, default: false },
+    },
+    policyId: {
+      type: Schema.Types.ObjectId,
+      ref: "Policy",
+      default: null,
     },
     /**
      * @deprecated Free-form department tags — replaced by Merchant & Category models.
@@ -54,6 +61,7 @@ DepartmentSchema.methods.toData = function (this: IDepartment): IDepartmentData 
     spent: this.spent,
     approvalThresholds: Object.fromEntries(this.approvalThresholds),
     permissions: this.permissions,
+    policyId: this.policyId?.toString() ?? null,
     tags: this.tags,
     budgetResetPeriod: this.budgetResetPeriod,
     nextResetDate: this.nextResetDate,

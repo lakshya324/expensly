@@ -1,7 +1,8 @@
-import { ROLES, TICKET_STATUS } from "../config/constants.js";
+import { PERMISSION_KEY, TICKET_STATUS } from "../config/constants.js";
 import { AuthRequest } from "../types/types.js";
+import { resolvePermission } from "./permissions.js";
 
-export function buildTicketFilter(req: AuthRequest): Record<string, unknown> {
+export async function buildTicketFilter(req: AuthRequest): Promise<Record<string, unknown>> {
   const user = req.user!;
   const org = req.organization!;
   const { status, department, userId, from, to, search, flagged, minAmount, maxAmount } = req.query as Record<
@@ -11,22 +12,9 @@ export function buildTicketFilter(req: AuthRequest): Record<string, unknown> {
 
   const filter: Record<string, unknown> = { orgId: user.orgId };
 
-  // Determine if user should see only their own tickets.
-  // Priority: user-level permission → dept-level permission → role default.
+  // Resolve view-all permission through the full chain (user override → user policy → dept → dept policy)
   const dept = req.userDepartment ?? null;
-  
-  // Cando: Users with canApprove permission also get full visibility so they can act on tickets.
-  // const hasApprovePermission =
-  //   user.permissions?.canApprove === true ||
-  //   (user.permissions?.canApprove == null && dept?.permissions?.canApprove === true);
-  
-  const canViewAll =
-    // hasApprovePermission ||
-    user.permissions?.canViewAllTickets === true ||
-    (user.permissions?.canViewAllTickets == null && (
-      dept?.permissions?.canViewAllTickets === true ||
-      user.role !== ROLES.USER
-    ));
+  const canViewAll = await resolvePermission(user, dept, PERMISSION_KEY.VIEW_ALL_TICKETS);
 
   const userScopeOr = canViewAll
     ? null

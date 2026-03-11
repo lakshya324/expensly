@@ -6,6 +6,7 @@ import {
   DEFAULT_PAGE,
   DEFAULT_LIMIT,
   MAX_LIMIT,
+  PERMISSION_KEY,
 } from "../config/constants.js";
 import {
   uploadFile,
@@ -16,6 +17,7 @@ import {
 import { createError } from "../utils/error.js";
 import { AuthRequest } from "../types/types.js";
 import { buildTicketFilter } from "../utils/tickets.js";
+import { resolvePermission } from "../utils/permissions.js";
 import {
   ResponsePaginationPayload,
   ResponsePayload,
@@ -60,7 +62,7 @@ export default class TicketController {
    */
   static async getStats(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const filter = buildTicketFilter(req);
+      const filter = await buildTicketFilter(req);
 
       const counts: { _id: string; count: number }[] = await Ticket.aggregate([
         { $match: filter },
@@ -106,7 +108,7 @@ export default class TicketController {
         MAX_LIMIT,
         Math.max(1, parseInt(limitQ ?? "") || DEFAULT_LIMIT),
       );
-      const filter = buildTicketFilter(req);
+      const filter = await buildTicketFilter(req);
       const orgSnapshotId = org.currentRateSnapshotId
         ? org.currentRateSnapshotId.toString()
         : null;
@@ -551,13 +553,12 @@ export default class TicketController {
         !isManagerStep &&
         (status === TICKET_STATUS.APPROVED || status === TICKET_STATUS.REJECTED)
       ) {
-        // Only users with canApprove permission (or admins) can do finance approval.
-        // Priority: user-level permission → dept-level permission → role default.
-        const hasApprovePermission =
-          user.role === ROLES.ADMIN ||
-          user.permissions?.canApprove === true ||
-          (user.permissions?.canApprove == null &&
-            dept?.permissions?.canApprove === true);
+        // Only users with approve_finance permission (or admins) can do finance approval.
+        const hasApprovePermission = await resolvePermission(
+          user,
+          dept ?? null,
+          PERMISSION_KEY.APPROVE_FINANCE,
+        );
         if (!hasApprovePermission)
           throw createError(
             "You do not have permission to approve or reject tickets",

@@ -1,33 +1,24 @@
 import mongoose, { Schema } from "mongoose";
+import { PERMISSION_KEY } from "../config/constants.js";
 import { IPolicy } from "../types/policy.types.js";
 
-/**
- * Policy — stub schema.
- *
- * The `rules` field is intentionally left as a freeform Mixed array until
- * the Custom Policies feature is fully designed. Do not add validation here
- * prematurely.
- *
- * Planned rule shape (not enforced yet):
- *   { field: string; operator: string; value: unknown; action: "warn" | "block" }
- */
 const PolicySchema = new Schema<IPolicy>(
   {
     orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true },
     name: { type: String, required: true, trim: true, maxlength: 120 },
+    description: { type: String, default: null, trim: true, maxlength: 500 },
+    isSystem: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
-    /**
-     * Open-ended rule definitions — shape will be formalised when the feature
-     * is implemented. Stored as Mixed to avoid premature constraint coupling.
-     */
-    rules: { type: [{}], default: [] },
+    grants: {
+      type: [{ type: String, enum: Object.values(PERMISSION_KEY) }],
+      default: [],
+    },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true },
 );
 
 PolicySchema.index({ orgId: 1, isActive: 1 });
+PolicySchema.index({ orgId: 1, name: 1, isSystem: 1 }, { unique: true });
 
 export const Policy = mongoose.model<IPolicy>("Policy", PolicySchema);

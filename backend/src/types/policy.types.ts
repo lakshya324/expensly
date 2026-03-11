@@ -1,23 +1,27 @@
 import { Types } from "mongoose";
+import { PermissionKey } from "../config/constants.js";
 
 export interface IPolicy {
   _id: Types.ObjectId;
   orgId: Types.ObjectId;
   name: string;
+  description: string | null;
+  isSystem: boolean;
   isActive: boolean;
-  /** Open-ended rule definitions — shape TBD when Custom Policies feature ships */
-  rules: Record<string, unknown>[];
+  grants: PermissionKey[];
   createdBy: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface IPolicyData {
-  id: string;
+  _id: string;
   orgId: string;
   name: string;
+  description: string | null;
+  isSystem: boolean;
   isActive: boolean;
-  rules: Record<string, unknown>[];
+  grants: PermissionKey[];
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
