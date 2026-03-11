@@ -62,15 +62,39 @@ export const deleteFile = async (key: string): Promise<void> => {
 };
 
 /**
- * Build a receipt S3 key using the pattern expensly/<orgSlug>/<ticketId>.<ext>.
+ * Build a receipt S3 key.
+ *
+ * When a ticket has multiple receipts, pass `index` (0-based) to differentiate
+ * them: `expensly/<orgSlug>/<ticketId>-0.jpg`, `…-1.jpg`, etc.
+ * Omit `index` (or pass `undefined`) for single-receipt tickets — produces the
+ * legacy `expensly/<orgSlug>/<ticketId>.<ext>` format.
  */
 export const buildReceiptKey = (
   ticketId: string,
   orgSlug: string,
   mimetype: string,
+  index?: number,
 ): string => {
   const ext = mimetype.split('/')[1] ?? 'bin';
-  return `expensly/${orgSlug}/${ticketId}.${ext}`;
+  const suffix = index !== undefined ? `-${index}` : '';
+  return `expensly/${orgSlug}/${ticketId}${suffix}.${ext}`;
+};
+
+/**
+ * Generate pre-signed GET URLs for multiple receipt keys in parallel.
+ * Returns an array aligned 1-to-1 with the input `keys` array.
+ */
+export const getReceiptSignedUrls = async (
+  keys: string[],
+): Promise<string[]> => {
+  return Promise.all(keys.map((key) => getReceiptSignedUrl(key)));
+};
+
+/**
+ * Delete multiple files from S3 in parallel.
+ */
+export const deleteFiles = async (keys: string[]): Promise<void> => {
+  await Promise.all(keys.map((key) => deleteFile(key)));
 };
 
 /**
@@ -102,6 +126,22 @@ export const getReportBuffer = async (key: string): Promise<Buffer> => {
   );
   if (!Body) throw new Error('Empty S3 body for report key: ' + key);
   // Body is a ReadableStream in the AWS SDK v3 Node runtime
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of Body as AsyncIterable<Uint8Array>) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+};
+
+/**
+ * Download any S3 object and return it as a Buffer.
+ * Used by the OCR worker to fetch receipt images for processing.
+ */
+export const downloadFile = async (key: string): Promise<Buffer> => {
+  const { Body } = await s3.send(
+    new GetObjectCommand({ Bucket: config.awsConfig.awsBucket, Key: key }),
+  );
+  if (!Body) throw new Error('Empty S3 body for key: ' + key);
   const chunks: Uint8Array[] = [];
   for await (const chunk of Body as AsyncIterable<Uint8Array>) {
     chunks.push(chunk);

@@ -159,7 +159,7 @@ export async function listTicketsPaginated(
       department: ticketDept ? ticketDept.toData() : null,
       description: t.description,
       tags: t.tags,
-      receiptKey: t.receiptKey,
+      receiptKeys: t.receiptKeys,
       status: t.status,
       flagged: t.flagged,
       managerApproval: t.managerApproval
@@ -184,6 +184,14 @@ export async function listTicketsPaginated(
         ? t.exchangeRateSnapshotId.toString()
         : null,
       ratesChangedSinceApproval,
+      // New extensibility fields — not resolved in the batch path (no cross-collection
+      // join needed for list view; single-ticket view via ticket.data() resolves them)
+      merchant: null,
+      category: null,
+      bundleId: t.bundleId ? t.bundleId.toString() : null,
+      expenseType: t.expenseType,
+      ocrData: t.ocrData ?? null,
+      aiValidation: t.aiValidation ?? null,
       createdAt: t.createdAt,
     };
   });

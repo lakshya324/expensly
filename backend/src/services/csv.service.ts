@@ -119,7 +119,7 @@ export const generateTicketsCsv = (tickets: LeanTicket[]): string => {
       fmtDate(t.updatedAt),
       fmtStatus(t.status),
       t.flagged ? 'Yes' : 'No',
-      t.receiptKey ? 'Yes' : 'No',
+      t.receiptKeys?.length > 0 ? 'Yes' : 'No',
       // Manager
       approvalLabel(ma),
       reviewerName(ma?.reviewedBy),
