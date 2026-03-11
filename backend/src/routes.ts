@@ -10,6 +10,9 @@ import authRoutes from "./routes/auth.routes.js";
 import healthRoutes from "./routes/health.routes.js";
 import superAdminRoutes from "./routes/superadmin.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import merchantRoutes from "./routes/merchant.routes.js";
+import categoryRoutes from "./routes/category.routes.js";
+import bundleRoutes from "./routes/bundle.routes.js";
 import { apiLimiter, authLimiter } from "./middleware/rateLimiter.js";
 import { authenticate } from "./middleware/auth.js";
 import { authorize } from "./middleware/authorize.js";
@@ -76,6 +79,36 @@ router.use(
   authenticate,
   authorize(ROLES.ADMIN),
   analyticsRoutes,
+);
+
+//* Admin: Merchant Routes [ALL Methods /api/admin/merchants]
+//* NOTE: Returns 501 until Merchant Management feature ships
+router.use(
+  "/api/admin/merchants",
+  apiLimiter,
+  authenticate,
+  authorize(ROLES.ADMIN),
+  merchantRoutes,
+);
+
+//* Admin: Category Routes [ALL Methods /api/admin/categories]
+//* NOTE: Returns 501 until Merchant Management feature ships
+router.use(
+  "/api/admin/categories",
+  apiLimiter,
+  authenticate,
+  authorize(ROLES.ADMIN),
+  categoryRoutes,
+);
+
+//* User: Bundle Routes [ALL Methods /api/users/expenses/bundles]
+//* NOTE: Returns 501 until Expense Bundling feature ships
+router.use(
+  "/api/users/expenses/bundles",
+  apiLimiter,
+  authenticate,
+  authorize(ROLES.USER, ROLES.ADMIN),
+  bundleRoutes,
 );
 
 //* Super Admin Routes [ALL Methods /api/superadmin]
