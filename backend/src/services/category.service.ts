@@ -53,6 +53,7 @@ export const listCategories = async (
     normalizedName: d.normalizedName,
     description: d.description ?? "",
     isActive: d.isActive,
+    isSystem: d.isSystem ?? false,
     createdBy: d.createdBy.toString(),
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
@@ -102,4 +103,49 @@ export const deleteCategory = async (
   });
   if (result.deletedCount === 0)
     throw createError("Category not found", 404, "NOT_FOUND");
+};
+
+interface SystemCategoryDef {
+  name: string;
+  description: string;
+}
+
+const SYSTEM_CATEGORY_DEFS: SystemCategoryDef[] = [
+  { name: "Travel", description: "Flights, trains, taxis, and other travel costs." },
+  { name: "Accommodation", description: "Hotel stays and lodging expenses." },
+  { name: "Food & Beverages", description: "Meals, dining, and refreshments." },
+  { name: "Office Supplies", description: "Stationery, equipment, and office materials." },
+  { name: "Entertainment", description: "Client entertainment and team events." },
+];
+
+/**
+ * Idempotently seeds the system (sample) categories for a given org.
+ * Safe to call multiple times — uses upsert on (orgId, name, isSystem).
+ */
+export const seedSystemCategories = async (
+  orgId: string,
+  createdBy: string,
+): Promise<void> => {
+  const orgObjectId = new Types.ObjectId(orgId);
+  const createdByObjectId = new Types.ObjectId(createdBy);
+
+  await Promise.all(
+    SYSTEM_CATEGORY_DEFS.map((def) =>
+      Category.updateOne(
+        { orgId: orgObjectId, name: def.name, isSystem: true },
+        {
+          $setOnInsert: {
+            orgId: orgObjectId,
+            name: def.name,
+            normalizedName: def.name.toLowerCase(),
+            description: def.description,
+            isSystem: true,
+            isActive: true,
+            createdBy: createdByObjectId,
+          },
+        },
+        { upsert: true },
+      ),
+    ),
+  );
 };

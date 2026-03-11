@@ -117,6 +117,7 @@ export interface ICategoryData {
   normalizedName: string;
   description: string;
   isActive: boolean;
+  isSystem: boolean;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

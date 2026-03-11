@@ -9,6 +9,7 @@ export interface ICategory extends Document {
   normalizedName: string;
   description: string;
   isActive: boolean;
+  isSystem: boolean;
   createdBy: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -23,6 +24,7 @@ export interface ICategoryData {
   normalizedName: string;
   description: string;
   isActive: boolean;
+  isSystem: boolean;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;

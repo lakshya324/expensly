@@ -125,7 +125,10 @@ export function AdminCategoriesPage() {
       render: (row) => (
         <div className="flex items-center gap-2">
           <Tag className="w-3.5 h-3.5 text-(--muted-foreground)" />
-          <span className="font-medium text-(--foreground)">{row.name}</span>
+          <div>
+            <span className="font-medium text-(--foreground)">{row.name}</span>
+            {row.isSystem && <Badge variant="info" className="ml-2 text-[10px] px-1.5 py-0">System</Badge>}
+          </div>
         </div>
       ),
     },
