@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Pencil, Trash2, Tag } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tag, ToggleLeft, ToggleRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { Button } from '@/shared/components/ui/Button';
@@ -28,7 +28,7 @@ const categorySchema = z.object({
 });
 type CategoryFormValues = z.infer<typeof categorySchema>;
 
-function useCategories() {
+function useCategories(includeInactive: boolean) {
   const [data, setData] = useState<ICategoryData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,7 +36,7 @@ function useCategories() {
     setLoading(true);
     try {
       const res = await apiClient.get<ApiResponse<ICategoryData[]>>(
-        EP.ADMIN_CATEGORIES,
+        EP.ADMIN_CATEGORIES + (includeInactive ? '?includeInactive=true' : ''),
       );
       setData(res.data.data ?? []);
     } catch {
@@ -44,14 +44,15 @@ function useCategories() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [includeInactive]);
 
   useEffect(() => { fetch(); }, [fetch]);
   return { data, loading, refetch: fetch };
 }
 
 export function AdminCategoriesPage() {
-  const { data, loading, refetch } = useCategories();
+  const [showInactive, setShowInactive] = useState(true);
+  const { data, loading, refetch } = useCategories(showInactive);
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ICategoryData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ICategoryData | null>(null);
@@ -166,8 +167,12 @@ export function AdminCategoriesPage() {
             variant="ghost"
             size="icon-sm"
             onClick={(e) => { e.stopPropagation(); handleToggleActive(row); }}
+            title={row.isActive ? 'Deactivate' : 'Activate'}
+            className={row.isActive ? 'text-warning-500 hover:text-warning-600 hover:bg-warning-50 dark:hover:bg-warning-500/10' : 'text-success-500 hover:text-success-600 hover:bg-success-50 dark:hover:bg-success-500/10'}
           >
-            <span className="text-xs">{row.isActive ? 'Deactivate' : 'Activate'}</span>
+            {row.isActive
+              ? <ToggleRight className="w-4 h-4" />
+              : <ToggleLeft className="w-4 h-4" />}
           </Button>
           <Button variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); openEdit(row); }}>
             <Pencil className="w-3.5 h-3.5" />
@@ -193,10 +198,21 @@ export function AdminCategoriesPage() {
             <h1 className="text-xl font-bold text-[var(--foreground)]">Categories</h1>
             <p className="text-sm text-[var(--muted-foreground)]">Manage expense categories for your organisation</p>
           </div>
-          <Button onClick={() => { createForm.reset(); setCreateOpen(true); }}>
-            <Plus className="w-4 h-4" />
-            Add Category
-          </Button>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-[var(--muted-foreground)] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="accent-brand-600"
+              />
+              Show inactive
+            </label>
+            <Button onClick={() => { createForm.reset(); setCreateOpen(true); }}>
+              <Plus className="w-4 h-4" />
+              Add Category
+            </Button>
+          </div>
         </div>
 
         <Card>
