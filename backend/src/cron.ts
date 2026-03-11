@@ -9,6 +9,7 @@ import { processDueBudgetResets } from "./services/budget.service.js";
 import { refreshOrgAnalytics } from "./services/analytics.service.js";
 import { Organization } from "./models/Organization.model.js";
 import { logError, logInfo } from "./utils/logger.js";
+import { processAiJobQueue } from "./workers/aiJobs.worker.js";
 
 export function startCronJobs(): void {
   // Budget reset — every hour at minute 0
@@ -53,4 +54,16 @@ export function startCronJobs(): void {
   });
 
   logInfo("[Cron] Budget reset (hourly) and analytics refresh (daily) scheduled");
+
+  // AI job queue consumer — poll SQS every 15 seconds
+  cron.schedule("*/15 * * * * *", () => {
+    processAiJobQueue().catch((err) =>
+      logError(err as Error, {
+        message: "AI job queue processing failed",
+        code: "CRON_AI_QUEUE_ERROR",
+      }),
+    );
+  });
+
+  logInfo("[Cron] AI job queue consumer scheduled (every 15 seconds)");
 }

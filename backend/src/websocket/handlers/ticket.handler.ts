@@ -8,6 +8,9 @@ import {
   TicketDeletePayload,
   TicketFlagPayload,
   TicketStatusChangePayload,
+  OcrCompletedPayload,
+  OcrFailedPayload,
+  AiValidatedPayload,
 } from "../events.types.js";
 
 function meta(orgId: string, triggeredBy?: string): WSMeta {
@@ -83,4 +86,35 @@ export function emitTicketStatusChange(
   if (submitterId !== triggeredBy) {
     io.to(submitterId).emit(WS_EVENTS.TICKET_STATUS_CHANGE, payload);
   }
+}
+
+export function emitOcrCompleted(orgId: string, ticket: ITicketData): void {
+  const payload: OcrCompletedPayload = {
+    event: WS_EVENTS.OCR_COMPLETED,
+    data: { ticket },
+    meta: meta(orgId),
+  };
+  getIO().to(orgId).emit(WS_EVENTS.OCR_COMPLETED, payload);
+}
+
+export function emitOcrFailed(
+  orgId: string,
+  ticketId: string,
+  error: string,
+): void {
+  const payload: OcrFailedPayload = {
+    event: WS_EVENTS.OCR_FAILED,
+    data: { ticketId, error },
+    meta: meta(orgId),
+  };
+  getIO().to(orgId).emit(WS_EVENTS.OCR_FAILED, payload);
+}
+
+export function emitAiValidated(orgId: string, ticket: ITicketData): void {
+  const payload: AiValidatedPayload = {
+    event: WS_EVENTS.AI_VALIDATED,
+    data: { ticket },
+    meta: meta(orgId),
+  };
+  getIO().to(orgId).emit(WS_EVENTS.AI_VALIDATED, payload);
 }
