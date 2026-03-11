@@ -109,6 +109,12 @@ const TicketSchema = new Schema<ITicket>(
           },
           summary: { type: String, default: null },
           validatedAt: { type: String, default: null },
+          // ─── AI-extracted fields (scanning → draft) ───────────────────
+          suggestedTitle: { type: String, default: null },
+          suggestedAmount: { type: Number, default: null },
+          suggestedCurrency: { type: String, default: null },
+          suggestedDate: { type: String, default: null },
+          suggestedMerchantName: { type: String, default: null },
         },
         { _id: false },
       ),
@@ -128,6 +134,23 @@ TicketSchema.index({ orgId: 1, department: 1, createdAt: -1 }); // dept-filtered
 TicketSchema.index({ submittedBy: 1, createdAt: -1 }); // user-scope $or branch (most common regular user path)
 TicketSchema.index({ submitterManagerId: 1, createdAt: -1 }); // manager-scope $or branch
 TicketSchema.index({ "managerApproval.reviewedBy": 1 }); // restricted user $or branch (finance/manager role)
+
+// Enforce required fields when a ticket enters the approval flow.
+// draft/scanning tickets are allowed to have null title/amount/currency/department.
+const APPROVAL_STATUSES: string[] = [
+  TICKET_STATUS.PENDING,
+  TICKET_STATUS.AWAITING_FINANCE,
+  TICKET_STATUS.APPROVED,
+  TICKET_STATUS.REJECTED,
+];
+TicketSchema.pre("save", function () {
+  if (APPROVAL_STATUSES.includes(this.status)) {
+    if (!this.title?.trim()) this.invalidate("title", "Title is required for submitted tickets");
+    if (this.amount == null) this.invalidate("amount", "Amount is required for submitted tickets");
+    if (!this.currency) this.invalidate("currency", "Currency is required for submitted tickets");
+    if (!this.department) this.invalidate("department", "Department is required for submitted tickets");
+  }
+});
 // ─── Extensibility indexes ─────────────────────────────────────────────────
 TicketSchema.index({ bundleId: 1 }); // bundle membership lookup
 TicketSchema.index({ orgId: 1, category: 1 }); // category-filtered analytics
