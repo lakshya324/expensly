@@ -52,6 +52,11 @@ export const WS_EVENTS = {
   // Exchange Rates
   RATES_UPDATE: "rates_update",
 
+  // OCR & AI async results
+  OCR_COMPLETED: "ticket:ocr_completed",
+  OCR_FAILED: "ticket:ocr_failed",
+  AI_VALIDATED: "ticket:ai_validated",
+
   // System
   PING: "ping",
   PONG: "pong",
@@ -89,3 +94,7 @@ export type RatesUpdatePayload = WSEnvelope<{
   rates: Record<string, number>;
   baseCurrency: string;
 }>;
+
+export type OcrCompletedPayload = WSEnvelope<{ ticket: ITicketData }>;
+export type OcrFailedPayload = WSEnvelope<{ ticketId: string; error: string }>;
+export type AiValidatedPayload = WSEnvelope<{ ticket: ITicketData }>;
