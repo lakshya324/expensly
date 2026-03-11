@@ -82,7 +82,6 @@ router.use(
 );
 
 //* Admin: Merchant Routes [ALL Methods /api/admin/merchants]
-//* NOTE: Returns 501 until Merchant Management feature ships
 router.use(
   "/api/admin/merchants",
   apiLimiter,
@@ -92,7 +91,6 @@ router.use(
 );
 
 //* Admin: Category Routes [ALL Methods /api/admin/categories]
-//* NOTE: Returns 501 until Merchant Management feature ships
 router.use(
   "/api/admin/categories",
   apiLimiter,
@@ -102,7 +100,6 @@ router.use(
 );
 
 //* User: Bundle Routes [ALL Methods /api/users/expenses/bundles]
-//* NOTE: Returns 501 until Expense Bundling feature ships
 router.use(
   "/api/users/expenses/bundles",
   apiLimiter,
