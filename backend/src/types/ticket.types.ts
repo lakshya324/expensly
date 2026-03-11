@@ -1,8 +1,12 @@
 import { Document, Types } from "mongoose";
-import { Currency, TicketStatus } from "../config/constants.js";
+import { Currency, ExpenseType, TicketStatus } from "../config/constants.js";
 import { IUserData, IUserMinimalData } from "./user.types.js";
 import { IDepartmentData } from "./department.types.js";
 import { IOrganization } from "./organization.types.js";
+import { IOcrData } from "./ocr.types.js";
+import { IAiValidationResult } from "./aiValidation.types.js";
+import { IMerchantData } from "./merchant.types.js";
+import { ICategoryData } from "./category.types.js";
 
 export interface IApproval {
   required?: boolean;
@@ -24,14 +28,27 @@ export interface ITicket extends Document {
   department: Types.ObjectId;
   description: string;
   tags: string[];
-  receiptKey: string | null;
+  /** Replaces the old single receiptKey field — supports multi-receipt uploads */
+  receiptKeys: string[];
   status: TicketStatus;
   flagged: boolean;
   managerApproval: IApproval | null;
   financeApproval: IApproval | null;
   /** Rate snapshot ID at the time of final approval */
   exchangeRateSnapshotId: Types.ObjectId | null;
-  // convertedAmount: number | null;
+  // ─── New extensibility fields (all optional / nullable) ──────────────────
+  /** Reference to a structured Merchant document */
+  merchant: Types.ObjectId | null;
+  /** Reference to a structured Category document */
+  category: Types.ObjectId | null;
+  /** Reference to an expense Bundle this ticket belongs to */
+  bundleId: Types.ObjectId | null;
+  /** Type of expense (regular | per_diem | mileage) */
+  expenseType: ExpenseType;
+  /** AI-extracted receipt data populated after OCR processing */
+  ocrData: IOcrData | null;
+  /** AI validation summary; populated after async validation run */
+  aiValidation: IAiValidationResult | null;
   createdAt: Date;
   updatedAt: Date;
 
@@ -58,13 +75,19 @@ export interface ITicketData {
   department: IDepartmentData | null;
   description: string;
   tags: string[];
-  receiptKey: string | null;
+  receiptKeys: string[];
   status: TicketStatus;
   flagged: boolean;
   managerApproval: IApprovalData | null;
   financeApproval: IApprovalData | null;
   exchangeRateSnapshotId: string | null;
-  // convertedAmount: number | null;
   ratesChangedSinceApproval: boolean;
+  // ─── Extensibility fields ────────────────────────────────────────────────
+  merchant: IMerchantData | null;
+  category: ICategoryData | null;
+  bundleId: string | null;
+  expenseType: ExpenseType;
+  ocrData: IOcrData | null;
+  aiValidation: IAiValidationResult | null;
   createdAt: Date;
 }
