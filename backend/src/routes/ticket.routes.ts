@@ -1,9 +1,14 @@
 // Ticket / Expense Routes
 import express from "express";
 import TicketController from "../controllers/ticket.controller.js";
+import DiscussionController from "../controllers/discussion.controller.js";
 import * as schema from "../validation/ticket.schema.js";
 import { validate } from "../middleware/validate.js";
 import { uploadReceipt } from "../middleware/upload.js";
+import {
+  postMessageValidation,
+  editMessageValidation,
+} from "../validation/discussion.schema.js";
 
 const router = express.Router();
 
@@ -48,5 +53,27 @@ router.patch(
 
 //* Get Receipt Image [GET /api/users/expenses/:id/receipt]
 router.get("/:id/receipt", TicketController.getReceipt);
+
+//* OCR Scan [POST /api/users/expenses/:id/ocr-scan]
+//* NOTE: Returns 501 until OCR provider is integrated in ocr.service.ts
+router.post("/:id/ocr-scan", TicketController.ocrScan);
+
+//? Discussion sub-resource [ALL Methods /api/users/expenses/:ticketId/discussion]
+//* NOTE: Returns 501 until Expense Discussion feature ships
+router.get("/:ticketId/discussion", DiscussionController.getThread);
+router.post(
+  "/:ticketId/discussion",
+  validate(postMessageValidation),
+  DiscussionController.postMessage,
+);
+router.patch(
+  "/:ticketId/discussion/:messageId",
+  validate(editMessageValidation),
+  DiscussionController.editMessage,
+);
+router.delete(
+  "/:ticketId/discussion/:messageId",
+  DiscussionController.deleteMessage,
+);
 
 export default router;

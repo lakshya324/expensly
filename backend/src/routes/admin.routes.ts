@@ -33,4 +33,7 @@ router.patch(
   AdminController.updateUserPermissions,
 );
 
+//* Audit Log [GET /api/admin/audit-log]
+router.get("/audit-log", AdminController.getAuditLog);
+
 export default router;
