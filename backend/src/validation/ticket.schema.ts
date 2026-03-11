@@ -10,6 +10,10 @@ export const createTicketValidation = [
     .isIn(CURRENCIES)
     .withMessage(`Currency must be one of: ${CURRENCIES.join(", ")}`),
   body("department").trim().notEmpty().withMessage("Department is required"),
+  body("bundleId")
+    .optional()
+    .isMongoId()
+    .withMessage("bundleId must be a valid MongoDB ObjectId"),
 ];
 
 export const updateStatusValidation = [

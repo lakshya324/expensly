@@ -20,6 +20,8 @@ export interface IBundle extends Document {
   financeApproval: IApproval | null;
   createdAt: Date;
   updatedAt: Date;
+
+  toData(): Promise<IBundleData>;
 }
 
 export interface IBundleData {

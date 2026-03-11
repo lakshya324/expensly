@@ -53,9 +53,10 @@ import { OCR_STATUS } from "../config/constants.js";
 import {
   logAction,
 } from "../services/auditLog.service.js";
-import { AUDIT_ACTION, ENTITY_TYPE } from "../config/constants.js";
+import { AUDIT_ACTION, ENTITY_TYPE, BUNDLE_STATUS } from "../config/constants.js";
 import { IUser } from "../types/user.types.js";
 import { IOrganization } from "../types/organization.types.js";
+import { Bundle } from "../models/Bundle.model.js";
 
 export default class TicketController {
   /**
@@ -239,6 +240,19 @@ export default class TicketController {
         await Department.findByIdAndUpdate(dept._id, {
           $addToSet: { tags: { $each: parsedTags } },
         });
+      }
+
+      // Link to bundle if bundleId was provided (non-fatal — silently ignored if bundle not found)
+      const bundleId = (req.body as Record<string, string | undefined>)["bundleId"];
+      if (bundleId) {
+        try {
+          await Bundle.findOneAndUpdate(
+            { _id: bundleId, orgId: org._id, status: BUNDLE_STATUS.DRAFT },
+            { $addToSet: { ticketIds: ticket._id } },
+          );
+        } catch {
+          // Non-fatal: linking failure should not block ticket creation
+        }
       }
 
       const ticketData = await ticket.data(org);
@@ -791,6 +805,19 @@ export default class TicketController {
         entityType: ENTITY_TYPE.TICKET,
         entityId: ticket._id.toString(),
       }).catch(() => {});
+
+      // Link to bundle if bundleId was provided in multipart body (non-fatal)
+      const scanBundleId = (req.body as Record<string, string | undefined>)["bundleId"];
+      if (scanBundleId) {
+        try {
+          await Bundle.findOneAndUpdate(
+            { _id: scanBundleId, orgId: org._id, status: BUNDLE_STATUS.DRAFT },
+            { $addToSet: { ticketIds: ticket._id } },
+          );
+        } catch {
+          // Non-fatal
+        }
+      }
 
       const ticketData = await ticket.data(org);
       emitNewTicket(org._id.toString(), ticketData, user._id.toString());

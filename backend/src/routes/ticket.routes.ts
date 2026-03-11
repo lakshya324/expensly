@@ -1,14 +1,10 @@
 // Ticket / Expense Routes
 import express from "express";
 import TicketController from "../controllers/ticket.controller.js";
-import DiscussionController from "../controllers/discussion.controller.js";
 import * as schema from "../validation/ticket.schema.js";
 import { validate } from "../middleware/validate.js";
 import { uploadReceipt } from "../middleware/upload.js";
-import {
-  postMessageValidation,
-  editMessageValidation,
-} from "../validation/discussion.schema.js";
+import discussionRoutes from "./discussion.routes.js";
 
 const router = express.Router();
 
@@ -61,21 +57,6 @@ router.get("/:id/receipt", TicketController.getReceipt);
 router.post("/:id/submit", TicketController.submitDraft);
 
 //? Discussion sub-resource [ALL Methods /api/users/expenses/:ticketId/discussion]
-//* NOTE: Returns 501 until Expense Discussion feature ships
-router.get("/:ticketId/discussion", DiscussionController.getThread);
-router.post(
-  "/:ticketId/discussion",
-  validate(postMessageValidation),
-  DiscussionController.postMessage,
-);
-router.patch(
-  "/:ticketId/discussion/:messageId",
-  validate(editMessageValidation),
-  DiscussionController.editMessage,
-);
-router.delete(
-  "/:ticketId/discussion/:messageId",
-  DiscussionController.deleteMessage,
-);
+router.use("/:ticketId/discussion", discussionRoutes);
 
 export default router;

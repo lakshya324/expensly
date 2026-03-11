@@ -2,17 +2,11 @@ import express, { Router, Response, NextFunction } from "express";
 import { AuthRequest } from "./types/types.js";
 import { logInfo } from "./utils/logger.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
-import exchangeRatesRoutes from "./routes/exchangeRates.routes.js";
-import departmentRoutes from "./routes/department.routes.js";
-import analyticsRoutes from "./routes/analytics.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import healthRoutes from "./routes/health.routes.js";
 import superAdminRoutes from "./routes/superadmin.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
-import merchantRoutes from "./routes/merchant.routes.js";
-import categoryRoutes from "./routes/category.routes.js";
-import bundleRoutes from "./routes/bundle.routes.js";
 import { apiLimiter, authLimiter } from "./middleware/rateLimiter.js";
 import { authenticate } from "./middleware/auth.js";
 import { authorize } from "./middleware/authorize.js";
@@ -52,60 +46,6 @@ router.use(
   authenticate,
   authorize(ROLES.ADMIN),
   adminRoutes,
-);
-
-//* Admin: Department Routes [ALL Methods /api/admin/departments]
-router.use(
-  "/api/admin/departments",
-  apiLimiter,
-  authenticate,
-  authorize(ROLES.ADMIN),
-  departmentRoutes,
-);
-
-//* Admin: Exchange Rate Routes [ALL Methods /api/admin/exchange-rates]
-router.use(
-  "/api/admin/exchange-rates",
-  apiLimiter,
-  authenticate,
-  authorize(ROLES.ADMIN),
-  exchangeRatesRoutes,
-);
-
-//* Admin: Analytics Routes [ALL Methods /api/admin/analytics]
-router.use(
-  "/api/admin/analytics",
-  apiLimiter,
-  authenticate,
-  authorize(ROLES.ADMIN),
-  analyticsRoutes,
-);
-
-//* Admin: Merchant Routes [ALL Methods /api/admin/merchants]
-router.use(
-  "/api/admin/merchants",
-  apiLimiter,
-  authenticate,
-  authorize(ROLES.ADMIN),
-  merchantRoutes,
-);
-
-//* Admin: Category Routes [ALL Methods /api/admin/categories]
-router.use(
-  "/api/admin/categories",
-  apiLimiter,
-  authenticate,
-  authorize(ROLES.ADMIN),
-  categoryRoutes,
-);
-
-//* User: Bundle Routes [ALL Methods /api/users/expenses/bundles]
-router.use(
-  "/api/users/expenses/bundles",
-  apiLimiter,
-  authenticate,
-  authorize(ROLES.USER, ROLES.ADMIN),
-  bundleRoutes,
 );
 
 //* Super Admin Routes [ALL Methods /api/superadmin]

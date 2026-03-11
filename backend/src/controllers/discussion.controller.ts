@@ -8,6 +8,11 @@ import {
 } from "../services/discussion.service.js";
 import { ResponsePayload } from "../types/payloads.types.js";
 import { IDiscussionMessageData } from "../types/discussion.types.js";
+import {
+  emitDiscussionMessage,
+  emitDiscussionEdit,
+  emitDiscussionDelete,
+} from "../websocket/handlers/ticket.handler.js";
 
 /**
  * DiscussionController — all methods proxy to the discussion service which
@@ -55,6 +60,7 @@ export default class DiscussionController {
         authorId: user._id.toString(),
         text: text ?? "",
       });
+      emitDiscussionMessage(org._id.toString(), ticketId, msg, user._id.toString());
       const payload: ResponsePayload<IDiscussionMessageData> = {
         success: true,
         message: "Message posted",
@@ -81,6 +87,7 @@ export default class DiscussionController {
       const msg = await editMessage(org._id.toString(), messageId, user._id.toString(), {
         text: text ?? "",
       });
+      emitDiscussionEdit(org._id.toString(), req.params["ticketId"] as string, msg, user._id.toString());
       const payload: ResponsePayload<IDiscussionMessageData> = {
         success: true,
         message: "Message updated",
@@ -103,7 +110,9 @@ export default class DiscussionController {
       const org = req.organization!;
       const user = req.user!;
       const { messageId } = req.params as { messageId: string };
-      await deleteMessage(org._id.toString(), messageId, user._id.toString());
+      const ticketId = req.params["ticketId"] as string;
+      await deleteMessage(org._id.toString(), messageId, user._id.toString(), user.role);
+      emitDiscussionDelete(org._id.toString(), ticketId, messageId, user._id.toString());
       const payload: ResponsePayload = {
         success: true,
         message: "Message deleted",

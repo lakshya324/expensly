@@ -1,6 +1,6 @@
 import { body } from "express-validator";
 
-/** Validation for creating a new expense bundle (stub — endpoint returns 501) */
+/** Validation for creating a new expense bundle */
 export const createBundleValidation = [
   body("name")
     .trim()
@@ -8,12 +8,17 @@ export const createBundleValidation = [
     .withMessage("Bundle name is required")
     .isLength({ max: 200 })
     .withMessage("Bundle name must be at most 200 characters"),
+  body("description").optional().trim().isLength({ max: 2000 }),
   body("ticketIds")
-    .isArray({ min: 1 })
-    .withMessage("ticketIds must be a non-empty array"),
+    .optional()
+    .isArray()
+    .withMessage("ticketIds must be an array"),
   body("ticketIds.*")
+    .optional()
     .isMongoId()
     .withMessage("Each ticketId must be a valid MongoDB ObjectId"),
+  body("tags").optional().isArray().withMessage("tags must be an array"),
+  body("tags.*").optional().isString(),
 ];
 
 export const updateBundleValidation = [
@@ -24,6 +29,7 @@ export const updateBundleValidation = [
     .withMessage("Bundle name cannot be empty")
     .isLength({ max: 200 })
     .withMessage("Bundle name must be at most 200 characters"),
+  body("description").optional().trim().isLength({ max: 2000 }),
   body("ticketIds")
     .optional()
     .isArray({ min: 1 })
@@ -32,4 +38,15 @@ export const updateBundleValidation = [
     .optional()
     .isMongoId()
     .withMessage("Each ticketId must be a valid MongoDB ObjectId"),
+  body("tags").optional().isArray().withMessage("tags must be an array"),
+  body("tags.*").optional().isString(),
+];
+
+/** Validation for approving/rejecting a bundle at a given step */
+export const updateBundleStatusValidation = [
+  body("step")
+    .isIn(["manager", "finance"])
+    .withMessage("step must be 'manager' or 'finance'"),
+  body("approved").isBoolean().withMessage("approved must be a boolean"),
+  body("comments").optional().trim().isLength({ max: 2000 }),
 ];

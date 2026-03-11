@@ -1,4 +1,5 @@
 import { ITicketData } from "../../types/ticket.types.js";
+import { IDiscussionMessageData } from "../../types/discussion.types.js";
 import { getIO } from "../ioServer.js";
 import {
   WS_EVENTS,
@@ -11,6 +12,9 @@ import {
   OcrCompletedPayload,
   OcrFailedPayload,
   AiValidatedPayload,
+  DiscussionMessagePostedPayload,
+  DiscussionMessageEditedPayload,
+  DiscussionMessageDeletedPayload,
 } from "../events.types.js";
 
 function meta(orgId: string, triggeredBy?: string): WSMeta {
@@ -117,4 +121,46 @@ export function emitAiValidated(orgId: string, ticket: ITicketData): void {
     meta: meta(orgId),
   };
   getIO().to(orgId).emit(WS_EVENTS.AI_VALIDATED, payload);
+}
+
+export function emitDiscussionMessage(
+  orgId: string,
+  ticketId: string,
+  message: IDiscussionMessageData,
+  triggeredBy?: string,
+): void {
+  const payload: DiscussionMessagePostedPayload = {
+    event: WS_EVENTS.DISCUSSION_MESSAGE,
+    data: { ticketId, message },
+    meta: meta(orgId, triggeredBy),
+  };
+  getIO().to(orgId).emit(WS_EVENTS.DISCUSSION_MESSAGE, payload);
+}
+
+export function emitDiscussionEdit(
+  orgId: string,
+  ticketId: string,
+  message: IDiscussionMessageData,
+  triggeredBy?: string,
+): void {
+  const payload: DiscussionMessageEditedPayload = {
+    event: WS_EVENTS.DISCUSSION_EDIT,
+    data: { ticketId, message },
+    meta: meta(orgId, triggeredBy),
+  };
+  getIO().to(orgId).emit(WS_EVENTS.DISCUSSION_EDIT, payload);
+}
+
+export function emitDiscussionDelete(
+  orgId: string,
+  ticketId: string,
+  messageId: string,
+  triggeredBy?: string,
+): void {
+  const payload: DiscussionMessageDeletedPayload = {
+    event: WS_EVENTS.DISCUSSION_DELETE,
+    data: { ticketId, messageId },
+    meta: meta(orgId, triggeredBy),
+  };
+  getIO().to(orgId).emit(WS_EVENTS.DISCUSSION_DELETE, payload);
 }
