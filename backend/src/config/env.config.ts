@@ -50,6 +50,10 @@ const config = {
     awsRegion: process.env["AWS_REGION"] ?? "ap-south-1",
     awsAccessKeyId: process.env["AWS_ACCESS_KEY_ID"] as string | undefined,
     awsSecretAccessKey: requireEnv("AWS_SECRET_ACCESS_KEY"),
+
+    sqs: {
+      queueUrl: requireEnv("AWS_SQS_QUEUE_URL"),
+    },
   },
 
   //* Redis
@@ -65,6 +69,12 @@ const config = {
 
   //* OTP
   otpExpiresIn: parseInt(process.env["OTP_EXPIRES_IN"] ?? "300") || 300, // seconds
+
+  //* OpenAI
+  openai: {
+    apiKey: requireEnv("OPENAI_API_KEY"),
+    model: process.env["OPENAI_MODEL"] ?? "gpt-5-nano",
+  },
 };
 
 export default config;
