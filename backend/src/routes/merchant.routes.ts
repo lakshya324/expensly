@@ -5,6 +5,7 @@ import {
   createMerchantValidation,
   updateMerchantValidation,
 } from "../validation/merchant.schema.js";
+import { uploadMerchantLogo } from "../middleware/upload.js";
 
 const router = Router();
 
@@ -22,6 +23,9 @@ router.patch(
   validate(updateMerchantValidation),
   MerchantController.update,
 );
+
+//* Upload Merchant Logo [PATCH /api/admin/merchants/:id/logo]
+router.patch("/:id/logo", uploadMerchantLogo, MerchantController.uploadLogo);
 
 //* Delete Merchant [DELETE /api/admin/merchants/:id]
 router.delete("/:id", MerchantController.remove);

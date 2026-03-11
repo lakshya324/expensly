@@ -25,4 +25,15 @@ export interface IAiValidationResult {
   summary: string | null;
   /** ISO timestamp of when the validation ran */
   validatedAt: string | null;
+  // ─── AI-extracted fields (populated on the scanning→draft transition) ────
+  /** Suggested expense title extracted from raw receipt text */
+  suggestedTitle: string | null;
+  /** Suggested total amount extracted from raw receipt text */
+  suggestedAmount: number | null;
+  /** Suggested ISO 4217 currency code extracted from raw receipt text */
+  suggestedCurrency: string | null;
+  /** Suggested transaction date in YYYY-MM-DD format */
+  suggestedDate: string | null;
+  /** Merchant name as it appears on the receipt */
+  suggestedMerchantName: string | null;
 }

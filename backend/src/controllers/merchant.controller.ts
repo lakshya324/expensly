@@ -11,6 +11,8 @@ import { ResponsePayload } from "../types/payloads.types.js";
 import { IMerchantData } from "../types/merchant.types.js";
 import { AUDIT_ACTION, ENTITY_TYPE } from "../config/constants.js";
 import { logAction } from "../services/auditLog.service.js";
+import { uploadFile, deleteFiles } from "../services/s3.service.js";
+import { Merchant } from "../models/Merchant.model.js";
 
 export default class MerchantController {
   /** GET /api/admin/merchants */
@@ -128,6 +130,53 @@ export default class MerchantController {
       const payload: ResponsePayload = {
         success: true,
         message: "Merchant deleted successfully",
+        timestamp: new Date().toISOString(),
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** PATCH /api/admin/merchants/:id/logo */
+  static async uploadLogo(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const org = req.organization!;
+      const user = req.user!;
+      const merchantId = req.params["id"] as string;
+
+      if (!req.file)
+        throw createError("Logo file is required", 400, "NO_FILE");
+
+      const merchant = await Merchant.findOne({ _id: merchantId, orgId: org._id });
+      if (!merchant) throw createError("Merchant not found", 404, "NOT_FOUND");
+
+      // Remove old logo from S3 if present
+      if (merchant.logoKey) {
+        await deleteFiles([merchant.logoKey]).catch(() => {});
+      }
+
+      const ext = req.file.mimetype.split("/")[1]!;
+      const logoKey = `logos/${org.slug}/${merchantId}.${ext}`;
+      await uploadFile(logoKey, req.file.buffer, req.file.mimetype);
+
+      merchant.logoKey = logoKey;
+      await merchant.save();
+
+      logAction({
+        orgId: org._id,
+        entityType: ENTITY_TYPE.MERCHANT,
+        entityId: merchantId,
+        action: AUDIT_ACTION.UPDATED,
+        performedBy: user._id,
+        ip: req.ip ?? null,
+        metadata: { field: "logoKey" },
+      }).catch(() => {});
+
+      const payload: ResponsePayload<IMerchantData> = {
+        success: true,
+        message: "Merchant logo uploaded successfully",
+        data: merchant.toData(),
         timestamp: new Date().toISOString(),
       };
       res.status(200).json(payload);

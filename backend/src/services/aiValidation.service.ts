@@ -28,7 +28,16 @@ interface CheckResult {
   detail: string | null;
 }
 
+interface GptExtracted {
+  title: string | null;
+  amount: number | null;
+  currency: string | null;
+  date: string | null;
+  merchantName: string | null;
+}
+
 interface GptValidationResponse {
+  extracted: GptExtracted;
   checks: CheckResult[];
   summary: string;
 }
@@ -36,16 +45,25 @@ interface GptValidationResponse {
 // ─── Prompt builder ───────────────────────────────────────────────────────────
 
 function buildPrompt(ticket: ITicket, ocrData?: IOcrData | null): string {
-  return `You are an expense validation assistant. Analyse the following expense ticket and its OCR-extracted receipt data, then return a structured JSON validation report.
+  const hasRawText = !!ocrData?.rawText;
+  const ticketContext = ticket.title
+    ? `- Title: ${ticket.title}\n- Amount: ${ticket.amount} ${ticket.currency}`
+    : "(ticket fields not yet filled — extract from receipt text below)";
 
-## Ticket
-- Title: ${ticket.title}
-- Amount: ${ticket.amount} ${ticket.currency}
-- Description: ${ticket.description}
+  return `You are an expense validation assistant. Your job has two parts:
+1. Extract key expense fields from the raw receipt text.
+2. Validate the ticket data against the receipt.
+
+## Ticket (may be partially empty for receipt-scan flow)
+${ticketContext}
+- Description: ${ticket.description || "none"}
 - Tags: ${ticket.tags.join(", ") || "none"}
 - Expense type: ${ticket.expenseType}
 
-## OCR Data (from receipt image)
+## Raw Receipt Text (source of truth)
+${hasRawText ? `\`\`\`\n${ocrData!.rawText}\n\`\`\`` : "Not available."}
+
+## OCR Pre-parsed Fields
 ${
   ocrData
     ? `- Merchant: ${ocrData.merchantName ?? "unknown"}
@@ -56,8 +74,15 @@ ${
 }
 
 ## Your task
-Respond ONLY with a valid JSON object matching this schema (no markdown, no extra text):
+Respond ONLY with a valid JSON object (no markdown, no extra text):
 {
+  "extracted": {
+    "title": "short descriptive title inferred from receipt (e.g. 'Starbucks coffee')" or null,
+    "amount": total amount as a number or null,
+    "currency": "ISO 4217 code (e.g. USD)" or null,
+    "date": "YYYY-MM-DD" or null,
+    "merchantName": "merchant name as it appears on the receipt" or null
+  },
   "checks": [
     {
       "label": "Amount Match",
@@ -129,6 +154,8 @@ export const validateTicket = async (
     const allPassed = checks.length > 0 && checks.every((c) => c.passed);
     const anyFailed = checks.some((c) => !c.passed);
 
+    const ext = parsed.extracted ?? {};
+
     return {
       status: allPassed
         ? AI_VALIDATION_STATUS.PASSED
@@ -138,6 +165,11 @@ export const validateTicket = async (
       checks,
       summary: parsed.summary ?? null,
       validatedAt: new Date().toISOString(),
+      suggestedTitle: (typeof ext.title === "string" ? ext.title : null),
+      suggestedAmount: (typeof ext.amount === "number" ? ext.amount : null),
+      suggestedCurrency: (typeof ext.currency === "string" ? ext.currency : null),
+      suggestedDate: (typeof ext.date === "string" ? ext.date : null),
+      suggestedMerchantName: (typeof ext.merchantName === "string" ? ext.merchantName : null),
     };
   } catch (err) {
     logError(err as Error, {
@@ -149,6 +181,11 @@ export const validateTicket = async (
       checks: [],
       summary: "Validation could not be completed due to an internal error.",
       validatedAt: new Date().toISOString(),
+      suggestedTitle: null,
+      suggestedAmount: null,
+      suggestedCurrency: null,
+      suggestedDate: null,
+      suggestedMerchantName: null,
     };
   }
 };

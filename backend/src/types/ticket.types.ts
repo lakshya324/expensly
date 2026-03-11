@@ -18,14 +18,18 @@ export interface IApproval {
 
 export interface ITicket extends Document {
   _id: Types.ObjectId;
-  title: string;
+  /** Nullable in draft/scanning state — required before submission to pending */
+  title: string | null;
   submittedBy: Types.ObjectId;
   /** Manager ID of the submitter at creation time (for efficient filtering) */
   submitterManagerId: Types.ObjectId | null;
   orgId: Types.ObjectId;
-  amount: number;
-  currency: Currency;
-  department: Types.ObjectId;
+  /** Nullable in draft/scanning state */
+  amount: number | null;
+  /** Nullable in draft/scanning state */
+  currency: Currency | null;
+  /** Nullable in draft/scanning state */
+  department: Types.ObjectId | null;
   description: string;
   tags: string[];
   /** Replaces the old single receiptKey field — supports multi-receipt uploads */
@@ -66,12 +70,12 @@ export interface IApprovalData {
 
 export interface ITicketData {
   _id: string;
-  title: string;
+  title: string | null;
   submittedBy: IUserMinimalData;
   submitterManagerId: string | null;
   orgId: string;
-  amount: number;
-  currency: Currency;
+  amount: number | null;
+  currency: Currency | null;
   department: IDepartmentData | null;
   description: string;
   tags: string[];

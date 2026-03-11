@@ -24,16 +24,20 @@ const ApprovalSchema = new Schema<IApproval>(
 
 const TicketSchema = new Schema<ITicket>(
   {
-    title: { type: String, required: true, trim: true },
+    /** Nullable in draft / scanning state; required before promotion to pending */
+    title: { type: String, trim: true, default: null },
     submittedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     submitterManagerId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true },
-    amount: { type: Number, required: true, min: 0 },
-    currency: { type: String, enum: CURRENCIES, required: true },
+    /** Nullable in draft / scanning state */
+    amount: { type: Number, min: 0, default: null },
+    /** Nullable in draft / scanning state */
+    currency: { type: String, enum: CURRENCIES, default: null },
+    /** Nullable in draft / scanning state */
     department: {
       type: Schema.Types.ObjectId,
       ref: "Department",
-      required: true,
+      default: null,
     },
     description: { type: String, trim: true, default: "" },
     tags: { type: [String], default: [] },

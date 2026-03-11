@@ -10,6 +10,8 @@ const MerchantSchema = new Schema<IMerchant>(
     normalizedName: { type: String, required: true, lowercase: true },
     isActive: { type: Boolean, default: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    /** S3 key for the merchant logo image (null = no logo uploaded) */
+    logoKey: { type: String, default: null },
   },
   { timestamps: true },
 );
@@ -29,6 +31,7 @@ MerchantSchema.methods.toData = function (this: IMerchant): IMerchantData {
     normalizedName: this.normalizedName,
     isActive: this.isActive,
     createdBy: this.createdBy.toString(),
+    logoKey: this.logoKey,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

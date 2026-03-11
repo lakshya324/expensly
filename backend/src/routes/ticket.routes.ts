@@ -32,6 +32,9 @@ router.post(
   TicketController.create,
 );
 
+//* Receipt Scan (AI-first draft) [POST /api/users/expenses/receipt-scan]
+router.post("/receipt-scan", uploadReceipt, TicketController.receiptScan);
+
 //* Get Ticket Details [GET /api/users/expenses/:id]
 router.get("/:id", TicketController.getOne);
 
@@ -54,9 +57,8 @@ router.patch(
 //* Get Receipt Image [GET /api/users/expenses/:id/receipt]
 router.get("/:id/receipt", TicketController.getReceipt);
 
-//* OCR Scan [POST /api/users/expenses/:id/ocr-scan]
-//* NOTE: Returns 501 until OCR provider is integrated in ocr.service.ts
-router.post("/:id/ocr-scan", TicketController.ocrScan);
+//* Submit Draft [POST /api/users/expenses/:id/submit]
+router.post("/:id/submit", TicketController.submitDraft);
 
 //? Discussion sub-resource [ALL Methods /api/users/expenses/:ticketId/discussion]
 //* NOTE: Returns 501 until Expense Discussion feature ships

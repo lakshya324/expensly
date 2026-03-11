@@ -54,6 +54,7 @@ export const listMerchants = async (
     normalizedName: d.normalizedName,
     isActive: d.isActive,
     createdBy: d.createdBy.toString(),
+    logoKey: (d as { logoKey?: string | null }).logoKey ?? null,
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
   }));

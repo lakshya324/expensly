@@ -54,6 +54,8 @@ import {
   logAction,
 } from "../services/auditLog.service.js";
 import { AUDIT_ACTION, ENTITY_TYPE } from "../config/constants.js";
+import { IUser } from "../types/user.types.js";
+import { IOrganization } from "../types/organization.types.js";
 
 export default class TicketController {
   /**
@@ -270,9 +272,9 @@ export default class TicketController {
             target.email,
             target.name,
             user.name,
-            ticket.title,
-            ticket.amount,
-            ticket.currency,
+            ticket.title!,
+            ticket.amount!,
+            ticket.currency!,
           );
         }
       } catch {
@@ -352,7 +354,7 @@ export default class TicketController {
           "FORBIDDEN",
         );
 
-      const { title, amount, currency, description, tags } = req.body as Record<
+      const { title, amount, currency, description, tags, department: deptId, merchant: merchantId, category: categoryId } = req.body as Record<
         string,
         string | undefined
       >;
@@ -365,6 +367,22 @@ export default class TicketController {
         ticket.tags = Array.isArray(tags)
           ? (tags as string[])
           : (JSON.parse(tags) as string[]);
+
+      // Allow department update only when the ticket is in draft state
+      if (deptId !== undefined) {
+        if (ticket.status === TICKET_STATUS.DRAFT || ticket.status === TICKET_STATUS.SCANNING) {
+          const deptDoc = await Department.findOne({ _id: deptId, orgId: org._id, isActive: true });
+          if (!deptDoc) throw createError("Department not found or inactive", 400, "INVALID_DEPARTMENT");
+          ticket.department = deptDoc._id;
+        }
+      }
+      // Allow merchant / category link update on draft tickets
+      if (merchantId !== undefined) {
+        ticket.merchant = merchantId ? new Types.ObjectId(merchantId) : null;
+      }
+      if (categoryId !== undefined) {
+        ticket.category = categoryId ? new Types.ObjectId(categoryId) : null;
+      }
 
       await ticket.save();
 
@@ -602,8 +620,8 @@ export default class TicketController {
               const snapshot = freshOrg ? await getOrgRates(freshOrg as any) : null;
               if (snapshot) {
                 convertedAmount = convertAmount(
-                  ticket.amount,
-                  ticket.currency,
+                  ticket.amount!,
+                  ticket.currency!,
                   (freshOrg?.baseCurrency ?? org.baseCurrency) as string,
                   snapshot.rates,
                 );
@@ -654,7 +672,7 @@ export default class TicketController {
             sendTicketStatusEmail(
               submitter.email,
               submitter.name,
-              ticket.title,
+              ticket.title!,
               status,
               comments ?? null,
             );
@@ -714,49 +732,71 @@ export default class TicketController {
   }
 
   /**
-   * POST /api/users/expenses/:id/ocr-scan
-   * Queue an OCR + AI validation job for the first receipt attached to a ticket.
-   * Returns 202 Accepted immediately; results are pushed via WebSocket.
+   * POST /api/expenses/receipt-scan
+   * Receipt-only upload: creates a `scanning` ticket, enqueues OCR + AI pipeline.
+   * The FE receives a WebSocket event when the ticket auto-promotes to `draft`.
    */
-  static async ocrScan(req: AuthRequest, res: Response, next: NextFunction) {
+  static async receiptScan(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const org = req.organization!;
-      const ticketId = req.params["id"] as string;
+      const user = req.user! as IUser;
+      const org = req.organization! as IOrganization;
 
-      const ticket = await Ticket.findOne({
-        _id: ticketId,
+      if (!req.file)
+        throw createError("Receipt file is required", 400, "NO_FILE");
+
+      const newTicketId = new mongoose.Types.ObjectId();
+      const receiptKey = buildReceiptKey(newTicketId.toString(), org.slug, req.file.mimetype);
+      await uploadFile(receiptKey, req.file.buffer, req.file.mimetype);
+
+      const ticket = await Ticket.create({
+        _id: newTicketId,
+        title: null,
+        submittedBy: user._id,
+        submitterManagerId: user.managerId ?? null,
         orgId: org._id,
-      });
-      if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
-      if (!ticket.receiptKeys || ticket.receiptKeys.length === 0)
-        throw createError("No receipt attached to this ticket", 400, "NO_RECEIPT");
-
-      // Mark the ticket as OCR-queued immediately so the UI can show a loading state
-      ticket.ocrData = {
-        status: OCR_STATUS.PROCESSING,
-        merchantName: null,
         amount: null,
         currency: null,
-        transactionDate: null,
-        taxAmount: null,
-        suggestedCategory: null,
-        rawText: null,
-        confidence: null,
-        processedAt: null,
-      };
-      await ticket.save();
+        department: user.department ?? null,
+        receiptKeys: [receiptKey],
+        status: TICKET_STATUS.SCANNING,
+        managerApproval: null,
+        financeApproval: { approved: null, reviewedBy: null, reviewedAt: null, comments: null },
+        ocrData: {
+          status: OCR_STATUS.PROCESSING,
+          merchantName: null,
+          amount: null,
+          currency: null,
+          transactionDate: null,
+          taxAmount: null,
+          suggestedCategory: null,
+          rawText: null,
+          confidence: null,
+          processedAt: null,
+        },
+      });
 
       await enqueueJob({
         jobType: "ocr_scan",
         ticketId: ticket._id.toString(),
-        receiptKey: ticket.receiptKeys[0]!,
+        receiptKey,
         orgId: org._id.toString(),
       });
 
-      const payload: ResponsePayload<{ status: string; ticketId: string }> = {
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: user._id.toString(),
+        action: AUDIT_ACTION.CREATED,
+        entityType: ENTITY_TYPE.TICKET,
+        entityId: ticket._id.toString(),
+      }).catch(() => {});
+
+      const ticketData = await ticket.data(org);
+      emitNewTicket(org._id.toString(), ticketData, user._id.toString());
+
+      const payload: ResponsePayload<ITicketData> = {
         success: true,
-        message: "OCR scan queued — results will be pushed via WebSocket",
-        data: { status: "queued", ticketId },
+        message: "Receipt uploaded — scanning in progress. Results will arrive via WebSocket.",
+        data: ticketData,
         timestamp: new Date().toISOString(),
       };
       res.status(202).json(payload);
@@ -764,4 +804,112 @@ export default class TicketController {
       next(err);
     }
   }
+
+  /**
+   * POST /api/expenses/:id/submit
+   * Promote a `draft` ticket to `pending`, entering the approval flow.
+   * All required fields (title, amount, currency, department) must be set.
+   */
+  static async submitDraft(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const user = req.user! as IUser;
+      const org = req.organization! as IOrganization;
+      const ticketId = req.params["id"] as string;
+
+      const ticket = await Ticket.findOne({ _id: ticketId, orgId: org._id });
+      if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
+
+      if (ticket.status !== TICKET_STATUS.DRAFT)
+        throw createError("Only draft tickets can be submitted", 400, "INVALID_STATUS");
+
+      if (ticket.submittedBy.toString() !== user._id.toString())
+        throw createError("Only the submitter can submit a draft", 403, "FORBIDDEN");
+
+      if (!ticket.department)
+        throw createError("Department is required before submitting", 400, "MISSING_DEPARTMENT");
+
+      const dept = await Department.findOne({
+        _id: ticket.department,
+        orgId: org._id,
+        isActive: true,
+      });
+      if (!dept)
+        throw createError("Department not found or inactive", 400, "INVALID_DEPARTMENT");
+
+      // Compute manager approval requirement (same logic as create)
+      const currencyThreshold = ticket.currency
+        ? (dept.approvalThresholds.get(ticket.currency) ?? null)
+        : null;
+      const needsManagerApproval =
+        user?.managerId != null &&
+        ticket.amount != null &&
+        (currencyThreshold === null || ticket.amount >= currencyThreshold);
+
+      ticket.status = TICKET_STATUS.PENDING;
+      ticket.submitterManagerId = user.managerId ?? null;
+      ticket.managerApproval = needsManagerApproval
+        ? { required: true, approved: null, reviewedBy: null, reviewedAt: null, comments: null }
+        : null;
+      if (!ticket.financeApproval) {
+        ticket.financeApproval = { approved: null, reviewedBy: null, reviewedAt: null, comments: null };
+      }
+
+      // pre-validate hook enforces required fields if any are still null
+      await ticket.save();
+
+      const ticketData = await ticket.data(org);
+
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: user._id.toString(),
+        action: AUDIT_ACTION.STATUS_CHANGED,
+        entityType: ENTITY_TYPE.TICKET,
+        entityId: ticket._id.toString(),
+        metadata: { from: TICKET_STATUS.DRAFT, to: TICKET_STATUS.PENDING },
+      }).catch(() => {});
+
+      emitTicketStatusChange(org._id.toString(), user._id.toString(), ticketData, user._id.toString());
+
+      // Notify manager + admins (non-blocking, same as create)
+      try {
+        const notifyTargets: { email: string; name: string }[] = [];
+        const [manager, admins] = await Promise.all([
+          user.managerId
+            ? User.findById(user.managerId).select("email name").lean()
+            : Promise.resolve(null),
+          User.find({ orgId: org._id, role: ROLES.ADMIN, isDisabled: false })
+            .select("email name")
+            .lean(),
+        ]);
+        if (manager) notifyTargets.push({ email: manager.email, name: manager.name });
+        for (const admin of admins) {
+          if (!notifyTargets.some((t) => t.email === admin.email))
+            notifyTargets.push({ email: admin.email, name: admin.name });
+        }
+        for (const target of notifyTargets) {
+          sendTicketSubmittedEmail(
+            target.email,
+            target.name,
+            user.name,
+            ticket.title!,
+            ticket.amount!,
+            ticket.currency!,
+          );
+        }
+      } catch {
+        // Non-fatal
+      }
+
+      const payload: ResponsePayload<ITicketData> = {
+        success: true,
+        message: "Draft submitted successfully",
+        data: ticketData,
+        timestamp: new Date().toISOString(),
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
+

@@ -71,7 +71,7 @@ export async function listTicketsPaginated(
   // Collect unique dept and user IDs referenced on this page
   const ticketDeptIds = [
     ...new Set(
-      tickets.filter((t) => t.department).map((t) => t.department.toString()),
+      tickets.filter((t) => t.department).map((t) => t.department!.toString()),
     ),
   ];
   const involvedUserIds = [

@@ -11,6 +11,8 @@ export type Role = (typeof ROLES)[keyof typeof ROLES];
 
 // Ticket statuses
 export const TICKET_STATUS = {
+  DRAFT: 'draft',       // saved / AI-filled, not yet submitted
+  SCANNING: 'scanning', // OCR + AI in progress (receipt-only flow)
   PENDING: 'pending',
   AWAITING_FINANCE: 'awaiting_finance', // previously manager_approved
   APPROVED: 'approved',
