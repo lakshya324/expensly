@@ -24,6 +24,10 @@ const DepartmentSchema = new Schema<IDepartment>(
       canViewAllTickets: { type: Boolean, default: false },
       canApprove: { type: Boolean, default: false },
     },
+    /**
+     * @deprecated Free-form department tags — replaced by Merchant & Category models.
+     * Kept for backward-compat; do not add new logic that writes to this field.
+     */
     tags: { type: [String], default: [] },
     budgetResetPeriod: {
       type: String,

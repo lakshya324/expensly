@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { TICKET_STATUS, CURRENCIES } from "../config/constants.js";
+import { TICKET_STATUS, CURRENCIES, EXPENSE_TYPE, OCR_STATUS, AI_VALIDATION_STATUS } from "../config/constants.js";
 import {
   IApproval,
   IApprovalData,
@@ -37,7 +37,8 @@ const TicketSchema = new Schema<ITicket>(
     },
     description: { type: String, trim: true, default: "" },
     tags: { type: [String], default: [] },
-    receiptKey: { type: String, default: null },
+    /** Replaces the old single receiptKey — supports multiple receipt uploads */
+    receiptKeys: { type: [String], default: [] },
     status: {
       type: String,
       enum: Object.values(TICKET_STATUS),
@@ -51,7 +52,64 @@ const TicketSchema = new Schema<ITicket>(
       ref: "ExchangeRateSnapshot",
       default: null,
     },
-    // convertedAmount: { type: Number, default: null },
+    // ─── Extensibility fields ──────────────────────────────────────────────
+    /** Structured merchant reference (null = unlinked / free-form) */
+    merchant: { type: Schema.Types.ObjectId, ref: "Merchant", default: null },
+    /** Structured category reference (null = unlinked / free-form) */
+    category: { type: Schema.Types.ObjectId, ref: "Category", default: null },
+    /** Bundle this ticket has been grouped into */
+    bundleId: { type: Schema.Types.ObjectId, ref: "Bundle", default: null },
+    /** Differentiates regular expense / per-diem / mileage claims */
+    expenseType: {
+      type: String,
+      enum: Object.values(EXPENSE_TYPE),
+      default: EXPENSE_TYPE.REGULAR,
+    },
+    /** OCR extraction result — populated asynchronously after upload */
+    ocrData: {
+      type: new Schema(
+        {
+          status: { type: String, enum: Object.values(OCR_STATUS), required: true },
+          merchantName: { type: String, default: null },
+          amount: { type: Number, default: null },
+          currency: { type: String, default: null },
+          transactionDate: { type: String, default: null },
+          taxAmount: { type: Number, default: null },
+          suggestedCategory: { type: String, default: null },
+          rawText: { type: String, default: null },
+          confidence: { type: Number, default: null },
+          processedAt: { type: String, default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
+    /** AI validation summary — advisory only, never auto-approves */
+    aiValidation: {
+      type: new Schema(
+        {
+          status: { type: String, enum: Object.values(AI_VALIDATION_STATUS), required: true },
+          checks: {
+            type: [
+              new Schema(
+                {
+                  label: { type: String, required: true },
+                  passed: { type: Boolean, required: true },
+                  confidence: { type: Number, default: null },
+                  detail: { type: String, default: null },
+                },
+                { _id: false },
+              ),
+            ],
+            default: [],
+          },
+          summary: { type: String, default: null },
+          validatedAt: { type: String, default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
   },
   { timestamps: true },
 );
@@ -66,6 +124,10 @@ TicketSchema.index({ orgId: 1, department: 1, createdAt: -1 }); // dept-filtered
 TicketSchema.index({ submittedBy: 1, createdAt: -1 }); // user-scope $or branch (most common regular user path)
 TicketSchema.index({ submitterManagerId: 1, createdAt: -1 }); // manager-scope $or branch
 TicketSchema.index({ "managerApproval.reviewedBy": 1 }); // restricted user $or branch (finance/manager role)
+// ─── Extensibility indexes ─────────────────────────────────────────────────
+TicketSchema.index({ bundleId: 1 }); // bundle membership lookup
+TicketSchema.index({ orgId: 1, category: 1 }); // category-filtered analytics
+TicketSchema.index({ orgId: 1, merchant: 1 }); // merchant-filtered analytics
 
 TicketSchema.methods.data = async function (
   this: ITicket,
@@ -173,6 +235,16 @@ TicketSchema.methods.data = async function (
     this.exchangeRateSnapshotId.toString() !==
       org.currentRateSnapshotId.toString();
 
+  // Resolve optional merchant and category references in parallel
+  const [merchantDoc, categoryDoc] = await Promise.all([
+    this.merchant
+      ? (await import("./Merchant.model.js")).Merchant.findById(this.merchant)
+      : Promise.resolve(null),
+    this.category
+      ? (await import("./Category.model.js")).Category.findById(this.category)
+      : Promise.resolve(null),
+  ]);
+
   return {
     _id: this._id.toString(),
     title: this.title,
@@ -190,7 +262,7 @@ TicketSchema.methods.data = async function (
     department: dept ? dept.toData() : null,
     description: this.description,
     tags: this.tags,
-    receiptKey: this.receiptKey,
+    receiptKeys: this.receiptKeys,
     status: this.status,
     flagged: this.flagged,
     managerApproval,
@@ -198,8 +270,13 @@ TicketSchema.methods.data = async function (
     exchangeRateSnapshotId: this.exchangeRateSnapshotId
       ? this.exchangeRateSnapshotId.toString()
       : null,
-    // convertedAmount: this.convertedAmount,
     ratesChangedSinceApproval,
+    merchant: merchantDoc ? merchantDoc.toData() : null,
+    category: categoryDoc ? categoryDoc.toData() : null,
+    bundleId: this.bundleId ? this.bundleId.toString() : null,
+    expenseType: this.expenseType,
+    ocrData: this.ocrData ?? null,
+    aiValidation: this.aiValidation ?? null,
     createdAt: this.createdAt,
   };
 };
