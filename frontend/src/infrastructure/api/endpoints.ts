@@ -15,6 +15,32 @@ export const EP = {
   EXPENSE_FLAG: (id: string) => `/users/expenses/${id}/flag`,
   EXPENSE_STATUS: (id: string) => `/users/expenses/${id}/status`,
   EXPENSE_RECEIPT: (id: string) => `/users/expenses/${id}/receipt`,
+  EXPENSE_SCAN: '/users/expenses/scan',
+  EXPENSE_SUBMIT_DRAFT: (id: string) => `/users/expenses/${id}/submit`,
+  EXPENSE_ENRICH: (id: string) => `/users/expenses/${id}/enrich`,
+  EXPENSE_DISCUSSION: (id: string) => `/users/expenses/${id}/discussion`,
+
+  // Merchants
+  ADMIN_MERCHANTS: '/admin/merchants',
+  ADMIN_MERCHANT: (id: string) => `/admin/merchants/${id}`,
+  USER_MERCHANTS: '/users/merchants',
+
+  // Categories
+  ADMIN_CATEGORIES: '/admin/categories',
+  ADMIN_CATEGORY: (id: string) => `/admin/categories/${id}`,
+  USER_CATEGORIES: '/users/categories',
+
+  // Policies
+  ADMIN_POLICIES: '/admin/policies',
+  ADMIN_POLICY: (id: string) => `/admin/policies/${id}`,
+
+  // Bundles
+  BUNDLES: '/users/bundles',
+  BUNDLE: (id: string) => `/users/bundles/${id}`,
+  BUNDLE_SUBMIT: (id: string) => `/users/bundles/${id}/submit`,
+
+  // Audit Log
+  ADMIN_AUDIT_LOG: '/admin/audit-log',
 
   // Departments (user-facing)
   USER_DEPARTMENTS: '/users/departments',

@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
-import type { ITicketData } from '@/core/types/ticket.types';
+import type { ITicketData, IDiscussionMessageData } from '@/core/types/ticket.types';
 import type { ApiResponse, PaginatedData, TicketStatus } from '@/core/types/api.types';
 
 interface TicketFilters {
@@ -171,6 +171,100 @@ export function useExpenseStats() {
   useEffect(() => { fetch(); }, [fetch]);
 
   return { data, loading, refetch: fetch };
+}
+
+export function useScanReceipt() {
+  const [loading, setLoading] = useState(false);
+
+  const scanReceipt = async (file: File): Promise<ITicketData | null> => {
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append('receipt', file);
+      const res = await apiClient.post<ApiResponse<ITicketData>>(EP.EXPENSE_SCAN, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return res.data.data;
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Scan failed';
+      toast.error(msg);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { scanReceipt, loading };
+}
+
+export function useSubmitDraft() {
+  const [loading, setLoading] = useState(false);
+
+  const submitDraft = async (id: string, formData: FormData): Promise<ITicketData | null> => {
+    setLoading(true);
+    try {
+      const res = await apiClient.patch<ApiResponse<ITicketData>>(EP.EXPENSE_SUBMIT_DRAFT(id), formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success('Expense submitted successfully');
+      return res.data.data;
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to submit draft';
+      toast.error(msg);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { submitDraft, loading };
+}
+
+export function useDiscussion(ticketId: string) {
+  const [messages, setMessages] = useState<IDiscussionMessageData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [posting, setPosting] = useState(false);
+
+  const fetchMessages = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get<ApiResponse<{ data: IDiscussionMessageData[]; total: number }>>(
+        EP.EXPENSE_DISCUSSION(ticketId),
+      );
+      setMessages(res.data.data.data);
+    } catch {
+      // silently fail — discussion is non-critical
+    } finally {
+      setLoading(false);
+    }
+  }, [ticketId]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages]);
+
+  const postMessage = async (text: string): Promise<boolean> => {
+    if (!text.trim()) return false;
+    setPosting(true);
+    try {
+      const res = await apiClient.post<ApiResponse<IDiscussionMessageData>>(
+        EP.EXPENSE_DISCUSSION(ticketId),
+        { text },
+      );
+      setMessages((prev) => [...prev, res.data.data]);
+      return true;
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Failed to send message';
+      toast.error(msg);
+      return false;
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  return { messages, loading, posting, postMessage, refetch: fetchMessages };
 }
 
 export function useReceiptUrl(id: string) {

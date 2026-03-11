@@ -7,6 +7,7 @@ import {
   LayoutDashboard, Receipt, Users, Building2, BarChart3,
   TrendingUp, FileDown, LogOut, Sun, Moon, ChevronLeft, ChevronRight,
   Wallet, Globe, User, ShieldCheck, Settings,
+  Package, Store, Tag, ScrollText,
 } from 'lucide-react';
 import { ROUTES } from '@/core/constants/constants';
 import type { LucideIcon } from 'lucide-react';
@@ -22,6 +23,7 @@ interface NavItem {
 const USER_NAV: NavItem[] = [
   { label: 'Dashboard', to: ROUTES.USER_DASHBOARD, icon: LayoutDashboard },
   { label: 'My Expenses', to: ROUTES.EXPENSES, icon: Receipt },
+  { label: 'Bundles', to: ROUTES.BUNDLES, icon: Package },
   { label: 'Profile', to: ROUTES.PROFILE, icon: User },
 ];
 
@@ -33,6 +35,10 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Analytics', to: ROUTES.ADMIN_ANALYTICS, icon: BarChart3 },
   { label: 'Exchange Rates', to: ROUTES.ADMIN_EXCHANGE_RATES, icon: TrendingUp },
   { label: 'Reports', to: ROUTES.ADMIN_REPORTS, icon: FileDown },
+  { label: 'Merchants', to: ROUTES.ADMIN_MERCHANTS, icon: Store },
+  { label: 'Categories', to: ROUTES.ADMIN_CATEGORIES, icon: Tag },
+  { label: 'Policies', to: ROUTES.ADMIN_POLICIES, icon: ShieldCheck },
+  { label: 'Audit Log', to: ROUTES.ADMIN_AUDIT_LOG, icon: ScrollText },
   { label: 'Profile', to: ROUTES.PROFILE, icon: Settings },
 ];
 

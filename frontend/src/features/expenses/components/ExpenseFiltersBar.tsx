@@ -13,6 +13,8 @@ import type { TicketStatus } from '@/core/types/api.types';
 
 const STATUS_OPTIONS: { label: string; value: TicketStatus | '' }[] = [
   { label: 'All statuses', value: '' },
+  { label: 'Draft', value: 'draft' },
+  { label: 'Scanning', value: 'scanning' },
   { label: 'Pending', value: 'pending' },
   { label: 'Awaiting Finance', value: 'awaiting_finance' },
   { label: 'Approved', value: 'approved' },

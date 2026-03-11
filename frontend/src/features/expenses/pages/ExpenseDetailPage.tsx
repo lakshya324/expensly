@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Flag, Download, CheckCircle, XCircle, Loader2, Clock, User, AlertTriangle
+  ArrowLeft, Flag, Download, CheckCircle, XCircle, Loader2, Clock, User, AlertTriangle,
+  ChevronDown, ChevronUp, Brain, MessageSquare, Send, Package,
 } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
+import { Badge } from '@/shared/components/ui/Badge';
 import { StatusBadge } from '@/shared/components/data-display/StatusBadge';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/shared/components/ui/Dialog';
-import { useExpense, useUpdateExpenseStatus, useFlagExpense, useReceiptUrl } from '../hooks/useExpenses';
+import { useExpense, useUpdateExpenseStatus, useFlagExpense, useReceiptUrl, useDiscussion } from '../hooks/useExpenses';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { formatCurrency, formatDateTime, formatRelativeTime } from '@/core/utils/formatters';
 import { CURRENCY_SYMBOLS } from '@/core/constants/constants';
@@ -22,6 +24,10 @@ export function ExpenseDetailPage() {
   const { data: ticket, loading, setData } = useExpense(id!);
   const { toggleFlag, loading: flagLoading } = useFlagExpense(id!, setData);
   const { openReceipt } = useReceiptUrl(id!);
+  const { messages, loading: discussionLoading, posting, postMessage } = useDiscussion(id!);
+  const [discussionInput, setDiscussionInput] = useState('');
+  const [aiPanelOpen, setAiPanelOpen] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [statusModal, setStatusModal] = useState<{ 
     open: boolean; 
     action: 'approved' | 'rejected' | null;
@@ -34,6 +40,11 @@ export function ExpenseDetailPage() {
     requiresOverrideWarning: false,
   });
   const [comments, setComments] = useState('');
+
+  // Scroll discussion to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const { updateStatus, loading: statusLoading } = useUpdateExpenseStatus(id!, (updated) => {
     setData(updated);
@@ -104,14 +115,22 @@ export function ExpenseDetailPage() {
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
-              <h2 className="text-xl font-bold text-[var(--foreground)]">{ticket.title}</h2>
+              <h2 className="text-xl font-bold text-[var(--foreground)]">
+                {ticket.title ?? <span className="italic text-[var(--muted-foreground)]">Untitled Draft</span>}
+              </h2>
               <p className="text-sm text-[var(--muted-foreground)]">
                 Submitted {formatRelativeTime(ticket.createdAt)}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <StatusBadge status={ticket.status} />
+            {ticket.bundleId && (
+              <Badge variant="info" className="flex items-center gap-1">
+                <Package className="w-3 h-3" />
+                Bundle
+              </Badge>
+            )}
             {ticket.flagged && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-400">
                 <Flag className="w-3 h-3 fill-current" /> Flagged
@@ -119,6 +138,27 @@ export function ExpenseDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Missing fields strip (shown for draft/scanning) */}
+        {(ticket.status === 'draft' || ticket.status === 'scanning') &&
+          (!ticket.merchant || !ticket.category || ticket.amount === null) && (
+          <div className="flex items-start gap-2.5 rounded-xl bg-warning-50 dark:bg-warning-500/10 border border-warning-200 dark:border-warning-500/30 px-3.5 py-3">
+            <AlertTriangle className="w-4 h-4 text-warning-600 dark:text-warning-400 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-warning-700 dark:text-warning-400">Incomplete expense</p>
+              <p className="text-xs text-warning-600/80 dark:text-warning-400/80 mt-0.5">
+                Missing:{' '}
+                {[
+                  !ticket.merchant && 'merchant',
+                  !ticket.category && 'category',
+                  ticket.amount === null && 'amount',
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Main Info */}
@@ -129,7 +169,10 @@ export function ExpenseDetailPage() {
                 <div>
                   <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">Amount</dt>
                   <dd className="mt-1 text-xl font-bold text-[var(--foreground)]">
-                    {formatCurrency(ticket.amount, ticket.currency)}
+                    {ticket.amount !== null && ticket.currency !== null
+                      ? formatCurrency(ticket.amount, ticket.currency)
+                      : <span className="italic text-[var(--muted-foreground)] text-base font-normal">Pending</span>
+                    }
                   </dd>
                   {ticket.convertedAmount && (
                     <dd className="text-xs text-[var(--muted-foreground)]">
@@ -154,6 +197,31 @@ export function ExpenseDetailPage() {
                   <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">Date</dt>
                   <dd className="mt-1 text-sm text-[var(--foreground)]">{formatDateTime(ticket.createdAt)}</dd>
                 </div>
+                {ticket.merchant && (
+                  <div>
+                    <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">Merchant</dt>
+                    <dd className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-[var(--foreground)]">
+                      {ticket.merchant.logoUrl && (
+                        <img src={ticket.merchant.logoUrl} alt="" className="w-4 h-4 rounded object-contain" />
+                      )}
+                      {ticket.merchant.name}
+                    </dd>
+                  </div>
+                )}
+                {ticket.category && (
+                  <div>
+                    <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">Category</dt>
+                    <dd className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-[var(--foreground)]">
+                      {ticket.category.color && (
+                        <span
+                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: ticket.category.color }}
+                        />
+                      )}
+                      {ticket.category.name}
+                    </dd>
+                  </div>
+                )}
                 {ticket.tags.length > 0 && (
                   <div className="col-span-2">
                     <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide mb-1.5">Tags</dt>
@@ -244,7 +312,7 @@ export function ExpenseDetailPage() {
           <Card>
             <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              {ticket.receiptKey && (
+              {ticket.receiptKeys?.length > 0 && (
                 <Button variant="outline" size="sm" className="w-full" onClick={openReceipt}>
                   <Download className="w-4 h-4" />
                   View Receipt
@@ -309,6 +377,177 @@ export function ExpenseDetailPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* AI Analysis Panel */}
+        {(ticket.ocrData || ticket.aiValidation) && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Brain className="w-4 h-4 text-brand-500" />
+                  AI Analysis
+                </CardTitle>
+                <button
+                  type="button"
+                  onClick={() => setAiPanelOpen((o) => !o)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[var(--muted)] text-[var(--muted-foreground)] transition-colors"
+                >
+                  {aiPanelOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+              </div>
+            </CardHeader>
+            {aiPanelOpen && (
+              <CardContent className="space-y-4">
+                {/* OCR extracted fields */}
+                {ticket.ocrData && (
+                  <div>
+                    <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-2">Extracted from receipt</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {Object.entries(ticket.ocrData).map(([key, field]) => {
+                        if (!field || typeof field !== 'object' || !('value' in field)) return null;
+                        const f = field as { value: string | number | null; confidence: number };
+                        if (f.value === null) return null;
+                        return (
+                          <div key={key} className="rounded-lg bg-[var(--muted)] px-3 py-2">
+                            <p className="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
+                              {key.replace(/_/g, ' ')}
+                            </p>
+                            <p className="mt-0.5 text-sm font-semibold text-[var(--foreground)]">{String(f.value)}</p>
+                            <div className="mt-1.5 h-1 rounded-full bg-[var(--border)] overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-brand-500"
+                                style={{ width: `${Math.round(f.confidence * 100)}%` }}
+                              />
+                            </div>
+                            <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
+                              {Math.round(f.confidence * 100)}% confidence
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* AI validation checks */}
+                {ticket.aiValidation && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">Validation checks</p>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        ticket.aiValidation.overallStatus === 'passed'
+                          ? 'bg-success-50 dark:bg-success-500/10 text-success-700 dark:text-success-400'
+                          : ticket.aiValidation.overallStatus === 'failed'
+                          ? 'bg-danger-50 dark:bg-danger-500/10 text-danger-700 dark:text-danger-400'
+                          : 'bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400'
+                      }`}>
+                        {ticket.aiValidation.overallStatus}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {ticket.aiValidation.checks.map((check, i) => (
+                        <div key={i} className="flex items-start gap-2.5 rounded-lg border border-[var(--border)] px-3 py-2.5">
+                          {check.passed
+                            ? <CheckCircle className="w-3.5 h-3.5 text-success-600 dark:text-success-400 mt-0.5 flex-shrink-0" />
+                            : <XCircle className="w-3.5 h-3.5 text-danger-500 mt-0.5 flex-shrink-0" />
+                          }
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-[var(--foreground)]">{check.label}</p>
+                            {check.message && (
+                              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">{check.message}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            )}
+          </Card>
+        )}
+
+        {/* Discussion Thread */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <MessageSquare className="w-4 h-4" />
+              Discussion
+              {messages.length > 0 && (
+                <span className="ml-auto text-xs font-normal text-[var(--muted-foreground)]">
+                  {messages.length} {messages.length === 1 ? 'message' : 'messages'}
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Message list */}
+            <div className="space-y-3 max-h-80 overflow-y-auto mb-4 pr-1">
+              {discussionLoading ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="w-5 h-5 animate-spin text-[var(--muted-foreground)]" />
+                </div>
+              ) : messages.length === 0 ? (
+                <p className="text-sm text-[var(--muted-foreground)] text-center py-6">
+                  No messages yet. Start the conversation.
+                </p>
+              ) : (
+                messages.map((msg) => (
+                  <div key={msg._id} className="flex gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-brand-700 dark:text-brand-300 uppercase">
+                      {msg.author.name.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xs font-semibold text-[var(--foreground)]">{msg.author.name}</span>
+                        <span className="text-[10px] text-[var(--muted-foreground)]">
+                          {formatRelativeTime(msg.createdAt)}
+                        </span>
+                      </div>
+                      {msg.deleted ? (
+                        <p className="text-xs italic text-[var(--muted-foreground)] mt-0.5">Message deleted</p>
+                      ) : (
+                        <p className="text-sm text-[var(--foreground)] mt-0.5 break-words">{msg.text}</p>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Post input */}
+            <div className="flex gap-2 items-end pt-3 border-t border-[var(--border)]">
+              <textarea
+                value={discussionInput}
+                onChange={(e) => setDiscussionInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (discussionInput.trim()) {
+                      postMessage(discussionInput).then((ok) => { if (ok) setDiscussionInput(''); });
+                    }
+                  }
+                }}
+                rows={2}
+                placeholder="Write a message... (Enter to send)"
+                className="flex-1 px-3 py-2 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+              />
+              <Button
+                size="icon-sm"
+                disabled={!discussionInput.trim() || posting}
+                loading={posting}
+                onClick={() => {
+                  if (discussionInput.trim()) {
+                    postMessage(discussionInput).then((ok) => { if (ok) setDiscussionInput(''); });
+                  }
+                }}
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Status Change Dialog */}
         <Dialog open={statusModal.open} onOpenChange={(o) => { if (!o) setStatusModal({ open: false, action: null, isManagerApproval: false, requiresOverrideWarning: false }); }}>
