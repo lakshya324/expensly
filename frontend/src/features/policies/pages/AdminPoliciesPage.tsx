@@ -219,16 +219,14 @@ export function AdminPoliciesPage() {
           <Button variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); openEdit(row); }}>
             <Pencil className="w-3.5 h-3.5" />
           </Button>
-          {!row.isSystem && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
-              className="text-danger-500 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-500/10"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
+            className="text-danger-500 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-500/10"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
         </div>
       ),
     },

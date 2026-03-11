@@ -479,8 +479,6 @@ export default class AdminController {
       const org = req.organization!;
       const policy = await Policy.findOne({ _id: req.params["id"], orgId: org._id });
       if (!policy) throw createError("Policy not found", 404, "NOT_FOUND");
-      if (policy.isSystem)
-        throw createError("System policies cannot be deleted", 403, "FORBIDDEN");
 
       policy.isActive = false;
       await policy.save();
