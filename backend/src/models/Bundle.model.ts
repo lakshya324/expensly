@@ -1,7 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 import { Types } from "mongoose";
-import { BUNDLE_STATUS } from "../config/constants.js";
-import { IBundle, IBundleData } from "../types/bundle.types.js";
+import { BUNDLE_STATUS, CURRENCIES } from "../config/constants.js";
+import { IBundle, IBundleData, IBundleSummaryData } from "../types/bundle.types.js";
 import { User } from "./User.model.js";
 import { Department } from "./Department.model.js";
 
@@ -31,13 +31,15 @@ const BundleSchema = new Schema<IBundle>(
       enum: Object.values(BUNDLE_STATUS),
       default: BUNDLE_STATUS.DRAFT,
     },
-    /** Ticket IDs grouped into this bundle */
-    ticketIds: [{ type: Schema.Types.ObjectId, ref: "Ticket" }],
     /**
      * Pre-computed total in the org's base currency.
-     * Set when the bundle is submitted; null while in DRAFT status.
+     * Recalculated on every add/remove and at submission.
      */
     totalAmountBase: { type: Number, default: null },
+    /** currency code of totalAmountBase (matches org baseCurrency at computation time) */
+    baseCurrency: { type: String, enum: CURRENCIES, default: null },
+    /** Denormalized ticket count — kept in sync on add/remove */
+    ticketCount: { type: Number, default: 0 },
     tags: { type: [String], default: [] },
     managerApproval: { type: ApprovalSchema, default: null },
     financeApproval: { type: ApprovalSchema, default: null },
@@ -52,11 +54,11 @@ BundleSchema.index({ orgId: 1, createdAt: -1 });
 // Helper: load a user as IUserMinimalData
 async function loadMinimalUser(userId: Types.ObjectId | null) {
   if (!userId) return null;
-  const u = await User.findById(userId).select("_id name email role department").lean();
+  const u = await User.findById(userId)
+    .select("_id name email role department")
+    .lean();
   if (!u) return null;
-  const dept = u.department
-    ? await Department.findById(u.department)
-    : null;
+  const dept = u.department ? await Department.findById(u.department) : null;
   return {
     _id: u._id.toString(),
     name: u.name,
@@ -66,7 +68,9 @@ async function loadMinimalUser(userId: Types.ObjectId | null) {
   };
 }
 
-BundleSchema.methods.toData = async function (this: IBundle): Promise<IBundleData> {
+BundleSchema.methods.toData = async function (
+  this: IBundle,
+): Promise<IBundleData> {
   const [submitter, managerReviewer, financeReviewer] = await Promise.all([
     loadMinimalUser(this.submittedBy),
     this.managerApproval?.reviewedBy
@@ -93,9 +97,9 @@ BundleSchema.methods.toData = async function (this: IBundle): Promise<IBundleDat
     },
     submittedByDepartment,
     status: this.status,
-    ticketIds: this.ticketIds.map((id) => id.toString()),
-    ticketCount: this.ticketIds.length,
+    ticketCount: this.ticketCount ?? 0,
     totalAmountBase: this.totalAmountBase,
+    baseCurrency: this.baseCurrency,
     tags: this.tags,
     managerApproval: this.managerApproval
       ? {
@@ -119,5 +123,15 @@ BundleSchema.methods.toData = async function (this: IBundle): Promise<IBundleDat
     updatedAt: this.updatedAt,
   };
 };
+
+BundleSchema.methods.toSummaryData = function (
+  this: IBundle,
+): IBundleSummaryData {
+  return {
+    _id: this._id.toString(),
+    title: this.title,
+    description: this.description,
+  };
+}
 
 export const Bundle = mongoose.model<IBundle>("Bundle", BundleSchema);

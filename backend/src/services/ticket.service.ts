@@ -189,6 +189,7 @@ export async function listTicketsPaginated(
       merchant: null,
       category: null,
       bundleId: t.bundleId ? t.bundleId.toString() : null,
+      bundle: null,
       expenseType: t.expenseType,
       ocrData: t.ocrData ?? null,
       aiValidation: t.aiValidation ?? null,

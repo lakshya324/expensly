@@ -1,5 +1,5 @@
 import { Document, Types } from "mongoose";
-import { BundleStatus } from "../config/constants.js";
+import { BundleStatus, Currency } from "../config/constants.js";
 import { IApproval } from "./ticket.types.js";
 import { IUserMinimalData } from "./user.types.js";
 import { IDepartmentData } from "./department.types.js";
@@ -11,10 +11,12 @@ export interface IBundle extends Document {
   description: string;
   submittedBy: Types.ObjectId;
   status: BundleStatus;
-  /** Ticket IDs included in this bundle */
-  ticketIds: Types.ObjectId[];
-  /** Pre-computed sum in org base currency, updated when bundle is submitted */
+  /** Pre-computed sum in org base currency, recalculated on add/remove and submit */
   totalAmountBase: number | null;
+  /** ISO currency code for totalAmountBase */
+  baseCurrency: Currency | null;
+  /** Denormalized count of tickets — kept in sync */
+  ticketCount: number;
   tags: string[];
   managerApproval: IApproval | null;
   financeApproval: IApproval | null;
@@ -22,6 +24,7 @@ export interface IBundle extends Document {
   updatedAt: Date;
 
   toData(): Promise<IBundleData>;
+  toSummaryData(): IBundleSummaryData;
 }
 
 export interface IBundleData {
@@ -32,9 +35,9 @@ export interface IBundleData {
   submittedBy: IUserMinimalData;
   submittedByDepartment: IDepartmentData | null;
   status: BundleStatus;
-  ticketIds: string[];
   ticketCount: number;
   totalAmountBase: number | null;
+  baseCurrency: string | null;
   tags: string[];
   managerApproval: {
     required?: boolean;
@@ -52,4 +55,10 @@ export interface IBundleData {
   } | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface IBundleSummaryData {
+  _id: string;
+  title: string;
+  description: string;
 }

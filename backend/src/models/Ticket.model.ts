@@ -262,13 +262,16 @@ TicketSchema.methods.data = async function (
     this.exchangeRateSnapshotId.toString() !==
       org.currentRateSnapshotId.toString();
 
-  // Resolve optional merchant and category references in parallel
-  const [merchantDoc, categoryDoc] = await Promise.all([
+  // Resolve optional merchant, category, and bundle references in parallel
+  const [merchantDoc, categoryDoc, bundleDoc] = await Promise.all([
     this.merchant
       ? (await import("./Merchant.model.js")).Merchant.findById(this.merchant)
       : Promise.resolve(null),
     this.category
       ? (await import("./Category.model.js")).Category.findById(this.category)
+      : Promise.resolve(null),
+    this.bundleId
+      ? (await import("./Bundle.model.js")).Bundle.findById(this.bundleId).select("title")
       : Promise.resolve(null),
   ]);
 
@@ -301,6 +304,7 @@ TicketSchema.methods.data = async function (
     merchant: merchantDoc ? merchantDoc.toData() : null,
     category: categoryDoc ? categoryDoc.toData() : null,
     bundleId: this.bundleId ? this.bundleId.toString() : null,
+    bundle: bundleDoc ? bundleDoc.toSummaryData() : null,
     expenseType: this.expenseType,
     ocrData: this.ocrData ?? null,
     aiValidation: this.aiValidation ?? null,

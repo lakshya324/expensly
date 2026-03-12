@@ -7,6 +7,7 @@ import { IOcrData } from "./ocr.types.js";
 import { IAiValidationResult } from "./aiValidation.types.js";
 import { IMerchantData } from "./merchant.types.js";
 import { ICategoryData } from "./category.types.js";
+import { IBundleData, IBundleSummaryData } from "./bundle.types.js";
 
 export interface IApproval {
   required?: boolean;
@@ -90,6 +91,7 @@ export interface ITicketData {
   merchant: IMerchantData | null;
   category: ICategoryData | null;
   bundleId: string | null;
+  bundle: IBundleSummaryData | null;
   expenseType: ExpenseType;
   ocrData: IOcrData | null;
   aiValidation: IAiValidationResult | null;

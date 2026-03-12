@@ -5,6 +5,7 @@ import {
   createBundleValidation,
   updateBundleValidation,
   updateBundleStatusValidation,
+  addTicketsValidation,
 } from "../validation/bundle.schema.js";
 
 const router = Router();
@@ -14,11 +15,11 @@ const router = Router();
 //* List Bundles [GET /api/users/bundles]
 router.get("/", BundleController.list);
 
-//* Get Bundle [GET /api/users/bundles/:id]
-router.get("/:id", BundleController.getOne);
-
 //* Create Bundle [POST /api/users/bundles]
 router.post("/", validate(createBundleValidation), BundleController.create);
+
+//* Get Bundle [GET /api/users/bundles/:id]
+router.get("/:id", BundleController.getOne);
 
 //* Update Bundle [PATCH /api/users/bundles/:id]
 router.patch(
@@ -26,6 +27,15 @@ router.patch(
   validate(updateBundleValidation),
   BundleController.update,
 );
+
+//* Get Bundle Tickets [GET /api/users/bundles/:id/tickets]
+router.get("/:id/tickets", BundleController.getTickets);
+
+//* Add Tickets to Bundle [POST /api/users/bundles/:id/tickets]
+router.post("/:id/tickets", validate(addTicketsValidation), BundleController.addTickets);
+
+//* Remove Ticket from Bundle [DELETE /api/users/bundles/:id/tickets/:ticketId]
+router.delete("/:id/tickets/:ticketId", BundleController.removeTicket);
 
 //* Submit Bundle [POST /api/users/bundles/:id/submit]
 router.post("/:id/submit", BundleController.submit);
