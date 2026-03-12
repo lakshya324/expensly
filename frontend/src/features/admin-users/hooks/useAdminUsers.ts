@@ -129,17 +129,22 @@ export function useToggleDisableUser(id: string, onSuccess?: () => void) {
 }
 
 interface PermissionsBody {
-  canViewAllTickets: boolean | null;
-  canApprove: boolean | null;
+  permissions: {
+    view_all_tickets: boolean | null;
+    approve_finance: boolean | null;
+    export_reports: boolean | null;
+    view_analytics: boolean | null;
+  };
+  policyId?: string | null;
 }
 
 export function useUpdateUserPermissions(id: string, onSuccess?: () => void) {
   const [loading, setLoading] = useState(false);
 
-  const update = async (permissions: PermissionsBody) => {
+  const update = async (body: PermissionsBody) => {
     setLoading(true);
     try {
-      await apiClient.patch<ApiResponse<IUserData>>(EP.ADMIN_USER_PERMISSIONS(id), permissions);
+      await apiClient.patch<ApiResponse<IUserData>>(EP.ADMIN_USER_PERMISSIONS(id), body);
       toast.success('Permissions updated');
       onSuccess?.();
     } catch (e) {

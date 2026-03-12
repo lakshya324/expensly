@@ -2,8 +2,10 @@ import type { Role, Currency } from './api.types';
 import type { IDepartmentData } from './ticket.types';
 
 export interface UserPermissions {
-  canViewAllTickets: boolean | null;
-  canApprove: boolean | null;
+  view_all_tickets: boolean | null;
+  approve_finance: boolean | null;
+  export_reports: boolean | null;
+  view_analytics: boolean | null;
 }
 
 export interface IOrganizationData {
@@ -28,6 +30,7 @@ export interface IUserData {
   department: IDepartmentData | null;
   manager: { _id: string; name: string; email: string; role: Role; isDisabled: boolean; createdAt: string; updatedAt: string } | null;
   permissions: UserPermissions;
+  policyId: string | null;
   isDisabled: boolean;
   createdAt: string;
   updatedAt: string;

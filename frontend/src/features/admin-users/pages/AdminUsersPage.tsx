@@ -39,15 +39,31 @@ import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
 import { formatDate } from '@/core/utils/formatters';
 import type { IUserData } from '@/core/types/user.types';
-import type { IDepartmentData } from '@/core/types/ticket.types';
+import type { IDepartmentData, IPolicyData, PermissionKey } from '@/core/types/ticket.types';
 import type { ApiResponse, PaginatedData } from '@/core/types/api.types';
 
 type PermissionValue = boolean | null;
 
+type UserPermsMap = { [K in PermissionKey]: PermissionValue };
+
 interface PermissionsState {
-  canViewAllTickets: PermissionValue;
-  canApprove: PermissionValue;
+  permissions: UserPermsMap;
+  policyId: string | null;
 }
+
+const BLANK_PERMS: UserPermsMap = {
+  view_all_tickets: null,
+  approve_finance: null,
+  export_reports: null,
+  view_analytics: null,
+};
+
+const PERM_LABELS: { key: PermissionKey; label: string }[] = [
+  { key: 'view_all_tickets', label: 'View All Tickets' },
+  { key: 'approve_finance', label: 'Finance Approval' },
+  { key: 'export_reports', label: 'Export Reports' },
+  { key: 'view_analytics', label: 'View Analytics' },
+];
 
 export function AdminUsersPage() {
   const [page, setPage] = useState(1);
@@ -60,12 +76,17 @@ export function AdminUsersPage() {
     department: deptFilter || undefined,
   });
 
-  // Departments for selects
+  // Departments & policies for selects — fetched once on mount
   const [departments, setDepartments] = useState<IDepartmentData[]>([]);
+  const [policies, setPolicies] = useState<IPolicyData[]>([]);
   useEffect(() => {
     apiClient
       .get<ApiResponse<PaginatedData<IDepartmentData>>>(EP.ADMIN_DEPARTMENTS)
       .then((r) => setDepartments(r.data.data.data))
+      .catch(() => {});
+    apiClient
+      .get<ApiResponse<IPolicyData[]>>(EP.ADMIN_POLICIES)
+      .then((r) => setPolicies(r.data.data ?? []))
       .catch(() => {});
   }, []);
 
@@ -154,8 +175,8 @@ export function AdminUsersPage() {
   // Permissions dialog
   const [permTarget, setPermTarget] = useState<IUserData | null>(null);
   const [perms, setPerms] = useState<PermissionsState>({
-    canViewAllTickets: null,
-    canApprove: null,
+    permissions: { ...BLANK_PERMS },
+    policyId: null,
   });
   const { update: updatePerms, loading: updatingPerms } = useUpdateUserPermissions(
     permTarget?._id ?? '',
@@ -168,8 +189,13 @@ export function AdminUsersPage() {
   useEffect(() => {
     if (permTarget) {
       setPerms({
-        canViewAllTickets: permTarget.permissions.canViewAllTickets,
-        canApprove: permTarget.permissions.canApprove,
+        permissions: {
+          view_all_tickets: permTarget.permissions.view_all_tickets,
+          approve_finance: permTarget.permissions.approve_finance,
+          export_reports: permTarget.permissions.export_reports,
+          view_analytics: permTarget.permissions.view_analytics,
+        },
+        policyId: permTarget.policyId ?? null,
       });
     }
   }, [permTarget]);
@@ -184,6 +210,11 @@ export function AdminUsersPage() {
       role: values.role,
     });
     if (result) {
+      if (values.policyId) {
+        await apiClient
+          .patch(EP.ADMIN_USER_PERMISSIONS(result._id), { permissions: BLANK_PERMS, policyId: values.policyId })
+          .catch(() => {});
+      }
       setCreateOpen(false);
       createForm.reset();
       refetch();
@@ -302,10 +333,14 @@ export function AdminUsersPage() {
     },
   ];
 
+  const deptPolicy = permTarget?.department?.policyId
+    ? (policies.find((p) => p._id === permTarget.department?.policyId) ?? null)
+    : null;
+
   return (
     <AppShell title="Users">
       <div className="space-y-4">
-        {/* Header */}
+        {/* Header */ }
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 className="text-xl font-bold text-[var(--foreground)]">Team Members</h2>
@@ -413,6 +448,22 @@ export function AdminUsersPage() {
                 ))}
               </select>
             </div>
+            <div className="w-full">
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
+                Policy <span className="text-[var(--muted-foreground)]">(optional)</span>
+              </label>
+              <select
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                {...createForm.register('policyId')}
+              >
+                <option value="">No policy</option>
+                {policies.map((pol) => (
+                  <option key={pol._id} value={pol._id}>
+                    {pol.name}{pol.isSystem ? ' (system)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex gap-2 justify-end pt-2">
               <Button variant="outline" type="button" onClick={() => setCreateOpen(false)}>
                 Cancel
@@ -485,30 +536,80 @@ export function AdminUsersPage() {
       <Dialog open={!!permTarget} onOpenChange={(o) => !o && setPermTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Permissions</DialogTitle>
+            <DialogTitle>Permissions — {permTarget?.name}</DialogTitle>
             <DialogDescription>
-              Override department permissions for {permTarget?.name}. Set to "Inherit" to use
-              department defaults.
+              Assign a policy and/or override individual permissions. "Inherit" falls back to the department default.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <PermissionRow
-              label="Can View All Tickets"
-              value={perms.canViewAllTickets}
-              onChange={(v) => setPerms((p) => ({ ...p, canViewAllTickets: v }))}
-            />
-            <PermissionRow
-              label="Can Approve"
-              value={perms.canApprove}
-              onChange={(v) => setPerms((p) => ({ ...p, canApprove: v }))}
-            />
-            <div className="flex gap-2 justify-end pt-2">
+          <div className="space-y-5 mt-2">
+            {/* Policy picker */}
+            <div>
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">Policy</label>
+              <select
+                value={perms.policyId ?? ''}
+                onChange={(e) => setPerms((p) => ({ ...p, policyId: e.target.value || null }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">
+                  {deptPolicy ? `Inherit from department (${deptPolicy.name})` : 'No policy'}
+                </option>
+                {policies.map((pol) => (
+                  <option key={pol._id} value={pol._id}>
+                    {pol.name}{pol.isSystem ? ' (system)' : ''}
+                  </option>
+                ))}
+              </select>
+              {(() => {
+                const activePol = perms.policyId
+                  ? policies.find((p) => p._id === perms.policyId)
+                  : deptPolicy;
+                const isInherited = !perms.policyId && !!deptPolicy;
+                return activePol && activePol.grants.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {isInherited && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--muted)] text-[var(--muted-foreground)] border border-[var(--border)] font-medium">
+                        from dept
+                      </span>
+                    )}
+                    {activePol.grants.map((g) => (
+                      <span
+                        key={g}
+                        className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
+                          isInherited
+                            ? 'bg-[var(--muted)] text-[var(--muted-foreground)] border-[var(--border)]'
+                            : 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border-brand-200 dark:border-brand-800'
+                        }`}
+                      >
+                        {PERM_LABELS.find((l) => l.key === g)?.label ?? g}
+                      </span>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
+            </div>
+
+            {/* Per-permission overrides */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-[var(--foreground)]">Overrides</p>
+              {PERM_LABELS.map(({ key, label }) => (
+                <PermissionRow
+                  key={key}
+                  label={label}
+                  value={perms.permissions[key]}
+                  onChange={(v) =>
+                    setPerms((p) => ({ ...p, permissions: { ...p.permissions, [key]: v } }))
+                  }
+                />
+              ))}
+            </div>
+
+            <div className="flex gap-2 justify-end pt-1">
               <Button variant="outline" onClick={() => setPermTarget(null)}>
                 Cancel
               </Button>
               <Button
                 loading={updatingPerms}
-                onClick={() => updatePerms(perms)}
+                onClick={() => updatePerms({ permissions: perms.permissions, policyId: perms.policyId })}
               >
                 Save Permissions
               </Button>

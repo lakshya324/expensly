@@ -1,8 +1,10 @@
 import type { Currency, ExpenseType, TicketStatus, BudgetResetPeriod } from './api.types';
 
 export interface DepartmentPermissions {
-  canViewAllTickets: boolean;
-  canApprove: boolean;
+  view_all_tickets: boolean;
+  approve_finance: boolean;
+  export_reports: boolean;
+  view_analytics: boolean;
 }
 
 export interface IDepartmentData {
@@ -13,6 +15,7 @@ export interface IDepartmentData {
   spent: number;
   approvalThresholds: Record<Currency, number>;
   permissions: DepartmentPermissions;
+  policyId: string | null;
   tags: string[];
   budgetResetPeriod: BudgetResetPeriod;
   nextResetDate: string | null;

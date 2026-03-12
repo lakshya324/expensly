@@ -54,8 +54,10 @@ interface DeptBody {
 }
 
 interface DeptPermissions {
-  canViewAllTickets: boolean;
-  canApprove: boolean;
+  view_all_tickets: boolean;
+  approve_finance: boolean;
+  export_reports: boolean;
+  view_analytics: boolean;
 }
 
 export function useCreateDepartment(onSuccess?: () => void) {
@@ -64,17 +66,18 @@ export function useCreateDepartment(onSuccess?: () => void) {
   const createDepartment = async (
     body: DeptBody,
     permissions?: DeptPermissions,
+    policyId?: string | null,
   ): Promise<IDepartmentData | null> => {
     setLoading(true);
     try {
-      const res = await apiClient.post<ApiResponse<IDepartmentData>>(EP.ADMIN_DEPARTMENTS, body);
-      const dept = res.data.data;
-      if (permissions) {
-        await apiClient.patch(EP.ADMIN_DEPT_PERMISSIONS(dept._id), permissions);
-      }
+      const res = await apiClient.post<ApiResponse<IDepartmentData>>(EP.ADMIN_DEPARTMENTS, {
+        ...body,
+        ...(permissions !== undefined ? { permissions } : {}),
+        ...(policyId !== undefined ? { policyId } : {}),
+      });
       toast.success('Department created');
       onSuccess?.();
-      return dept;
+      return res.data.data;
     } catch (e) {
       toast.error(errMsg(e, 'Failed to create department'));
       return null;
@@ -92,12 +95,16 @@ export function useUpdateDepartment(id: string, onSuccess?: () => void) {
   const updateDepartment = async (
     body: Partial<DeptBody>,
     permissions?: DeptPermissions,
+    policyId?: string | null,
   ): Promise<IDepartmentData | null> => {
     setLoading(true);
     try {
       const res = await apiClient.patch<ApiResponse<IDepartmentData>>(EP.ADMIN_DEPT(id), body);
-      if (permissions) {
-        await apiClient.patch(EP.ADMIN_DEPT_PERMISSIONS(id), permissions);
+      if (permissions !== undefined || policyId !== undefined) {
+        await apiClient.patch(EP.ADMIN_DEPT_PERMISSIONS(id), {
+          permissions,
+          policyId,
+        });
       }
       toast.success('Department updated');
       onSuccess?.();

@@ -7,6 +7,7 @@ export const createUserSchema = z.object({
   department: z.string().trim().optional(),
   managerId: z.string().trim().optional(),
   role: z.enum(['user', 'admin']).default('user'),
+  policyId: z.string().nullable().optional(),
 });
 
 export const updateUserSchema = z.object({
