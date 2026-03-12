@@ -61,6 +61,8 @@ export const ROUTES = {
   ADMIN_CATEGORIES: '/admin/categories',
   ADMIN_POLICIES: '/admin/policies',
   ADMIN_AUDIT_LOG: '/admin/audit-log',
+  ADMIN_BUNDLES: '/admin/bundles',
+  ADMIN_BUNDLE_DETAIL: (id: string) => `/admin/bundles/${id}`,
 
   // Superadmin
   SA_ORGANIZATIONS: '/superadmin/organizations',

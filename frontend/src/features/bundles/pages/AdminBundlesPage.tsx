@@ -1,20 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Package } from 'lucide-react';
+import { Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/shared/components/layout/AppShell';
-import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { DataTable } from '@/shared/components/data-display/DataTable';
 import type { Column } from '@/shared/components/data-display/DataTable';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from '@/shared/components/ui/Dialog';
-import { Input } from '@/shared/components/ui/Input';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
 import type { ApiResponse, PaginatedData } from '@/core/types/api.types';
@@ -36,13 +28,7 @@ const BUNDLE_STATUS_VARIANT: Record<BundleStatus, 'muted' | 'warning' | 'success
   rejected: 'danger',
 };
 
-const bundleSchema = z.object({
-  name: z.string().min(1, 'Title is required').max(200),
-  description: z.string().max(500).optional(),
-});
-type BundleFormValues = z.infer<typeof bundleSchema>;
-
-function useBundles(page: number, status: string) {
+function useAdminBundles(page: number, status: string) {
   const [data, setData] = useState<IBundleData[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -50,7 +36,7 @@ function useBundles(page: number, status: string) {
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, unknown> = { page, limit: 15 };
+      const params: Record<string, unknown> = { page, limit: 15, all: true };
       if (status) params.status = status;
       const res = await apiClient.get<ApiResponse<PaginatedData<IBundleData>>>(
         EP.BUNDLES,
@@ -66,37 +52,20 @@ function useBundles(page: number, status: string) {
   }, [page, status]);
 
   useEffect(() => { fetch(); }, [fetch]);
-  return { data, total, loading, refresh: fetch };
+  return { data, total, loading };
 }
 
-export function BundlesPage() {
+export function AdminBundlesPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const { data, total, loading } = useBundles(page, statusFilter);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('submitted');
+
+  const { data, total, loading } = useAdminBundles(page, statusFilter);
 
   const handleStatusChange = (val: string) => {
     setStatusFilter(val);
     setPage(1);
   };
-
-  const form = useForm<BundleFormValues>({ resolver: zodResolver(bundleSchema) });
-
-  const handleCreate = form.handleSubmit(async (values) => {
-    setSaving(true);
-    try {
-      const res = await apiClient.post<ApiResponse<IBundleData>>(EP.BUNDLES, values);
-      toast.success('Bundle created');
-      setCreateOpen(false);
-      form.reset();
-      navigate(ROUTES.BUNDLE_DETAIL(res.data.data._id));
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to create bundle';
-      toast.error(msg);
-    } finally { setSaving(false); }
-  });
 
   const columns: Column<IBundleData>[] = [
     {
@@ -107,6 +76,25 @@ export function BundlesPage() {
           <Package className="w-3.5 h-3.5 text-(--muted-foreground)" />
           <span className="font-medium text-(--foreground)">{row.title}</span>
         </div>
+      ),
+    },
+    {
+      key: 'submittedBy',
+      header: 'Submitted By',
+      render: (row) => (
+        <div>
+          <p className="text-sm text-(--foreground)">{row.submittedBy.name}</p>
+          <p className="text-xs text-(--muted-foreground)">{row.submittedBy.email}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'submittedByDepartment',
+      header: 'Department',
+      render: (row) => (
+        <span className="text-sm text-(--foreground)">
+          {row.submittedByDepartment?.name ?? '—'}
+        </span>
       ),
     },
     {
@@ -130,7 +118,9 @@ export function BundlesPage() {
       header: 'Total',
       render: (row) => (
         <span className="text-sm text-(--foreground)">
-          {row.totalAmountBase !== null ? `$${row.totalAmountBase.toFixed(2)}` : '—'}
+          {row.totalAmountBase !== null
+            ? `${row.baseCurrency ?? ''}\u00a0${row.totalAmountBase.toFixed(2)}`
+            : '—'}
         </span>
       ),
     },
@@ -146,15 +136,9 @@ export function BundlesPage() {
   return (
     <AppShell title="Bundles">
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-[var(--foreground)]">Expense Bundles</h1>
-            <p className="text-sm text-[var(--muted-foreground)]">Group related expenses and submit them together</p>
-          </div>
-          <Button onClick={() => { form.reset(); setCreateOpen(true); }}>
-            <Plus className="w-4 h-4" />
-            New Bundle
-          </Button>
+        <div>
+          <h1 className="text-xl font-bold text-[var(--foreground)]">Expense Bundles</h1>
+          <p className="text-sm text-[var(--muted-foreground)]">Review and approve submitted expense bundles</p>
         </div>
 
         {/* Status filter */}
@@ -182,40 +166,11 @@ export function BundlesPage() {
               loading={loading}
               pagination={{ page, pageSize: 15, totalItems: total, totalPages: Math.ceil(total / 15) }}
               onPageChange={setPage}
-              onRowClick={(row) => navigate(ROUTES.BUNDLE_DETAIL(row._id))}
+              onRowClick={(row) => navigate(ROUTES.ADMIN_BUNDLE_DETAIL(row._id))}
             />
           </CardContent>
         </Card>
       </div>
-
-      <Dialog open={createOpen} onOpenChange={(o) => { if (!o) { setCreateOpen(false); form.reset(); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Bundle</DialogTitle>
-            <DialogDescription>Create a bundle to group related expense submissions.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4 mt-2">
-            <Input
-              label="Title"
-              placeholder="e.g. Q3 Travel Expenses"
-              error={form.formState.errors.name?.message}
-              {...form.register('name')}
-            />
-            <Input
-              label="Description"
-              placeholder="Optional description"
-              error={form.formState.errors.description?.message}
-              {...form.register('description')}
-            />
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => { setCreateOpen(false); form.reset(); }} disabled={saving}>
-                Cancel
-              </Button>
-              <Button type="submit" loading={saving}>Create</Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
     </AppShell>
   );
 }

@@ -69,6 +69,9 @@ const BundlesPage = lazy(() =>
 const BundleDetailPage = lazy(() =>
   import('@/features/bundles/pages/BundleDetailPage').then((m) => ({ default: m.BundleDetailPage })),
 );
+const AdminBundlesPage = lazy(() =>
+  import('@/features/bundles/pages/AdminBundlesPage').then((m) => ({ default: m.AdminBundlesPage })),
+);
 
 // Admin extra
 const AdminMerchantsPage = lazy(() =>
@@ -159,6 +162,8 @@ export function AppRouter() {
           <Route path={ROUTES.ADMIN_CATEGORIES} element={<AdminCategoriesPage />} />
           <Route path={ROUTES.ADMIN_POLICIES} element={<AdminPoliciesPage />} />
           <Route path={ROUTES.ADMIN_AUDIT_LOG} element={<AdminAuditLogPage />} />
+          <Route path={ROUTES.ADMIN_BUNDLES} element={<AdminBundlesPage />} />
+          <Route path={ROUTES.ADMIN_BUNDLE_DETAIL(':id')} element={<BundleDetailPage />} />
         </Route>
 
         {/* Superadmin routes */}

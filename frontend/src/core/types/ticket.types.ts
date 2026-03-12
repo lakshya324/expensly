@@ -76,6 +76,7 @@ export interface ITicketData {
   merchant: { _id: string; name: string; logoUrl?: string | null } | null;
   category: { _id: string; name: string; color?: string | null } | null;
   bundleId: string | null;
+  bundle: { _id: string; title: string } | null;
   expenseType: ExpenseType;
   ocrData: OcrData | null;
   aiValidation: AiValidation | null;
@@ -173,9 +174,9 @@ export interface IBundleData {
   submittedBy: { _id: string; name: string; email: string };
   submittedByDepartment: { _id: string; name: string } | null;
   status: BundleStatus;
-  ticketIds: string[];
   ticketCount: number;
   totalAmountBase: number | null;
+  baseCurrency: string | null;
   tags: string[];
   managerApproval: {
     approved: boolean | null;

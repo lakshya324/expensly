@@ -38,6 +38,10 @@ export const EP = {
   BUNDLES: '/users/bundles',
   BUNDLE: (id: string) => `/users/bundles/${id}`,
   BUNDLE_SUBMIT: (id: string) => `/users/bundles/${id}/submit`,
+  BUNDLE_TICKETS: (id: string) => `/users/bundles/${id}/tickets`,
+  BUNDLE_ADD_TICKETS: (id: string) => `/users/bundles/${id}/tickets`,
+  BUNDLE_REMOVE_TICKET: (id: string, ticketId: string) => `/users/bundles/${id}/tickets/${ticketId}`,
+  BUNDLE_STATUS: (id: string) => `/users/bundles/${id}/status`,
 
   // Audit Log
   ADMIN_AUDIT_LOG: '/admin/audit-log',

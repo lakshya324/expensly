@@ -15,7 +15,7 @@ import {
 import { useExpense, useUpdateExpenseStatus, useFlagExpense, useReceiptUrl, useDiscussion } from '../hooks/useExpenses';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { formatCurrency, formatDateTime, formatRelativeTime } from '@/core/utils/formatters';
-import { CURRENCY_SYMBOLS } from '@/core/constants/constants';
+import { CURRENCY_SYMBOLS, ROUTES } from '@/core/constants/constants';
 
 export function ExpenseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -126,10 +126,13 @@ export function ExpenseDetailPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <StatusBadge status={ticket.status} />
             {ticket.bundleId && (
-              <Badge variant="info" className="flex items-center gap-1">
+              <button
+                onClick={() => navigate(ROUTES.BUNDLE_DETAIL(ticket.bundleId!))}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-50 text-info-600 dark:bg-info-500/15 dark:text-info-400 hover:opacity-80 transition-opacity"
+              >
                 <Package className="w-3 h-3" />
-                Bundle
-              </Badge>
+                {ticket.bundle?.title ?? 'Bundle'}
+              </button>
             )}
             {ticket.flagged && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-400">

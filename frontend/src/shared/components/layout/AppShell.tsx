@@ -30,6 +30,7 @@ const USER_NAV: NavItem[] = [
 const ADMIN_NAV: NavItem[] = [
   { label: 'Dashboard', to: ROUTES.ADMIN_DASHBOARD, icon: LayoutDashboard },
   { label: 'Expenses', to: ROUTES.ADMIN_EXPENSES, icon: Receipt },
+  { label: 'Bundles', to: ROUTES.ADMIN_BUNDLES, icon: Package },
   { label: 'Users', to: ROUTES.ADMIN_USERS, icon: Users },
   { label: 'Departments', to: ROUTES.ADMIN_DEPARTMENTS, icon: Building2 },
   { label: 'Analytics', to: ROUTES.ADMIN_ANALYTICS, icon: BarChart3 },
