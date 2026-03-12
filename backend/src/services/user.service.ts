@@ -1,8 +1,10 @@
 import { User } from "../models/User.model.js";
+import { Policy } from "../models/Policy.model.js";
 import { PipelineStage } from "mongoose";
 import { IUserData } from "../types/user.types.js";
 import { IOrganizationData } from "../types/organization.types.js";
 import { IDepartmentData } from "../types/department.types.js";
+import { computeEffectivePermissions } from "../utils/permissions.js";
 
 // map raw aggregation docs to typed data objects
 function mapOrg(o: any): IOrganizationData | null {
@@ -166,25 +168,54 @@ export async function listUsersPaginated(
   const total: number = result?.total?.[0]?.count ?? 0;
   const users: any[] = result?.data ?? [];
 
-  const data: IUserData[] = users.map((u) => ({
-    _id: u._id.toString(),
-    name: u.name,
-    email: u.email,
-    role: u.role,
-    org: knownOrg ?? mapOrg(u._org?.[0] ?? null),
-    department: mapDept(u._dept?.[0] ?? null),
-    permissions: {
+  // Batch-fetch all policies referenced by users or their departments in one query
+  const policyIdSet = new Set<string>();
+  for (const u of users) {
+    if (u.policyId) policyIdSet.add(u.policyId.toString());
+    const deptPolicyId = u._dept?.[0]?.policyId;
+    if (deptPolicyId) policyIdSet.add(deptPolicyId.toString());
+  }
+  const policyIdList = [...policyIdSet];
+  const policyDocs = policyIdList.length > 0
+    ? await Policy.find({ _id: { $in: policyIdList }, isActive: true })
+        .select("grants")
+        .lean<{ _id: any; grants: string[] }[]>()
+    : [];
+  const policyGrantsMap = new Map<string, string[]>(
+    policyDocs.map((p) => [p._id.toString(), p.grants]),
+  );
+
+  const data: IUserData[] = users.map((u) => {
+    const dept = u._dept?.[0] ?? null;
+    const userPolicyGrants = policyGrantsMap.get(u.policyId?.toString() ?? "") ?? [];
+    const deptPolicyGrants = policyGrantsMap.get(dept?.policyId?.toString() ?? "") ?? [];
+    const userPerms = {
       view_all_tickets: u.permissions?.view_all_tickets ?? null,
       approve_finance: u.permissions?.approve_finance ?? null,
       export_reports: u.permissions?.export_reports ?? null,
       view_analytics: u.permissions?.view_analytics ?? null,
-    },
-    policyId: u.policyId?.toString() ?? null,
-    manager: mapManager(u._manager?.[0] ?? null),
-    isDisabled: u.isDisabled,
-    createdAt: new Date(u.createdAt).toISOString(),
-    updatedAt: new Date(u.updatedAt).toISOString(),
-  }));
+    };
+    return {
+      _id: u._id.toString(),
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      org: knownOrg ?? mapOrg(u._org?.[0] ?? null),
+      department: mapDept(dept),
+      permissions: userPerms,
+      policyId: u.policyId?.toString() ?? null,
+      effectivePermissions: computeEffectivePermissions(
+        userPerms,
+        userPolicyGrants,
+        dept?.permissions ?? null,
+        deptPolicyGrants,
+      ),
+      manager: mapManager(u._manager?.[0] ?? null),
+      isDisabled: u.isDisabled,
+      createdAt: new Date(u.createdAt).toISOString(),
+      updatedAt: new Date(u.updatedAt).toISOString(),
+    };
+  });
 
   return { data, total };
 }

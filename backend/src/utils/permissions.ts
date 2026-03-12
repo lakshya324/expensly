@@ -50,3 +50,41 @@ export async function resolvePermission(
 
   return false;
 }
+
+/**
+ * Computes the fully-resolved effective permissions for a user by merging all sources.
+ * Returns a plain boolean for every permission key (no nulls).
+ *
+ * Priority (highest → lowest):
+ *  1. User explicit override (non-null boolean)
+ *  2. User's own policy grants
+ *  3. Department's direct permission (boolean true)
+ *  4. Department's policy grants
+ *  5. false (denied by default)
+ */
+export function computeEffectivePermissions(
+  userPerms: Record<string, boolean | null>,
+  userPolicyGrants: string[],
+  deptPerms: Record<string, boolean> | null,
+  deptPolicyGrants: string[],
+): Record<PermissionKey, boolean> {
+  const result = {} as Record<PermissionKey, boolean>;
+
+  for (const key of Object.values(PERMISSION_KEY)) {
+    const userOverride = userPerms[key];
+
+    if (userOverride !== null && userOverride !== undefined) {
+      result[key] = userOverride as boolean;
+    } else if (userPolicyGrants.includes(key)) {
+      result[key] = true;
+    } else if (deptPerms && deptPerms[key] === true) {
+      result[key] = true;
+    } else if (deptPolicyGrants.includes(key)) {
+      result[key] = true;
+    } else {
+      result[key] = false;
+    }
+  }
+
+  return result;
+}

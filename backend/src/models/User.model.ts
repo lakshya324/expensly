@@ -4,7 +4,9 @@ import { IUser, IUserData, IUserPermissions } from "../types/user.types.js";
 import { createError } from "../utils/error.js";
 import { Organization } from "./Organization.model.js";
 import { Department } from "./Department.model.js";
+import { Policy } from "./Policy.model.js";
 import { IOrganization } from "../types/organization.types.js";
+import { computeEffectivePermissions } from "../utils/permissions.js";
 
 const UserSchema = new Schema<IUser>(
   {
@@ -86,8 +88,8 @@ UserSchema.methods.data = async function (
     orgData = await Organization.findById(this.orgId);
   }
 
-  // Fetch manager and department concurrently...
-  const [manager, dept] = await Promise.all([
+  // Fetch manager, department, and user policy concurrently...
+  const [manager, dept, userPolicyDoc] = await Promise.all([
     this.managerId
       ? User.findById(this.managerId)
           .select("_id name email role isDisabled createdAt updatedAt")
@@ -95,7 +97,14 @@ UserSchema.methods.data = async function (
     this.department
       ? Department.findById(this.department)
       : Promise.resolve(null),
+    this.policyId
+      ? Policy.findById(this.policyId).select("grants").lean<{ grants: string[] }>()
+      : Promise.resolve(null),
   ]);
+
+  const deptPolicyDoc = dept?.policyId
+    ? await Policy.findById(dept.policyId).select("grants").lean<{ grants: string[] }>()
+    : null;
 
   const managerData = manager
     ? {
@@ -123,6 +132,17 @@ UserSchema.methods.data = async function (
       view_analytics: this.permissions?.view_analytics ?? null,
     },
     policyId: this.policyId?.toString() ?? null,
+    effectivePermissions: computeEffectivePermissions(
+      {
+        view_all_tickets: this.permissions?.view_all_tickets ?? null,
+        approve_finance: this.permissions?.approve_finance ?? null,
+        export_reports: this.permissions?.export_reports ?? null,
+        view_analytics: this.permissions?.view_analytics ?? null,
+      },
+      userPolicyDoc?.grants ?? [],
+      dept ? { ...dept.permissions } : null,
+      deptPolicyDoc?.grants ?? [],
+    ),
     manager: managerData,
     isDisabled: this.isDisabled,
     createdAt: this.createdAt.toISOString(),

@@ -34,7 +34,8 @@ export interface IUserData {
   department: IDepartmentData | null;
   permissions: IUserPermissions;
   policyId: string | null;
-  manager: Omit<IUserData, "org" | "department" | "manager" | "permissions" | "policyId"> | null;
+  effectivePermissions: Record<PermissionKey, boolean>;
+  manager: Omit<IUserData, "org" | "department" | "manager" | "permissions" | "policyId" | "effectivePermissions"> | null;
   isDisabled: boolean;
   createdAt: string;
   updatedAt: string;
