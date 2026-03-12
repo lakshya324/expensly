@@ -58,7 +58,7 @@ interface CreateUserBody {
   name: string;
   email: string;
   password: string;
-  department?: string;
+  department: string;
   managerId?: string;
   role?: 'user' | 'admin';
 }

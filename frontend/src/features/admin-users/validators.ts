@@ -4,10 +4,9 @@ export const createUserSchema = z.object({
   name: z.string().trim().min(1, 'Name is required'),
   email: z.string().trim().min(1, 'Email is required').email('Enter a valid email'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  department: z.string().trim().optional(),
+  department: z.string().trim().min(1, 'Department is required'),
   managerId: z.string().trim().optional(),
   role: z.enum(['user', 'admin']).default('user'),
-  policyId: z.string().nullable().optional(),
 });
 
 export const updateUserSchema = z.object({

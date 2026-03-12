@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { MoreHorizontal, Plus, UserCheck, UserX, Shield, Pencil } from 'lucide-react';
+import { MoreHorizontal, Plus, UserCheck, UserX, Shield, Pencil, Info, Building2 } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { DataTable, type Column } from '@/shared/components/data-display/DataTable';
 import { Button } from '@/shared/components/ui/Button';
@@ -205,16 +205,11 @@ export function AdminUsersPage() {
       name: values.name,
       email: values.email,
       password: values.password,
-      department: values.department || undefined,
+      department: values.department,
       managerId: values.managerId || undefined,
       role: values.role,
     });
     if (result) {
-      if (values.policyId) {
-        await apiClient
-          .patch(EP.ADMIN_USER_PERMISSIONS(result._id), { permissions: BLANK_PERMS, policyId: values.policyId })
-          .catch(() => {});
-      }
       setCreateOpen(false);
       createForm.reset();
       refetch();
@@ -409,17 +404,20 @@ export function AdminUsersPage() {
             />
             <div className="w-full">
               <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-                Department <span className="text-[var(--muted-foreground)]">(optional)</span>
+                Department <span className="text-danger-500">*</span>
               </label>
               <select
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className={`w-full px-3.5 py-2.5 rounded-xl border bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500 ${createForm.formState.errors.department ? 'border-danger-500' : 'border-[var(--input)]'}`}
                 {...createForm.register('department')}
               >
-                <option value="">No department</option>
+                <option value="">Select a department</option>
                 {departments.map((d) => (
                   <option key={d._id} value={d._id}>{d.name}</option>
                 ))}
               </select>
+              {createForm.formState.errors.department && (
+                <p className="mt-1 text-xs text-danger-500">{createForm.formState.errors.department.message}</p>
+              )}
             </div>
             <div className="w-full">
               <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
@@ -448,22 +446,54 @@ export function AdminUsersPage() {
                 ))}
               </select>
             </div>
-            <div className="w-full">
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-                Policy <span className="text-[var(--muted-foreground)]">(optional)</span>
-              </label>
-              <select
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
-                {...createForm.register('policyId')}
-              >
-                <option value="">No policy</option>
-                {policies.map((pol) => (
-                  <option key={pol._id} value={pol._id}>
-                    {pol.name}{pol.isSystem ? ' (system)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Dept Permissions Preview */}
+            {watchedCreateDept && (() => {
+              const selectedDept = departments.find(d => d._id === watchedCreateDept);
+              if (!selectedDept) return null;
+              const deptPol = selectedDept.policyId ? policies.find(p => p._id === selectedDept.policyId) ?? null : null;
+              return (
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--muted)]/30 p-3.5 space-y-2.5">
+                  <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                    Permissions inherited from {selectedDept.name}
+                  </p>
+                  {deptPol && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 font-medium">
+                        {deptPol.name}
+                      </span>
+                      {deptPol.grants.map((g) => (
+                        <span key={g} className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--muted)] text-[var(--muted-foreground)] border border-[var(--border)] font-medium">
+                          {PERM_LABELS.find(l => l.key === g)?.label ?? g}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {PERM_LABELS.map(({ key, label }) => {
+                      const fromDeptDirect = selectedDept.permissions[key];
+                      const fromDeptPolicy = deptPol?.grants.includes(key) ?? false;
+                      const effective = fromDeptDirect || fromDeptPolicy;
+                      return (
+                        <span
+                          key={key}
+                          className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                            effective
+                              ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border-brand-300 dark:border-brand-700'
+                              : 'bg-[var(--background)] text-[var(--muted-foreground)] border-[var(--border)]'
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <p className="flex items-center gap-1.5 text-[10px] text-[var(--muted-foreground)]">
+                    <Info className="w-3 h-3 flex-shrink-0" />
+                    You can override individual permissions after creating the user
+                  </p>
+                </div>
+              );
+            })()}
             <div className="flex gap-2 justify-end pt-2">
               <Button variant="outline" type="button" onClick={() => setCreateOpen(false)}>
                 Cancel
@@ -538,20 +568,64 @@ export function AdminUsersPage() {
           <DialogHeader>
             <DialogTitle>Permissions — {permTarget?.name}</DialogTitle>
             <DialogDescription>
-              Assign a policy and/or override individual permissions. "Inherit" falls back to the department default.
+              Users inherit permissions from their department. Use a policy override or individual toggles to customise.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-5 mt-2">
-            {/* Policy picker */}
+            {/* Department Defaults */}
+            {permTarget?.department && (
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-[var(--muted-foreground)]" />
+                  <p className="text-sm font-medium text-[var(--foreground)]">
+                    {permTarget.department.name} Defaults
+                  </p>
+                </div>
+                {deptPolicy && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--muted)] text-[var(--muted-foreground)] border border-[var(--border)] font-medium">
+                      {deptPolicy.name}
+                    </span>
+                    {deptPolicy.grants.map((g) => (
+                      <span key={g} className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--muted)] text-[var(--muted-foreground)] border border-[var(--border)] font-medium">
+                        {PERM_LABELS.find(l => l.key === g)?.label ?? g}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {PERM_LABELS.map(({ key, label }) => {
+                    const fromDeptDirect = permTarget.department!.permissions[key];
+                    const fromDeptPolicy = deptPolicy?.grants.includes(key) ?? false;
+                    const effective = fromDeptDirect || fromDeptPolicy;
+                    return (
+                      <span
+                        key={key}
+                        className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                          effective
+                            ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border-brand-300 dark:border-brand-700'
+                            : 'bg-[var(--background)] text-[var(--muted-foreground)] border-[var(--border)]'
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    );
+                  })}
+                </div>
+                <hr className="border-[var(--border)]" />
+              </div>
+            )}
+
+            {/* Policy Override */}
             <div>
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">Policy</label>
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">Policy Override</label>
               <select
                 value={perms.policyId ?? ''}
                 onChange={(e) => setPerms((p) => ({ ...p, policyId: e.target.value || null }))}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">
-                  {deptPolicy ? `Inherit from department (${deptPolicy.name})` : 'No policy'}
+                  {deptPolicy ? `Inherit from department (${deptPolicy.name})` : 'No policy override'}
                 </option>
                 {policies.map((pol) => (
                   <option key={pol._id} value={pol._id}>
@@ -559,26 +633,14 @@ export function AdminUsersPage() {
                   </option>
                 ))}
               </select>
-              {(() => {
-                const activePol = perms.policyId
-                  ? policies.find((p) => p._id === perms.policyId)
-                  : deptPolicy;
-                const isInherited = !perms.policyId && !!deptPolicy;
-                return activePol && activePol.grants.length > 0 ? (
+              {perms.policyId && (() => {
+                const selectedPol = policies.find((p) => p._id === perms.policyId);
+                return selectedPol && selectedPol.grants.length > 0 ? (
                   <div className="flex flex-wrap gap-1 mt-2">
-                    {isInherited && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--muted)] text-[var(--muted-foreground)] border border-[var(--border)] font-medium">
-                        from dept
-                      </span>
-                    )}
-                    {activePol.grants.map((g) => (
+                    {selectedPol.grants.map((g) => (
                       <span
                         key={g}
-                        className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
-                          isInherited
-                            ? 'bg-[var(--muted)] text-[var(--muted-foreground)] border-[var(--border)]'
-                            : 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border-brand-200 dark:border-brand-800'
-                        }`}
+                        className="text-[10px] px-2 py-0.5 rounded-full border font-medium bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border-brand-200 dark:border-brand-800"
                       >
                         {PERM_LABELS.find((l) => l.key === g)?.label ?? g}
                       </span>
@@ -590,7 +652,7 @@ export function AdminUsersPage() {
 
             {/* Per-permission overrides */}
             <div className="space-y-2">
-              <p className="text-sm font-medium text-[var(--foreground)]">Overrides</p>
+              <p className="text-sm font-medium text-[var(--foreground)]">Permission Overrides</p>
               {PERM_LABELS.map(({ key, label }) => (
                 <PermissionRow
                   key={key}
@@ -602,6 +664,52 @@ export function AdminUsersPage() {
                 />
               ))}
             </div>
+
+            {/* Effective Permissions — live preview */}
+            {(() => {
+              const userPolicyGrants = perms.policyId
+                ? (policies.find(p => p._id === perms.policyId)?.grants ?? [])
+                : [];
+              const deptDirectPerms = permTarget?.department?.permissions;
+              const deptPolicyGrants = deptPolicy?.grants ?? [];
+              return (
+                <div className="space-y-2 pt-1 border-t border-[var(--border)]">
+                  <p className="text-sm font-medium text-[var(--foreground)] flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-[var(--muted-foreground)]" />
+                    Effective Permissions
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PERM_LABELS.map(({ key, label }) => {
+                      const userOverride = perms.permissions[key];
+                      let effective: boolean;
+                      if (userOverride !== null) {
+                        effective = userOverride as boolean;
+                      } else if (userPolicyGrants.includes(key)) {
+                        effective = true;
+                      } else if (deptDirectPerms?.[key]) {
+                        effective = true;
+                      } else if (deptPolicyGrants.includes(key)) {
+                        effective = true;
+                      } else {
+                        effective = false;
+                      }
+                      return (
+                        <span
+                          key={key}
+                          className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                            effective
+                              ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border-brand-300 dark:border-brand-700'
+                              : 'bg-[var(--background)] text-[var(--muted-foreground)] border-[var(--border)]'
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="flex gap-2 justify-end pt-1">
               <Button variant="outline" onClick={() => setPermTarget(null)}>
