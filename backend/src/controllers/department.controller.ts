@@ -95,12 +95,14 @@ export default class DepartmentController {
     try {
       const org = req.organization!;
       const user = req.user!;
-      const { name, budget, budgetResetPeriod, approvalThresholds } =
+      const { name, budget, budgetResetPeriod, approvalThresholds, permissions, policyId } =
         req.body as {
           name: string;
           budget?: number | string;
           budgetResetPeriod?: string;
           approvalThresholds?: Record<string, number>;
+          permissions?: Record<string, boolean>;
+          policyId?: string | null;
         };
 
       const duplicate = await Department.findOne({
@@ -120,6 +122,16 @@ export default class DepartmentController {
         ? (budgetResetPeriod as any)
         : BUDGET_RESET_PERIODS.NONE;
 
+      // const safePerms: Record<string, boolean> = {};
+      // if (permissions && typeof permissions === "object") {
+      //   const validKeys = Object.values(PERMISSION_KEY) as string[];
+      //   for (const [key, value] of Object.entries(permissions)) {
+      //     if (validKeys.includes(key) && typeof value === "boolean") {
+      //       safePerms[key] = value;
+      //     }
+      //   }
+      // }
+
       const dept = await Department.create({
         orgId: org._id,
         name: name.trim(),
@@ -130,6 +142,9 @@ export default class DepartmentController {
         approvalThresholds: new Map(
           Object.entries(approvalThresholds ?? {}),
         ),
+        // ...(Object.keys(safePerms).length > 0 ? { permissions: safePerms } : {}),
+        permissions: permissions && typeof permissions === "object" ? permissions : {},
+        policyId: policyId ? new Types.ObjectId(policyId) : null,
       });
 
       emitDeptCreated(org._id.toString(), dept.toData(), user._id.toString());
@@ -215,6 +230,8 @@ export default class DepartmentController {
         permissions?: Record<string, boolean>;
         policyId?: string | null;
       };
+
+      console.log("Updating permissions for dept", dept._id, "with", permissions, "and policyId", policyId);
 
       if (permissions && typeof permissions === "object") {
         const validKeys = Object.values(PERMISSION_KEY) as string[];
