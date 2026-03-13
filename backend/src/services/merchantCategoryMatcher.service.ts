@@ -7,6 +7,8 @@ import { logError } from "../utils/logger.js";
 
 const MAX_CANDIDATES = 50;
 
+// TODO: implement a more robust string similarity algorithm and consider edge cases (e.g. non-Latin scripts, very short names)
+
 interface Candidate {
   _id: string;
   name: string;
@@ -32,7 +34,12 @@ interface EntityMatchResponse {
 }
 
 function normalizeText(value: string): string {
-  return value.toLowerCase().trim().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function scoreCandidate(input: string | null, candidate: Candidate): number {
@@ -41,27 +48,40 @@ function scoreCandidate(input: string | null, candidate: Candidate): number {
   const normalizedInput = normalizeText(input);
   if (!normalizedInput) return 0;
 
-  const normalizedCandidate = normalizeText(candidate.normalizedName || candidate.name);
+  const normalizedCandidate = normalizeText(
+    candidate.normalizedName || candidate.name,
+  );
   if (!normalizedCandidate) return 0;
 
   if (normalizedCandidate === normalizedInput) return 1;
-  if (normalizedCandidate.includes(normalizedInput) || normalizedInput.includes(normalizedCandidate)) {
+  if (
+    normalizedCandidate.includes(normalizedInput) ||
+    normalizedInput.includes(normalizedCandidate)
+  ) {
     return 0.92;
   }
 
   const inputTokens = new Set(normalizedInput.split(" "));
   const candidateTokens = new Set(normalizedCandidate.split(" "));
-  const overlapCount = [...inputTokens].filter((token) => candidateTokens.has(token)).length;
+  const overlapCount = [...inputTokens].filter((token) =>
+    candidateTokens.has(token),
+  ).length;
   const maxSize = Math.max(inputTokens.size, candidateTokens.size, 1);
 
   return overlapCount / maxSize;
 }
 
-function findDeterministicMatch(input: string | null, candidates: Candidate[]): Candidate | null {
+function findDeterministicMatch(
+  input: string | null,
+  candidates: Candidate[],
+): Candidate | null {
   if (!input) return null;
 
   const ranked = candidates
-    .map((candidate) => ({ candidate, score: scoreCandidate(input, candidate) }))
+    .map((candidate) => ({
+      candidate,
+      score: scoreCandidate(input, candidate),
+    }))
     .sort((a, b) => b.score - a.score);
 
   const top = ranked[0];
@@ -99,8 +119,14 @@ ${JSON.stringify(
   {
     suggestedMerchantName,
     suggestedCategoryName,
-    merchantCandidates: merchantCandidates.map(({ _id, name }) => ({ _id, name })),
-    categoryCandidates: categoryCandidates.map(({ _id, name }) => ({ _id, name })),
+    merchantCandidates: merchantCandidates.map(({ _id, name }) => ({
+      _id,
+      name,
+    })),
+    categoryCandidates: categoryCandidates.map(({ _id, name }) => ({
+      _id,
+      name,
+    })),
   },
   null,
   2,
@@ -113,12 +139,16 @@ ${JSON.stringify(
   const parsed = JSON.parse(raw) as EntityMatchResponse;
 
   return {
-    merchantId: typeof parsed.merchantId === "string" ? parsed.merchantId : null,
-    categoryId: typeof parsed.categoryId === "string" ? parsed.categoryId : null,
+    merchantId:
+      typeof parsed.merchantId === "string" ? parsed.merchantId : null,
+    categoryId:
+      typeof parsed.categoryId === "string" ? parsed.categoryId : null,
   };
 }
 
-export async function resolveMerchantAndCategoryMatches(input: MatchInput): Promise<MatchOutput> {
+export async function resolveMerchantAndCategoryMatches(
+  input: MatchInput,
+): Promise<MatchOutput> {
   const { orgId, suggestedMerchantName, suggestedCategoryName } = input;
 
   const [merchants, categories] = await Promise.all([
@@ -146,11 +176,21 @@ export async function resolveMerchantAndCategoryMatches(input: MatchInput): Prom
     normalizedName: category.normalizedName,
   }));
 
-  const deterministicMerchant = findDeterministicMatch(suggestedMerchantName, merchantCandidates);
-  const deterministicCategory = findDeterministicMatch(suggestedCategoryName, categoryCandidates);
+  const deterministicMerchant = findDeterministicMatch(
+    suggestedMerchantName,
+    merchantCandidates,
+  );
+  const deterministicCategory = findDeterministicMatch(
+    suggestedCategoryName,
+    categoryCandidates,
+  );
 
-  let merchantId = deterministicMerchant ? new Types.ObjectId(deterministicMerchant._id) : null;
-  let categoryId = deterministicCategory ? new Types.ObjectId(deterministicCategory._id) : null;
+  let merchantId = deterministicMerchant
+    ? new Types.ObjectId(deterministicMerchant._id)
+    : null;
+  let categoryId = deterministicCategory
+    ? new Types.ObjectId(deterministicCategory._id)
+    : null;
 
   if (!merchantId || !categoryId) {
     try {
@@ -161,10 +201,18 @@ export async function resolveMerchantAndCategoryMatches(input: MatchInput): Prom
         categoryCandidates,
       );
 
-      if (!merchantId && aiResolved.merchantId && merchantCandidates.some((m) => m._id === aiResolved.merchantId)) {
+      if (
+        !merchantId &&
+        aiResolved.merchantId &&
+        merchantCandidates.some((m) => m._id === aiResolved.merchantId)
+      ) {
         merchantId = new Types.ObjectId(aiResolved.merchantId);
       }
-      if (!categoryId && aiResolved.categoryId && categoryCandidates.some((c) => c._id === aiResolved.categoryId)) {
+      if (
+        !categoryId &&
+        aiResolved.categoryId &&
+        categoryCandidates.some((c) => c._id === aiResolved.categoryId)
+      ) {
         categoryId = new Types.ObjectId(aiResolved.categoryId);
       }
     } catch (error) {
