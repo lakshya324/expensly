@@ -4,6 +4,7 @@ import { AppShell } from '@/shared/components/layout/AppShell';
 import { DataTable, type Column } from '@/shared/components/data-display/DataTable';
 import { StatusBadge } from '@/shared/components/data-display/StatusBadge';
 import { ExpenseFiltersBar } from '../components/ExpenseFiltersBar';
+import { AiValidationIndicator } from '../components/AiValidationIndicator';
 import { useExpenses } from '../hooks/useExpenses';
 import { formatDate, formatCurrency } from '@/core/utils/formatters';
 import { ROUTES } from '@/core/constants/constants';
@@ -20,7 +21,12 @@ const COLUMNS: Column<ITicketSummaryData>[] = [
     header: 'Title',
     render: (row) => (
       <div>
-        <p className="font-medium text-foreground line-clamp-1">{row.title}</p>
+        <p className="font-medium text-foreground line-clamp-1 flex items-center gap-2">
+          <span className="truncate">
+            {row.title ?? <span className="italic text-muted-foreground">Untitled</span>}
+          </span>
+          <AiValidationIndicator aiValidation={row.aiValidation} ocrData={row.ocrData} />
+        </p>
         {row.tags?.length > 0 && (
           <p className="text-xs text-muted-foreground mt-0.5">{row.tags.slice(0, 3).join(', ')}</p>
         )}

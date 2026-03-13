@@ -36,4 +36,12 @@ export interface IAiValidationResult {
   suggestedDate: string | null;
   /** Merchant name as it appears on the receipt */
   suggestedMerchantName: string | null;
+  /** Suggested category name inferred from receipt context */
+  suggestedCategoryName: string | null;
+  /** Suggested description inferred from receipt context */
+  suggestedDescription: string | null;
+  /** Fallback merchant text when no structured merchant match is found */
+  unmatchedMerchantSuggestionText: string | null;
+  /** Fallback category text when no structured category match is found */
+  unmatchedCategorySuggestionText: string | null;
 }

@@ -7,6 +7,7 @@ import { StatusBadge } from '@/shared/components/data-display/StatusBadge';
 import { StatCard } from '@/shared/components/data-display/StatCard';
 import { Button } from '@/shared/components/ui/Button';
 import { ExpenseFiltersBar } from '../components/ExpenseFiltersBar';
+import { AiValidationIndicator } from '../components/AiValidationIndicator';
 import { useExpenses, useExpenseStats } from '../hooks/useExpenses';
 import { ROUTES, CURRENCY_SYMBOLS } from '@/core/constants/constants';
 import { formatDate } from '@/core/utils/formatters';
@@ -53,8 +54,11 @@ export function ExpensesPage() {
       header: 'Title',
       render: (row) => (
         <div>
-          <p className="font-medium text-(--foreground) truncate max-w-50">
-            {row.title ?? <span className="italic text-(--muted-foreground)">Untitled</span>}
+          <p className="font-medium text-(--foreground) truncate max-w-50 flex items-center gap-2">
+            <span className="truncate">
+              {row.title ?? <span className="italic text-(--muted-foreground)">Untitled</span>}
+            </span>
+            <AiValidationIndicator aiValidation={row.aiValidation} ocrData={row.ocrData} />
           </p>
           <p className="text-xs text-(--muted-foreground) mt-0.5">
             {row.tags.slice(0, 2).join(', ')}

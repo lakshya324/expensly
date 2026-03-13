@@ -63,6 +63,10 @@ export interface AiValidation {
   suggestedCurrency: string | null;
   suggestedDate: string | null;
   suggestedMerchantName: string | null;
+  suggestedCategoryName: string | null;
+  suggestedDescription: string | null;
+  unmatchedMerchantSuggestionText: string | null;
+  unmatchedCategorySuggestionText: string | null;
 }
 
 export interface IReceiptRef {

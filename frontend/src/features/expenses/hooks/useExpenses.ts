@@ -4,6 +4,8 @@ import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
 import type { ITicketData, ITicketSummaryData, IDiscussionMessageData } from '@/core/types/ticket.types';
 import type { ApiResponse, PaginatedData, TicketStatus } from '@/core/types/api.types';
+import { useSocket } from '@/shared/hooks/useSocket';
+import type { SocketEnvelope } from '@/core/types/socket.types';
 
 interface TicketFilters {
   page?: number;
@@ -42,6 +44,75 @@ export function useExpenses(filters: TicketFilters = {}) {
   }, [JSON.stringify(filters)]);
 
   useEffect(() => { fetch(); }, [fetch]);
+
+  const mergeTicketIntoList = useCallback((ticket: ITicketData) => {
+    setData((prev) =>
+      prev.map((row) => (row._id === ticket._id ? ({ ...row, ...ticket } as ITicketSummaryData) : row)),
+    );
+  }, []);
+
+  const markTicketOcrFailure = useCallback((ticketId: string, error: string) => {
+    setData((prev) =>
+      prev.map((row) => {
+        if (row._id !== ticketId) return row;
+        return {
+          ...row,
+          ocrData: {
+            ...(row.ocrData ?? {
+              merchantName: null,
+              amount: null,
+              currency: null,
+              transactionDate: null,
+              taxAmount: null,
+              suggestedCategory: null,
+              rawText: null,
+              confidence: null,
+              processedAt: null,
+            }),
+            status: 'failed',
+            processedAt: new Date().toISOString(),
+          },
+          aiValidation: {
+            status: 'error',
+            checks: [],
+            summary: error || 'OCR extraction failed. AI validation could not be completed.',
+            validatedAt: new Date().toISOString(),
+            suggestedTitle: null,
+            suggestedAmount: null,
+            suggestedCurrency: null,
+            suggestedDate: null,
+            suggestedMerchantName: null,
+            suggestedCategoryName: null,
+            suggestedDescription: null,
+            unmatchedMerchantSuggestionText: null,
+            unmatchedCategorySuggestionText: null,
+          },
+        };
+      }),
+    );
+  }, []);
+
+  const handleAiValidated = useCallback((payload: SocketEnvelope<{ ticket: ITicketData }>) => {
+    const ticket = payload?.data?.ticket;
+    if (!ticket) return;
+    mergeTicketIntoList(ticket);
+  }, [mergeTicketIntoList]);
+
+  const handleOcrCompleted = useCallback((payload: SocketEnvelope<{ ticket: ITicketData }>) => {
+    const ticket = payload?.data?.ticket;
+    if (!ticket) return;
+    mergeTicketIntoList(ticket);
+  }, [mergeTicketIntoList]);
+
+  const handleOcrFailed = useCallback((payload: SocketEnvelope<{ ticketId: string; error: string }>) => {
+    const ticketId = payload?.data?.ticketId;
+    if (!ticketId) return;
+    markTicketOcrFailure(ticketId, payload?.data?.error ?? 'OCR extraction failed');
+  }, [markTicketOcrFailure]);
+
+  useSocket('ticket:ai_validated', handleAiValidated);
+  useSocket('ticket:ocr_completed', handleOcrCompleted);
+  useSocket('ticket:ocr_failed', handleOcrFailed);
 
   return { data, pagination, loading, error, refetch: fetch };
 }

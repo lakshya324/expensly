@@ -8,49 +8,14 @@
  * 4. If ticket was in `scanning` state — auto-fill extracted fields and promote to `draft`
  * 5. Emit socket event to org room
  */
-import { Types } from "mongoose";
 import { Ticket } from "../../models/Ticket.model.js";
-import { Merchant } from "../../models/Merchant.model.js";
 import { AI_VALIDATION_STATUS, TICKET_STATUS, CURRENCIES } from "../../config/constants.js";
 import { AiValidateJob } from "../../types/queue.types.js";
 import { validateTicket } from "../../services/aiValidation.service.js";
+import { resolveMerchantAndCategoryMatches } from "../../services/merchantCategoryMatcher.service.js";
 import { emitAiValidated, emitTicketUpdate } from "../../websocket/handlers/ticket.handler.js";
 import { logError, logInfo } from "../../utils/logger.js";
 import type { Currency } from "../../config/constants.js";
-
-// ─── Merchant fuzzy-match helper ──────────────────────────────────────────────
-
-/** Strip all non-alphanumeric chars and lowercase for fuzzy comparison. */
-function normalizeStr(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-/**
- * Attempt to match the AI-suggested merchant name against the org's merchant list.
- * Returns the matched merchant's ObjectId or null if no confident match is found.
- */
-async function findMatchingMerchant(
-  orgId: string,
-  suggestedName: string | null | undefined,
-): Promise<Types.ObjectId | null> {
-  if (!suggestedName) return null;
-  const normInput = normalizeStr(suggestedName);
-  if (!normInput) return null;
-
-  const merchants = await Merchant.find({
-    orgId: new Types.ObjectId(orgId),
-    isActive: true,
-  }).select("_id normalizedName");
-
-  for (const m of merchants) {
-    const normMerchant = normalizeStr(m.normalizedName);
-    // Exact or contained-match on normalized strings
-    if (normMerchant === normInput || normMerchant.includes(normInput) || normInput.includes(normMerchant)) {
-      return m._id;
-    }
-  }
-  return null;
-}
 
 // ─── Job processor ────────────────────────────────────────────────────────────
 
@@ -77,12 +42,15 @@ export async function processAiValidationJob(job: AiValidateJob): Promise<void> 
     suggestedCurrency: null,
     suggestedDate: null,
     suggestedMerchantName: null,
+    suggestedCategoryName: null,
+    suggestedDescription: null,
+    unmatchedMerchantSuggestionText: null,
+    unmatchedCategorySuggestionText: null,
   } as typeof ticket.aiValidation;
   await ticket.save();
 
   // Run validation (also extracts ticket fields from rawText for scanning flow)
   const result = await validateTicket(ticket, ticket.ocrData ?? null);
-  ticket.aiValidation = result;
 
   // ─── Scanning → Draft promotion ───────────────────────────────────────────
   if (wasScanning) {
@@ -99,17 +67,31 @@ export async function processAiValidationJob(job: AiValidateJob): Promise<void> 
     if (result.suggestedDate && ticket.ocrData && !ticket.ocrData.transactionDate) {
       ticket.ocrData.transactionDate = result.suggestedDate;
     }
-
-    // Fuzzy-match merchant and link if confident
-    const matchedMerchantId = await findMatchingMerchant(orgId, result.suggestedMerchantName);
-    if (matchedMerchantId) {
-      ticket.merchant = matchedMerchantId;
+    if (result.suggestedDescription && !ticket.description?.trim()) {
+      ticket.description = result.suggestedDescription;
     }
+
+    const matchedEntities = await resolveMerchantAndCategoryMatches({
+      orgId,
+      suggestedMerchantName: result.suggestedMerchantName,
+      suggestedCategoryName: result.suggestedCategoryName,
+    });
+
+    if (matchedEntities.merchantId) {
+      ticket.merchant = matchedEntities.merchantId;
+    }
+    if (matchedEntities.categoryId) {
+      ticket.category = matchedEntities.categoryId;
+    }
+    result.unmatchedMerchantSuggestionText = matchedEntities.unmatchedMerchantSuggestionText;
+    result.unmatchedCategorySuggestionText = matchedEntities.unmatchedCategorySuggestionText;
 
     // Promote to draft — the user now sees their ticket pre-filled and can review/edit
     ticket.status = TICKET_STATUS.DRAFT;
     logInfo(`[AI Validation Worker] Promoted ticket ${ticketId} scanning → draft`);
   }
+
+  ticket.aiValidation = result;
 
   await ticket.save();
 

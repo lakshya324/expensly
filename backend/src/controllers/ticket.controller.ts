@@ -8,6 +8,8 @@ import {
   MAX_LIMIT,
   PERMISSION_KEY,
   RECEIPT_USE_CASE,
+  OCR_STATUS,
+  AI_VALIDATION_STATUS,
 } from "../config/constants.js";
 import {
   deleteReceiptsAndFiles,
@@ -52,7 +54,6 @@ import {
 import { listTicketsPaginated } from "../services/ticket.service.js";
 import { extractReceiptData } from "../services/ocr.service.js";
 import { enqueueJob } from "../services/queue.service.js";
-import { OCR_STATUS } from "../config/constants.js";
 import { logAction } from "../services/auditLog.service.js";
 import {
   AUDIT_ACTION,
@@ -283,6 +284,35 @@ export default class TicketController {
                 comments: null,
               }
             : null,
+        ocrData: receiptId
+          ? {
+              status: OCR_STATUS.PENDING,
+              merchantName: null,
+              amount: null,
+              currency: null,
+              transactionDate: null,
+              taxAmount: null,
+              suggestedCategory: null,
+              rawText: null,
+              confidence: null,
+              processedAt: null,
+            }
+          : null,
+        aiValidation: {
+          status: AI_VALIDATION_STATUS.PENDING,
+          checks: [],
+          summary: null,
+          validatedAt: null,
+          suggestedTitle: null,
+          suggestedAmount: null,
+          suggestedCurrency: null,
+          suggestedDate: null,
+          suggestedMerchantName: null,
+          suggestedCategoryName: null,
+          suggestedDescription: null,
+          unmatchedMerchantSuggestionText: null,
+          unmatchedCategorySuggestionText: null,
+        },
         ...(timestamp && { createdAt: new Date(timestamp) }),
       });
 
@@ -314,6 +344,30 @@ export default class TicketController {
         entityId: ticket._id.toString(),
       }).catch(() => {});
       emitNewTicket(org._id.toString(), ticketData, user._id.toString());
+
+      // Start async AI validation for every created expense.
+      // If a receipt exists, OCR runs first and chains AI validation.
+      try {
+        if (receiptId) {
+          await enqueueJob({
+            jobType: QueueJobType.OcrScan,
+            ticketId: ticket._id.toString(),
+            receiptId: receiptId.toString(),
+            orgId: org._id.toString(),
+          });
+        } else {
+          await enqueueJob({
+            jobType: QueueJobType.AiValidate,
+            ticketId: ticket._id.toString(),
+            orgId: org._id.toString(),
+          });
+        }
+      } catch (err) {
+        logError(err, {
+          message: `Failed to enqueue async validation for ticket ${ticket._id.toString()}`,
+          code: "TICKET_ASYNC_VALIDATION_ENQUEUE_ERROR",
+        });
+      }
 
       // Notify manager and org admins only for pending submissions (non-blocking)
       if (ticketStatus === TICKET_STATUS.PENDING) {
@@ -887,6 +941,21 @@ export default class TicketController {
           rawText: null,
           confidence: null,
           processedAt: null,
+        },
+        aiValidation: {
+          status: AI_VALIDATION_STATUS.PENDING,
+          checks: [],
+          summary: null,
+          validatedAt: null,
+          suggestedTitle: null,
+          suggestedAmount: null,
+          suggestedCurrency: null,
+          suggestedDate: null,
+          suggestedMerchantName: null,
+          suggestedCategoryName: null,
+          suggestedDescription: null,
+          unmatchedMerchantSuggestionText: null,
+          unmatchedCategorySuggestionText: null,
         },
       });
 

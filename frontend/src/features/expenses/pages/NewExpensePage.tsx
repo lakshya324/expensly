@@ -251,12 +251,15 @@ function AiReviewStep({
   const [title, setTitle] = useState(draft.title ?? '');
   const [amount, setAmount] = useState(draft.amount?.toString() ?? '');
   const [currency, setCurrency] = useState(draft.currency ?? activeCurrencies[0] ?? 'USD');
-  const [description, setDescription] = useState(draft.description ?? '');
+  const [description, setDescription] = useState(draft.description || draft.aiValidation?.suggestedDescription || '');
   const [merchant, setMerchant] = useState(draft.merchant?._id ?? '');
   const [category, setCategory] = useState(draft.category?._id ?? '');
 
   const ocr = draft.ocrData;
   const ai = draft.aiValidation;
+  const merchantSuggestionText = ai?.unmatchedMerchantSuggestionText ?? ai?.suggestedMerchantName;
+  const categorySuggestionText =
+    ai?.unmatchedCategorySuggestionText ?? ai?.suggestedCategoryName ?? ocr?.suggestedCategory;
   const failedChecks = ai?.checks?.filter((check) => !check.passed) ?? [];
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -285,6 +288,9 @@ function AiReviewStep({
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-brand-500 to-purple-600 text-white">
               <Sparkles className="w-3 h-3" /> AI
             </span>
+            {draft.status === 'draft' && (
+              <Badge variant="muted" className="text-[10px] px-1.5 py-0.5">Saved as Draft</Badge>
+            )}
           </div>
           <p className="text-sm text-[var(--muted-foreground)]">Review and confirm the extracted details</p>
         </div>
@@ -380,8 +386,8 @@ function AiReviewStep({
                 <option value="">Select merchant</option>
                 {merchants.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}
               </select>
-              {ai?.suggestedMerchantName && (
-                <p className="mt-1 text-xs text-[var(--muted-foreground)]">AI suggested: {ai.suggestedMerchantName}</p>
+              {merchantSuggestionText && (
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">AI suggested: {merchantSuggestionText}</p>
               )}
             </div>
             <div>
@@ -394,8 +400,8 @@ function AiReviewStep({
                 <option value="">Select category</option>
                 {categories.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}
               </select>
-              {ocr?.suggestedCategory && (
-                <p className="mt-1 text-xs text-[var(--muted-foreground)]">AI suggested: {ocr.suggestedCategory}</p>
+              {categorySuggestionText && (
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">AI suggested: {categorySuggestionText}</p>
               )}
             </div>
           </div>
@@ -413,6 +419,9 @@ function AiReviewStep({
               placeholder="Optional details..."
               className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
             />
+            {ai?.suggestedDescription && (
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">AI suggested: {ai.suggestedDescription}</p>
+            )}
           </div>
 
           {/* OCR confidence bar */}

@@ -30,10 +30,12 @@ interface CheckResult {
 
 interface GptExtracted {
   title: string | null;
+  description: string | null;
   amount: number | null;
   currency: string | null;
   date: string | null;
   merchantName: string | null;
+  categoryName: string | null;
 }
 
 interface GptValidationResponse {
@@ -78,10 +80,12 @@ Respond ONLY with a valid JSON object (no markdown, no extra text):
 {
   "extracted": {
     "title": "short descriptive title inferred from receipt (e.g. 'Starbucks coffee')" or null,
+    "description": "1-2 line summary for expense notes" or null,
     "amount": total amount as a number or null,
     "currency": "ISO 4217 code (e.g. USD)" or null,
     "date": "YYYY-MM-DD" or null,
-    "merchantName": "merchant name as it appears on the receipt" or null
+    "merchantName": "merchant name as it appears on the receipt" or null,
+    "categoryName": "best matching expense category label based on receipt context" or null
   },
   "checks": [
     {
@@ -170,6 +174,10 @@ export const validateTicket = async (
       suggestedCurrency: (typeof ext.currency === "string" ? ext.currency : null),
       suggestedDate: (typeof ext.date === "string" ? ext.date : null),
       suggestedMerchantName: (typeof ext.merchantName === "string" ? ext.merchantName : null),
+      suggestedCategoryName: (typeof ext.categoryName === "string" ? ext.categoryName : null),
+      suggestedDescription: (typeof ext.description === "string" ? ext.description : null),
+      unmatchedMerchantSuggestionText: null,
+      unmatchedCategorySuggestionText: null,
     };
   } catch (err) {
     logError(err as Error, {
@@ -186,6 +194,10 @@ export const validateTicket = async (
       suggestedCurrency: null,
       suggestedDate: null,
       suggestedMerchantName: null,
+      suggestedCategoryName: null,
+      suggestedDescription: null,
+      unmatchedMerchantSuggestionText: null,
+      unmatchedCategorySuggestionText: null,
     };
   }
 };
