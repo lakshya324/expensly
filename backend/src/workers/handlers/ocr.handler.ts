@@ -11,7 +11,7 @@
  */
 import { Ticket } from "../../models/Ticket.model.js";
 import { OCR_STATUS } from "../../config/constants.js";
-import { OcrScanJob } from "../../types/queue.types.js";
+import { OcrScanJob, QueueJobType } from "../../types/queue.types.js";
 import { extractReceiptData } from "../../services/ocr.service.js";
 import { enqueueJob } from "../../services/queue.service.js";
 import { emitOcrCompleted, emitOcrFailed } from "../../websocket/handlers/ticket.handler.js";
@@ -47,7 +47,7 @@ export async function processOcrJob(job: OcrScanJob): Promise<void> {
   if (ocrData.status === OCR_STATUS.COMPLETED) {
     emitOcrCompleted(orgId, ticketData);
     // Automatically chain AI validation
-    await enqueueJob({ jobType: "ai_validate", ticketId, orgId });
+    await enqueueJob({ jobType: QueueJobType.AiValidate, ticketId, orgId });
     logInfo(`[OCR Worker] OCR completed for ticket ${ticketId} — ai_validate enqueued`);
   } else {
     emitOcrFailed(orgId, ticketId, "OCR extraction failed");

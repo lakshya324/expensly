@@ -54,6 +54,7 @@ import { IUser } from "../types/user.types.js";
 import { IOrganization } from "../types/organization.types.js";
 import { Bundle } from "../models/Bundle.model.js";
 import { Receipt } from "../models/Receipt.model.js";
+import { QueueJobType } from "../types/queue.types.js";
 
 export default class TicketController {
   /**
@@ -811,7 +812,7 @@ export default class TicketController {
       });
 
       await enqueueJob({
-        jobType: "ocr_scan",
+        jobType: QueueJobType.OcrScan,
         ticketId: ticket._id.toString(),
         receiptId: receiptId.toString(),
         orgId: org._id.toString(),
