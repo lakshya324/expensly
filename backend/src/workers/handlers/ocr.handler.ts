@@ -10,13 +10,13 @@
  * 6. Emit socket event to org room
  */
 import { Ticket } from "../../models/Ticket.model.js";
-import { OCR_STATUS } from "../../config/constants.js";
+import { OCR_STATUS, TICKET_STATUS } from "../../config/constants.js";
 import { OcrScanJob, QueueJobType } from "../../types/queue.types.js";
 import { extractReceiptData } from "../../services/ocr.service.js";
 import { enqueueJob } from "../../services/queue.service.js";
 import { emitOcrCompleted, emitOcrFailed } from "../../websocket/handlers/ticket.handler.js";
 import { logError, logInfo } from "../../utils/logger.js";
-import { getReceiptS3Key } from "../../services/receipt.service.js";
+import { Receipt } from "../../models/Receipt.model.js";
 
 export async function processOcrJob(job: OcrScanJob): Promise<void> {
   const { ticketId, receiptId, orgId } = job;
@@ -34,12 +34,30 @@ export async function processOcrJob(job: OcrScanJob): Promise<void> {
   } as typeof ticket.ocrData;
   await ticket.save();
 
-  // Resolve Receipt document to S3 key
-  const receiptKey = await getReceiptS3Key(receiptId);
+  const receipt = await Receipt.findOne({ _id: receiptId, orgId }).select("s3Key mimetype");
+  if (!receipt) {
+    ticket.status = TICKET_STATUS.OCR_FAILED;
+    ticket.ocrData = {
+      ...(ticket.ocrData ?? {}),
+      status: OCR_STATUS.FAILED,
+      processedAt: new Date().toISOString(),
+    } as typeof ticket.ocrData;
+    await ticket.save();
+
+    emitOcrFailed(orgId, ticketId, "Receipt metadata not found");
+    logError(new Error("Receipt metadata not found"), {
+      message: `OCR failed for ticket ${ticketId}`,
+      code: "OCR_WORKER_FAILED",
+    });
+    return;
+  }
 
   // Run OCR
-  const ocrData = await extractReceiptData(receiptKey, orgId);
+  const ocrData = await extractReceiptData(receipt.s3Key, receipt.mimetype, orgId);
   ticket.ocrData = ocrData;
+  if (ocrData.status === OCR_STATUS.FAILED) {
+    ticket.status = TICKET_STATUS.OCR_FAILED;
+  }
   await ticket.save();
 
   const ticketData = await ticket.data(ticket.toObject() as never);

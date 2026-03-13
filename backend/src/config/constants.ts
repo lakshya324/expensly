@@ -13,6 +13,7 @@ export type Role = (typeof ROLES)[keyof typeof ROLES];
 export const TICKET_STATUS = {
   DRAFT: 'draft',       // saved / AI-filled, not yet submitted
   SCANNING: 'scanning', // OCR + AI in progress (receipt-only flow)
+  OCR_FAILED: 'ocr_failed', // OCR pipeline failed, terminal private state
   PENDING: 'pending',
   AWAITING_FINANCE: 'awaiting_finance', // previously manager_approved
   APPROVED: 'approved',

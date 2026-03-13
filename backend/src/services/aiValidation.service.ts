@@ -131,7 +131,7 @@ export const validateTicket = async (
   try {
     const completion = await openai.chat.completions.create({
       model: config.openai.model,
-      temperature: 0.1,
+      // temperature: 0.1, // not supported in gpt 5 models
       response_format: { type: "json_object" },
       messages: [
         {

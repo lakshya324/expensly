@@ -9,7 +9,10 @@ import {
   PERMISSION_KEY,
   RECEIPT_USE_CASE,
 } from "../config/constants.js";
-import { deleteReceiptsAndFiles, getReceiptUrl } from "../services/receipt.service.js";
+import {
+  deleteReceiptsAndFiles,
+  getReceiptUrl,
+} from "../services/receipt.service.js";
 import { createError } from "../utils/error.js";
 import { AuthRequest } from "../types/types.js";
 import { buildTicketFilter } from "../utils/tickets.js";
@@ -19,7 +22,11 @@ import {
   ResponsePayload,
 } from "../types/payloads.types.js";
 import { logError } from "../utils/logger.js";
-import { ITicket, ITicketData, ITicketSummaryData } from "../types/ticket.types.js";
+import {
+  ITicket,
+  ITicketData,
+  ITicketSummaryData,
+} from "../types/ticket.types.js";
 import { Ticket } from "../models/Ticket.model.js";
 import { User } from "../models/User.model.js";
 import { Department } from "../models/Department.model.js";
@@ -46,10 +53,12 @@ import { listTicketsPaginated } from "../services/ticket.service.js";
 import { extractReceiptData } from "../services/ocr.service.js";
 import { enqueueJob } from "../services/queue.service.js";
 import { OCR_STATUS } from "../config/constants.js";
+import { logAction } from "../services/auditLog.service.js";
 import {
-  logAction,
-} from "../services/auditLog.service.js";
-import { AUDIT_ACTION, ENTITY_TYPE, BUNDLE_STATUS } from "../config/constants.js";
+  AUDIT_ACTION,
+  ENTITY_TYPE,
+  BUNDLE_STATUS,
+} from "../config/constants.js";
 import { IUser } from "../types/user.types.js";
 import { IOrganization } from "../types/organization.types.js";
 import { Bundle } from "../models/Bundle.model.js";
@@ -71,13 +80,19 @@ export default class TicketController {
       ]);
 
       const map: Record<string, number> = {};
-      counts.forEach(({ _id, count }) => { map[_id] = count; });
+      counts.forEach(({ _id, count }) => {
+        map[_id] = count;
+      });
 
       const stats = {
         total: counts.reduce((s, c) => s + c.count, 0),
-        draft: (map[TICKET_STATUS.DRAFT] ?? 0) + (map[TICKET_STATUS.SCANNING] ?? 0), 
+        draft:
+          (map[TICKET_STATUS.DRAFT] ?? 0) + (map[TICKET_STATUS.SCANNING] ?? 0),
+        // + (map[TICKET_STATUS.OCR_FAILED] ?? 0)
         // cando: draft can be used to show "tickets in progress" before submission or juct user side... idk will figure out in the frontend
-        pending: (map[TICKET_STATUS.PENDING] ?? 0) + (map[TICKET_STATUS.AWAITING_FINANCE] ?? 0),
+        pending:
+          (map[TICKET_STATUS.PENDING] ?? 0) +
+          (map[TICKET_STATUS.AWAITING_FINANCE] ?? 0),
         approved: map[TICKET_STATUS.APPROVED] ?? 0,
         rejected: map[TICKET_STATUS.REJECTED] ?? 0,
       };
@@ -251,7 +266,9 @@ export default class TicketController {
       }
 
       // Link to bundle if bundleId was provided (non-fatal — silently ignored if bundle not found)
-      const bundleId = (req.body as Record<string, string | undefined>)["bundleId"];
+      const bundleId = (req.body as Record<string, string | undefined>)[
+        "bundleId"
+      ];
       if (bundleId) {
         try {
           await Bundle.findOneAndUpdate(
@@ -378,10 +395,16 @@ export default class TicketController {
           "FORBIDDEN",
         );
 
-      const { title, amount, currency, description, tags, department: deptId, merchant: merchantId, category: categoryId } = req.body as Record<
-        string,
-        string | undefined
-      >;
+      const {
+        title,
+        amount,
+        currency,
+        description,
+        tags,
+        department: deptId,
+        merchant: merchantId,
+        category: categoryId,
+      } = req.body as Record<string, string | undefined>;
       if (title !== undefined) ticket.title = title;
       if (amount !== undefined) ticket.amount = parseFloat(amount);
       if (currency !== undefined)
@@ -394,9 +417,21 @@ export default class TicketController {
 
       // Allow department update only when the ticket is in draft state
       if (deptId !== undefined) {
-        if (ticket.status === TICKET_STATUS.DRAFT || ticket.status === TICKET_STATUS.SCANNING) {
-          const deptDoc = await Department.findOne({ _id: deptId, orgId: org._id, isActive: true });
-          if (!deptDoc) throw createError("Department not found or inactive", 400, "INVALID_DEPARTMENT");
+        if (
+          ticket.status === TICKET_STATUS.DRAFT ||
+          ticket.status === TICKET_STATUS.SCANNING
+        ) {
+          const deptDoc = await Department.findOne({
+            _id: deptId,
+            orgId: org._id,
+            isActive: true,
+          });
+          if (!deptDoc)
+            throw createError(
+              "Department not found or inactive",
+              400,
+              "INVALID_DEPARTMENT",
+            );
           ticket.department = deptDoc._id;
         }
       }
@@ -453,7 +488,9 @@ export default class TicketController {
           await deleteReceiptsAndFiles(ticket.receiptIds);
         } catch {
           logError(
-            new Error(`Failed to delete receipt files for ticket ${ticket._id}`),
+            new Error(
+              `Failed to delete receipt files for ticket ${ticket._id}`,
+            ),
             {
               message: "Receipt deletion error",
               code: "RECEIPT_DELETE_ERROR",
@@ -641,7 +678,9 @@ export default class TicketController {
           let convertedAmount = ticket.amount;
           if (ticket.currency !== org.baseCurrency) {
             try {
-              const snapshot = freshOrg ? await getOrgRates(freshOrg as any) : null;
+              const snapshot = freshOrg
+                ? await getOrgRates(freshOrg as any)
+                : null;
               if (snapshot) {
                 convertedAmount = convertAmount(
                   ticket.amount!,
@@ -740,7 +779,11 @@ export default class TicketController {
       });
       if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
       if (!ticket.receiptIds || ticket.receiptIds.length === 0)
-        throw createError("No receipt attached to this ticket", 404, "NO_RECEIPT");
+        throw createError(
+          "No receipt attached to this ticket",
+          404,
+          "NO_RECEIPT",
+        );
 
       const { getReceiptUrls } = await import("../services/receipt.service.js");
       const signedUrls = await getReceiptUrls(ticket.receiptIds);
@@ -761,7 +804,11 @@ export default class TicketController {
    * Receipt-only upload: creates a `scanning` ticket, enqueues OCR + AI pipeline.
    * The FE receives a WebSocket event when the ticket auto-promotes to `draft`.
    */
-  static async receiptScan(req: AuthRequest, res: Response, next: NextFunction) {
+  static async receiptScan(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const user = req.user! as IUser;
       const org = req.organization! as IOrganization;
@@ -796,7 +843,12 @@ export default class TicketController {
         receiptIds: [receiptId],
         status: TICKET_STATUS.SCANNING,
         managerApproval: null,
-        financeApproval: { approved: null, reviewedBy: null, reviewedAt: null, comments: null },
+        financeApproval: {
+          approved: null,
+          reviewedBy: null,
+          reviewedAt: null,
+          comments: null,
+        },
         ocrData: {
           status: OCR_STATUS.PROCESSING,
           merchantName: null,
@@ -827,7 +879,9 @@ export default class TicketController {
       }).catch(() => {});
 
       // Link to bundle if bundleId was provided in multipart body (non-fatal)
-      const scanBundleId = (req.body as Record<string, string | undefined>)["bundleId"];
+      const scanBundleId = (req.body as Record<string, string | undefined>)[
+        "bundleId"
+      ];
       if (scanBundleId) {
         try {
           await Bundle.findOneAndUpdate(
@@ -844,7 +898,8 @@ export default class TicketController {
 
       const payload: ResponsePayload<ITicketData> = {
         success: true,
-        message: "Receipt uploaded — scanning in progress. Results will arrive via WebSocket.",
+        message:
+          "Receipt uploaded — scanning in progress. Results will arrive via WebSocket.",
         data: ticketData,
         timestamp: new Date().toISOString(),
       };
@@ -859,7 +914,11 @@ export default class TicketController {
    * Promote a `draft` ticket to `pending`, entering the approval flow.
    * All required fields (title, amount, currency, department) must be set.
    */
-  static async submitDraft(req: AuthRequest, res: Response, next: NextFunction) {
+  static async submitDraft(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const user = req.user! as IUser;
       const org = req.organization! as IOrganization;
@@ -869,13 +928,50 @@ export default class TicketController {
       if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
 
       if (ticket.status !== TICKET_STATUS.DRAFT)
-        throw createError("Only draft tickets can be submitted", 400, "INVALID_STATUS");
+        throw createError(
+          "Only draft tickets can be submitted",
+          400,
+          "INVALID_STATUS",
+        );
 
       if (ticket.submittedBy.toString() !== user._id.toString())
-        throw createError("Only the submitter can submit a draft", 403, "FORBIDDEN");
+        throw createError(
+          "Only the submitter can submit a draft",
+          403,
+          "FORBIDDEN",
+        );
+
+      const {
+        title,
+        amount,
+        currency,
+        description,
+        merchant: merchantId,
+        category: categoryId,
+      } = req.body as Record<string, string | undefined>;
+
+      if (title !== undefined) ticket.title = title.trim() || null;
+      if (amount !== undefined) {
+        const parsedAmount = parseFloat(amount);
+        if (Number.isNaN(parsedAmount)) {
+          throw createError("Invalid amount", 400, "VALIDATION_ERROR");
+        }
+        ticket.amount = parsedAmount;
+      }
+      if (currency !== undefined)
+        ticket.currency = currency as ITicket["currency"];
+      if (description !== undefined) ticket.description = description;
+      if (merchantId !== undefined)
+        ticket.merchant = merchantId ? new Types.ObjectId(merchantId) : null;
+      if (categoryId !== undefined)
+        ticket.category = categoryId ? new Types.ObjectId(categoryId) : null;
 
       if (!ticket.department)
-        throw createError("Department is required before submitting", 400, "MISSING_DEPARTMENT");
+        throw createError(
+          "Department is required before submitting",
+          400,
+          "MISSING_DEPARTMENT",
+        );
 
       const dept = await Department.findOne({
         _id: ticket.department,
@@ -883,7 +979,11 @@ export default class TicketController {
         isActive: true,
       });
       if (!dept)
-        throw createError("Department not found or inactive", 400, "INVALID_DEPARTMENT");
+        throw createError(
+          "Department not found or inactive",
+          400,
+          "INVALID_DEPARTMENT",
+        );
 
       // Compute manager approval requirement (same logic as create)
       const currencyThreshold = ticket.currency
@@ -897,10 +997,21 @@ export default class TicketController {
       ticket.status = TICKET_STATUS.PENDING;
       ticket.submitterManagerId = user.managerId ?? null;
       ticket.managerApproval = needsManagerApproval
-        ? { required: true, approved: null, reviewedBy: null, reviewedAt: null, comments: null }
+        ? {
+            required: true,
+            approved: null,
+            reviewedBy: null,
+            reviewedAt: null,
+            comments: null,
+          }
         : null;
       if (!ticket.financeApproval) {
-        ticket.financeApproval = { approved: null, reviewedBy: null, reviewedAt: null, comments: null };
+        ticket.financeApproval = {
+          approved: null,
+          reviewedBy: null,
+          reviewedAt: null,
+          comments: null,
+        };
       }
 
       // pre-validate hook enforces required fields if any are still null
@@ -917,7 +1028,12 @@ export default class TicketController {
         metadata: { from: TICKET_STATUS.DRAFT, to: TICKET_STATUS.PENDING },
       }).catch(() => {});
 
-      emitTicketStatusChange(org._id.toString(), user._id.toString(), ticketData, user._id.toString());
+      emitTicketStatusChange(
+        org._id.toString(),
+        user._id.toString(),
+        ticketData,
+        user._id.toString(),
+      );
 
       // Notify manager + admins (non-blocking, same as create)
       try {
@@ -930,7 +1046,8 @@ export default class TicketController {
             .select("email name")
             .lean(),
         ]);
-        if (manager) notifyTargets.push({ email: manager.email, name: manager.name });
+        if (manager)
+          notifyTargets.push({ email: manager.email, name: manager.name });
         for (const admin of admins) {
           if (!notifyTargets.some((t) => t.email === admin.email))
             notifyTargets.push({ email: admin.email, name: admin.name });
@@ -961,4 +1078,3 @@ export default class TicketController {
     }
   }
 }
-

@@ -200,12 +200,20 @@ export function useScanReceipt() {
 export function useSubmitDraft() {
   const [loading, setLoading] = useState(false);
 
-  const submitDraft = async (id: string, formData: FormData): Promise<ITicketData | null> => {
+  const submitDraft = async (
+    id: string,
+    payload: {
+      title?: string;
+      amount?: string;
+      currency?: string;
+      description?: string;
+      merchant?: string;
+      category?: string;
+    },
+  ): Promise<ITicketData | null> => {
     setLoading(true);
     try {
-      const res = await apiClient.patch<ApiResponse<ITicketData>>(EP.EXPENSE_SUBMIT_DRAFT(id), formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await apiClient.post<ApiResponse<ITicketData>>(EP.EXPENSE_SUBMIT_DRAFT(id), payload);
       toast.success('Expense submitted successfully');
       return res.data.data;
     } catch (err: unknown) {

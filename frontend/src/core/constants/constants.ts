@@ -17,6 +17,7 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
 export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
   draft: 'Draft',
   scanning: 'Scanning',
+  ocr_failed: 'Scan Failed',
   pending: 'Pending',
   awaiting_finance: 'Awaiting Finance',
   approved: 'Approved',
@@ -26,6 +27,7 @@ export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
 export const TICKET_STATUS_COLORS: Record<TicketStatus, string> = {
   draft: 'muted',
   scanning: 'info',
+  ocr_failed: 'danger',
   pending: 'warning',
   awaiting_finance: 'info',
   approved: 'success',

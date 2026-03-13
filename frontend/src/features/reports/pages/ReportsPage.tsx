@@ -45,6 +45,9 @@ const DATE_PRESETS: { value: DatePreset; label: string }[] = [
 ];
 
 const STATUS_BADGE: Record<TicketStatus, { label: string; className: string }> = {
+  draft: { label: 'Draft', className: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
+  scanning: { label: 'Scanning', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
+  ocr_failed: { label: 'Scan Failed', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
   pending: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' },
   awaiting_finance: { label: 'Awaiting Finance', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
   approved: { label: 'Approved', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },

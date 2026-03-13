@@ -7,7 +7,6 @@ import {
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
-import { Badge } from '@/shared/components/ui/Badge';
 import { StatusBadge } from '@/shared/components/data-display/StatusBadge';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -403,25 +402,28 @@ export function ExpenseDetailPage() {
                   <div>
                     <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-2">Extracted from receipt</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {Object.entries(ticket.ocrData).map(([key, field]) => {
-                        if (!field || typeof field !== 'object' || !('value' in field)) return null;
-                        const f = field as { value: string | number | null; confidence: number };
-                        if (f.value === null) return null;
+                      {Object.entries(ticket.ocrData).map(([key, value]) => {
+                        if (key === 'status' || key === 'rawText' || key === 'processedAt' || key === 'confidence') return null;
+                        if (value === null || value === '') return null;
                         return (
                           <div key={key} className="rounded-lg bg-[var(--muted)] px-3 py-2">
                             <p className="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
                               {key.replace(/_/g, ' ')}
                             </p>
-                            <p className="mt-0.5 text-sm font-semibold text-[var(--foreground)]">{String(f.value)}</p>
-                            <div className="mt-1.5 h-1 rounded-full bg-[var(--border)] overflow-hidden">
-                              <div
-                                className="h-full rounded-full bg-brand-500"
-                                style={{ width: `${Math.round(f.confidence * 100)}%` }}
-                              />
-                            </div>
-                            <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
-                              {Math.round(f.confidence * 100)}% confidence
-                            </p>
+                            <p className="mt-0.5 text-sm font-semibold text-[var(--foreground)]">{String(value)}</p>
+                            {ticket.ocrData?.confidence != null && (
+                              <>
+                                <div className="mt-1.5 h-1 rounded-full bg-[var(--border)] overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-brand-500"
+                                    style={{ width: `${Math.round(ticket.ocrData.confidence * 100)}%` }}
+                                  />
+                                </div>
+                                <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
+                                  {Math.round(ticket.ocrData.confidence * 100)}% confidence
+                                </p>
+                              </>
+                            )}
                           </div>
                         );
                       })}
@@ -435,13 +437,13 @@ export function ExpenseDetailPage() {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">Validation checks</p>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        ticket.aiValidation.overallStatus === 'passed'
+                        ticket.aiValidation.status === 'passed'
                           ? 'bg-success-50 dark:bg-success-500/10 text-success-700 dark:text-success-400'
-                          : ticket.aiValidation.overallStatus === 'failed'
+                          : ticket.aiValidation.status === 'error'
                           ? 'bg-danger-50 dark:bg-danger-500/10 text-danger-700 dark:text-danger-400'
                           : 'bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400'
                       }`}>
-                        {ticket.aiValidation.overallStatus}
+                        {ticket.aiValidation.status}
                       </span>
                     </div>
                     <div className="space-y-2">
@@ -453,8 +455,8 @@ export function ExpenseDetailPage() {
                           }
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-[var(--foreground)]">{check.label}</p>
-                            {check.message && (
-                              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">{check.message}</p>
+                            {check.detail && (
+                              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">{check.detail}</p>
                             )}
                           </div>
                         </div>

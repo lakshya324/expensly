@@ -21,7 +21,7 @@ import { EP } from '@/infrastructure/api/endpoints';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useSocket } from '@/shared/hooks/useSocket';
 import type { ApiResponse } from '@/core/types/api.types';
-import type { ITicketData } from '@/core/types/ticket.types';
+import type { ITicketData, IMerchantData, ICategoryData } from '@/core/types/ticket.types';
 import type { SocketEnvelope } from '@/core/types/socket.types';
 
 // ─── Shared helpers ────────────────────────────────────────────
@@ -288,31 +288,53 @@ function AiScanningStep({ file }: { file: File }) {
 
 interface AiReviewStepProps {
   draft: ITicketData;
-  onSubmit: (fd: FormData) => void;
+  onSubmit: (payload: {
+    title: string;
+    amount: string;
+    currency: string;
+    description?: string;
+    merchant?: string;
+    category?: string;
+  }) => void;
   onBack: () => void;
   loading: boolean;
   activeCurrencies: string[];
+  merchants: Array<Pick<IMerchantData, '_id' | 'name'>>;
+  categories: Array<Pick<ICategoryData, '_id' | 'name'>>;
 }
 
-function AiReviewStep({ draft, onSubmit, onBack, loading, activeCurrencies }: AiReviewStepProps) {
+function AiReviewStep({
+  draft,
+  onSubmit,
+  onBack,
+  loading,
+  activeCurrencies,
+  merchants,
+  categories,
+}: AiReviewStepProps) {
   const [title, setTitle] = useState(draft.title ?? '');
   const [amount, setAmount] = useState(draft.amount?.toString() ?? '');
   const [currency, setCurrency] = useState(draft.currency ?? activeCurrencies[0] ?? 'USD');
   const [description, setDescription] = useState(draft.description ?? '');
+  const [merchant, setMerchant] = useState(draft.merchant?._id ?? '');
+  const [category, setCategory] = useState(draft.category?._id ?? '');
 
   const ocr = draft.ocrData;
   const ai = draft.aiValidation;
+  const failedChecks = ai?.checks?.filter((check) => !check.passed) ?? [];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) { toast.error('Title is required'); return; }
     if (!amount || Number(amount) <= 0) { toast.error('Enter a valid amount'); return; }
-    const fd = new FormData();
-    fd.append('title', title.trim());
-    fd.append('amount', amount);
-    fd.append('currency', currency);
-    if (description.trim()) fd.append('description', description.trim());
-    onSubmit(fd);
+    onSubmit({
+      title: title.trim(),
+      amount,
+      currency,
+      description: description.trim() || undefined,
+      merchant,
+      category,
+    });
   };
 
   return (
@@ -333,22 +355,24 @@ function AiReviewStep({ draft, onSubmit, onBack, loading, activeCurrencies }: Ai
       </div>
 
       {/* AI Validation banner */}
-      {ai && ai.overallStatus !== 'ok' && (
+      {ai && (ai.status !== 'passed' || failedChecks.length > 0 || !!ai.summary) && (
         <div className={cn(
           'flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm',
-          ai.overallStatus === 'error'
+          ai.status === 'error'
             ? 'border-danger-200 dark:border-danger-500/30 bg-danger-50 dark:bg-danger-500/10 text-danger-700 dark:text-danger-400'
             : 'border-warning-200 dark:border-warning-500/30 bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400',
         )}>
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           <div>
             <p className="font-medium">
-              {ai.overallStatus === 'error' ? 'Some fields need attention' : 'Review suggested changes'}
+              {ai.status === 'error' ? 'Some fields need attention' : 'Review suggested changes'}
             </p>
             <ul className="mt-1 space-y-0.5 text-xs">
-              {ai.checks.filter((c) => c.status !== 'ok').map((c) => (
-                <li key={c.field}>• {c.message}</li>
+              {failedChecks.map((check, index) => (
+                <li key={`${check.label}-${index}`}>• {check.detail ?? `${check.label} needs review`}</li>
               ))}
+              {failedChecks.length === 0 && ai.summary && <li>• {ai.summary}</li>}
+              {failedChecks.length === 0 && !ai.summary && <li>• No actionable issues were returned by AI.</li>}
             </ul>
           </div>
         </div>
@@ -369,6 +393,9 @@ function AiReviewStep({ draft, onSubmit, onBack, loading, activeCurrencies }: Ai
                 <Sparkles className="w-2.5 h-2.5" /> AI filled
               </span>
             )}
+            {ai?.suggestedTitle && (
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">AI suggested: {ai.suggestedTitle}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -387,6 +414,9 @@ function AiReviewStep({ draft, onSubmit, onBack, loading, activeCurrencies }: Ai
                   <Sparkles className="w-2.5 h-2.5" /> {Math.round(ocr.confidence * 100)}%
                 </span>
               )}
+              {ai?.suggestedAmount != null && (
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">AI suggested: {ai.suggestedAmount}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Currency</label>
@@ -397,8 +427,46 @@ function AiReviewStep({ draft, onSubmit, onBack, loading, activeCurrencies }: Ai
               >
                 {activeCurrencies.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
+              {ai?.suggestedCurrency && (
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">AI suggested: {ai.suggestedCurrency}</p>
+              )}
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Merchant</label>
+              <select
+                value={merchant}
+                onChange={(e) => setMerchant(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">Select merchant</option>
+                {merchants.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}
+              </select>
+              {ai?.suggestedMerchantName && (
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">AI suggested: {ai.suggestedMerchantName}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Category</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">Select category</option>
+                {categories.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}
+              </select>
+              {ocr?.suggestedCategory && (
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">AI suggested: {ocr.suggestedCategory}</p>
+              )}
+            </div>
+          </div>
+
+          {ai?.suggestedDate && (
+            <p className="text-xs text-[var(--muted-foreground)]">AI suggested transaction date: {ai.suggestedDate}</p>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Description</label>
@@ -738,6 +806,8 @@ export function NewExpensePage() {
   const [scanFile, setScanFile] = useState<File | null>(null);
   const [draftTicket, setDraftTicket] = useState<ITicketData | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [merchantOptions, setMerchantOptions] = useState<Array<Pick<IMerchantData, '_id' | 'name'>>>([]);
+  const [categoryOptions, setCategoryOptions] = useState<Array<Pick<ICategoryData, '_id' | 'name'>>>([]);
   const { scanReceipt } = useScanReceipt();
   const { submitDraft, loading: submitLoading } = useSubmitDraft();
 
@@ -758,6 +828,22 @@ export function NewExpensePage() {
   }, []);
 
   useEffect(() => () => clearTimers(), [clearTimers]);
+
+  useEffect(() => {
+    apiClient
+      .get<ApiResponse<Array<Pick<IMerchantData, '_id' | 'name'>>>>(EP.USER_MERCHANTS)
+      .then((res) => setMerchantOptions(res.data.data.map((item) => ({ _id: item._id, name: item.name }))))
+      .catch(() => {
+        setMerchantOptions([]);
+      });
+
+    apiClient
+      .get<ApiResponse<Array<Pick<ICategoryData, '_id' | 'name'>>>>(EP.USER_CATEGORIES)
+      .then((res) => setCategoryOptions(res.data.data.map((item) => ({ _id: item._id, name: item.name }))))
+      .catch(() => {
+        setCategoryOptions([]);
+      });
+  }, []);
 
   // ── Resolve / reject helpers ──────────────────────────────────
 
@@ -843,9 +929,16 @@ export function NewExpensePage() {
 
   // ── Submit reviewed draft ─────────────────────────────────────
 
-  const handleDraftSubmit = async (fd: FormData) => {
+  const handleDraftSubmit = async (payload: {
+    title: string;
+    amount: string;
+    currency: string;
+    description?: string;
+    merchant?: string;
+    category?: string;
+  }) => {
     if (!draftTicket) return;
-    const result = await submitDraft(draftTicket._id, fd);
+    const result = await submitDraft(draftTicket._id, payload);
     if (result) navigate(ROUTES.EXPENSES);
   };
 
@@ -930,6 +1023,8 @@ export function NewExpensePage() {
             onBack={() => { resetAiFlow(); setMode('ai_upload'); }}
             loading={submitLoading}
             activeCurrencies={activeCurrencies}
+            merchants={merchantOptions}
+            categories={categoryOptions}
           />
         )}
 

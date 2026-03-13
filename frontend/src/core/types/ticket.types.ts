@@ -47,15 +47,22 @@ export interface OcrData {
 }
 
 export interface AiValidationCheck {
-  field: string;
-  status: 'ok' | 'warning' | 'error';
-  message: string;
-  confidence: number;
+  label: string;
+  passed: boolean;
+  confidence: number | null;
+  detail: string | null;
 }
 
 export interface AiValidation {
-  overallStatus: 'ok' | 'warning' | 'error';
+  status: 'passed' | 'flagged' | 'error' | 'pending' | 'in_progress';
   checks: AiValidationCheck[];
+  summary: string | null;
+  validatedAt: string | null;
+  suggestedTitle: string | null;
+  suggestedAmount: number | null;
+  suggestedCurrency: string | null;
+  suggestedDate: string | null;
+  suggestedMerchantName: string | null;
 }
 
 export interface IReceiptRef {

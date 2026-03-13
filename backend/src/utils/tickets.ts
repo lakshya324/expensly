@@ -59,7 +59,11 @@ export async function buildTicketFilter(req: AuthRequest): Promise<Record<string
   // regardless of manager authority or view_all permission.
   const draftScanRestriction = {
     $or: [
-      { status: { $nin: [TICKET_STATUS.DRAFT, TICKET_STATUS.SCANNING] } },
+      {
+        status: {
+          $nin: [TICKET_STATUS.DRAFT, TICKET_STATUS.SCANNING, TICKET_STATUS.OCR_FAILED],
+        },
+      },
       { submittedBy: user._id },
     ],
   };
