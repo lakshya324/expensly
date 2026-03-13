@@ -7,15 +7,15 @@
  * users re-trigger via REST endpoint).
  */
 import { receiveMessages, deleteMessage } from "../services/queue.service.js";
-import { QueueJob } from "../types/queue.types.js";
+import { QueueJob, QueueJobType } from "../types/queue.types.js";
 import { processOcrJob } from "./handlers/ocr.handler.js";
 import { processAiValidationJob } from "./handlers/aiValidation.handler.js";
 import { logError, logInfo } from "../utils/logger.js";
 
 async function dispatch(job: QueueJob): Promise<void> {
-  if (job.jobType === "ocr_scan") {
+  if (job.jobType === QueueJobType.OcrScan) {
     await processOcrJob(job);
-  } else if (job.jobType === "ai_validate") {
+  } else if (job.jobType === QueueJobType.AiValidate) {
     await processAiValidationJob(job);
   }
 }
