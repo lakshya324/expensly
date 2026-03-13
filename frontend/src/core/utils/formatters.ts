@@ -24,10 +24,11 @@ export function formatRelativeTime(date: string | Date | null | undefined): stri
 }
 
 export function formatCurrency(
-  amount: number,
-  currency: Currency | string,
+  amount: number | null | undefined,
+  currency: Currency | string | null | undefined,
   compact = false,
 ): string {
+  if (amount == null || currency == null) return '—';
   const symbol = CURRENCY_SYMBOLS[currency] ?? currency;
   if (compact && Math.abs(amount) >= 1_000_000) {
     return `${symbol}${(amount / 1_000_000).toFixed(1)}M`;

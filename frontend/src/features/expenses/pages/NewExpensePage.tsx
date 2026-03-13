@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Upload, X, FileText, Image, Tag, Sparkles, PenLine,
-  CheckCircle2, AlertTriangle, Info, Loader2, ScanLine,
+  CheckCircle2, AlertTriangle, Info, ScanLine, XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/utils/cn';
@@ -19,12 +19,17 @@ import { ROUTES } from '@/core/constants/constants';
 import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { useSocket } from '@/shared/hooks/useSocket';
 import type { ApiResponse } from '@/core/types/api.types';
 import type { ITicketData } from '@/core/types/ticket.types';
+import type { SocketEnvelope } from '@/core/types/socket.types';
 
 // ─── Shared helpers ────────────────────────────────────────────
 
-type Mode = 'picker' | 'ai_upload' | 'ai_scanning' | 'ai_review' | 'manual';
+type Mode = 'picker' | 'ai_upload' | 'ai_scanning' | 'ai_review' | 'ai_failed' | 'manual';
+
+const SCAN_TIMEOUT_MS = 60_000;
+const POLL_INTERVAL_MS = 3_000;
 
 const VALID_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const MAX_SIZE = 10 * 1024 * 1024;
@@ -377,9 +382,9 @@ function AiReviewStep({ draft, onSubmit, onBack, loading, activeCurrencies }: Ai
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
               />
-              {ocr?.total && (
+              {ocr?.amount != null && ocr.confidence != null && (
                 <span className="absolute right-3 top-8 flex items-center gap-1 text-[10px] text-brand-500 dark:text-brand-400">
-                  <Sparkles className="w-2.5 h-2.5" /> {Math.round(ocr.total.confidence * 100)}%
+                  <Sparkles className="w-2.5 h-2.5" /> {Math.round(ocr.confidence * 100)}%
                 </span>
               )}
             </div>
@@ -407,7 +412,7 @@ function AiReviewStep({ draft, onSubmit, onBack, loading, activeCurrencies }: Ai
           </div>
 
           {/* OCR confidence bar */}
-          {ocr && (
+          {ocr && ocr.confidence != null && (
             <div className="flex items-center gap-2.5 rounded-xl bg-[var(--muted)] px-3.5 py-2.5">
               <Sparkles className="w-4 h-4 text-brand-500 dark:text-brand-400 shrink-0" />
               <div className="flex-1">
@@ -732,29 +737,128 @@ export function NewExpensePage() {
   const [mode, setMode] = useState<Mode>('picker');
   const [scanFile, setScanFile] = useState<File | null>(null);
   const [draftTicket, setDraftTicket] = useState<ITicketData | null>(null);
-  const { scanReceipt, loading: scanLoading } = useScanReceipt();
+  const [scanError, setScanError] = useState<string | null>(null);
+  const { scanReceipt } = useScanReceipt();
   const { submitDraft, loading: submitLoading } = useSubmitDraft();
+
+  // Tracks which ticket is currently being scanned
+  const pendingTicketId = useRef<string | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Prevents WS and poll from both resolving
+  const resolvedRef = useRef(false);
 
   const activeCurrencies = user?.org?.activeCurrencies ?? [];
 
+  // ── Cleanup ──────────────────────────────────────────────────
+
+  const clearTimers = useCallback(() => {
+    if (pollTimerRef.current) { clearInterval(pollTimerRef.current); pollTimerRef.current = null; }
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+  }, []);
+
+  useEffect(() => () => clearTimers(), [clearTimers]);
+
+  // ── Resolve / reject helpers ──────────────────────────────────
+
+  const resolveWithTicket = useCallback((ticket: ITicketData) => {
+    if (resolvedRef.current) return;
+    resolvedRef.current = true;
+    clearTimers();
+    setDraftTicket(ticket);
+    setMode('ai_review');
+  }, [clearTimers]);
+
+  const rejectScan = useCallback((message: string) => {
+    if (resolvedRef.current) return;
+    resolvedRef.current = true;
+    clearTimers();
+    setScanError(message);
+    setMode('ai_failed');
+  }, [clearTimers]);
+
+  // ── WebSocket listeners ───────────────────────────────────────
+
+  const handleAiValidated = useCallback(
+    (payload: SocketEnvelope<{ ticket: ITicketData }>) => {
+      const ticket = payload?.data?.ticket;
+      if (!ticket || ticket._id !== pendingTicketId.current) return;
+      resolveWithTicket(ticket);
+    },
+    [resolveWithTicket],
+  );
+
+  const handleOcrFailed = useCallback(
+    (payload: SocketEnvelope<{ ticketId: string; error: string }>) => {
+      if (payload?.data?.ticketId !== pendingTicketId.current) return;
+      rejectScan(payload.data?.error ?? 'Receipt scanning failed. Please try again.');
+    },
+    [rejectScan],
+  );
+
+  useSocket('ticket:ai_validated', handleAiValidated);
+  useSocket('ticket:ocr_failed', handleOcrFailed);
+
+  // ── Start scan flow ───────────────────────────────────────────
+
   const handleFileSelected = async (file: File) => {
     setScanFile(file);
+    setScanError(null);
+    resolvedRef.current = false;
+    pendingTicketId.current = null;
+    clearTimers();
     setMode('ai_scanning');
+
     const ticket = await scanReceipt(file);
-    if (ticket) {
-      setDraftTicket(ticket);
-      setMode('ai_review');
-    } else {
-      // On scan failure, drop back to upload
+    if (!ticket) {
+      // HTTP upload itself failed — back to upload screen
       setMode('ai_upload');
+      return;
     }
+
+    pendingTicketId.current = ticket._id;
+
+    // Backend completed synchronously (shouldn't happen but handle gracefully)
+    if (ticket.status === 'draft') {
+      resolveWithTicket(ticket);
+      return;
+    }
+
+    // Polling fallback — runs alongside WS; first one wins
+    pollTimerRef.current = setInterval(async () => {
+      if (resolvedRef.current || !pendingTicketId.current) return;
+      try {
+        const res = await apiClient.get<ApiResponse<ITicketData>>(EP.EXPENSE(pendingTicketId.current));
+        if (res.data.data.status === 'draft') resolveWithTicket(res.data.data);
+      } catch {
+        // Non-fatal; keep polling
+      }
+    }, POLL_INTERVAL_MS);
+
+    // Hard timeout
+    timeoutRef.current = setTimeout(() => {
+      rejectScan('Scanning took too long. Please try again or enter the details manually.');
+    }, SCAN_TIMEOUT_MS);
   };
+
+  // ── Submit reviewed draft ─────────────────────────────────────
 
   const handleDraftSubmit = async (fd: FormData) => {
     if (!draftTicket) return;
     const result = await submitDraft(draftTicket._id, fd);
     if (result) navigate(ROUTES.EXPENSES);
   };
+
+  // ── Reset AI flow (used by failure screen) ────────────────────
+
+  const resetAiFlow = useCallback(() => {
+    clearTimers();
+    resolvedRef.current = false;
+    pendingTicketId.current = null;
+    setScanFile(null);
+    setDraftTicket(null);
+    setScanError(null);
+  }, [clearTimers]);
 
   return (
     <AppShell title="New Expense">
@@ -770,7 +874,6 @@ export function NewExpensePage() {
       `}</style>
 
       <div className="max-w-2xl mx-auto space-y-4">
-        {/* Global back to expenses link (always visible) */}
         {mode === 'picker' && (
           <Button variant="ghost" size="icon-sm" onClick={() => navigate(ROUTES.EXPENSES)} className="mb-1">
             <ArrowLeft className="w-4 h-4" />
@@ -778,9 +881,7 @@ export function NewExpensePage() {
         )}
 
         {mode === 'picker' && (
-          <ModePicker
-            onSelect={(m) => setMode(m === 'ai' ? 'ai_upload' : 'manual')}
-          />
+          <ModePicker onSelect={(m) => setMode(m === 'ai' ? 'ai_upload' : 'manual')} />
         )}
 
         {mode === 'ai_upload' && (
@@ -790,15 +891,35 @@ export function NewExpensePage() {
           />
         )}
 
+        {/* Scanning — always show the animated step; never replace with a plain spinner */}
         {mode === 'ai_scanning' && scanFile && (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">
-            {scanLoading && <AiScanningStep file={scanFile} />}
-            {!scanLoading && (
-              <div className="text-center py-4">
-                <Loader2 className="w-8 h-8 mx-auto animate-spin text-brand-500 mb-4" />
-                <p className="text-sm text-[var(--muted-foreground)]">Processing…</p>
+            <AiScanningStep file={scanFile} />
+          </div>
+        )}
+
+        {/* Failure recovery */}
+        {mode === 'ai_failed' && (
+          <div className="rounded-2xl border border-danger-200 dark:border-danger-500/30 bg-[var(--card)] p-8 text-center space-y-4">
+            <div className="flex items-center justify-center">
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-danger-100 dark:bg-danger-500/10">
+                <XCircle className="w-8 h-8 text-danger-500" />
               </div>
-            )}
+            </div>
+            <div>
+              <p className="text-base font-bold text-[var(--foreground)]">Couldn't read receipt</p>
+              <p className="text-sm text-[var(--muted-foreground)] mt-1 max-w-sm mx-auto">
+                {scanError ?? 'An error occurred while scanning your receipt.'}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button variant="outline" onClick={() => { resetAiFlow(); setMode('ai_upload'); }}>
+                Try Again
+              </Button>
+              <Button onClick={() => { resetAiFlow(); setMode('manual'); }}>
+                Enter Manually
+              </Button>
+            </div>
           </div>
         )}
 
@@ -806,7 +927,7 @@ export function NewExpensePage() {
           <AiReviewStep
             draft={draftTicket}
             onSubmit={handleDraftSubmit}
-            onBack={() => { setDraftTicket(null); setScanFile(null); setMode('ai_upload'); }}
+            onBack={() => { resetAiFlow(); setMode('ai_upload'); }}
             loading={submitLoading}
             activeCurrencies={activeCurrencies}
           />

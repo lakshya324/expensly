@@ -55,13 +55,25 @@ export async function buildTicketFilter(req: AuthRequest): Promise<Record<string
       ]
     : null;
 
-  if (userScopeOr && searchOr) {
-    // Both constraints active — combine with $and to prevent overwrite
-    filter["$and"] = [{ $or: userScopeOr }, { $or: searchOr }];
-  } else if (userScopeOr) {
-    filter["$or"] = userScopeOr;
-  } else if (searchOr) {
-    filter["$or"] = searchOr;
+  // Draft/scanning tickets are private: only the submitter can ever see them,
+  // regardless of manager authority or view_all permission.
+  const draftScanRestriction = {
+    $or: [
+      { status: { $nin: [TICKET_STATUS.DRAFT, TICKET_STATUS.SCANNING] } },
+      { submittedBy: user._id },
+    ],
+  };
+
+  // Merge all $and-level constraints so none overwrite each other
+  const andClauses: Record<string, unknown>[] = [draftScanRestriction];
+  if (userScopeOr) andClauses.push({ $or: userScopeOr });
+  if (searchOr) andClauses.push({ $or: searchOr });
+
+  if (andClauses.length === 1) {
+    // Only the draft/scan restriction — write it directly as $or for brevity
+    filter["$or"] = draftScanRestriction.$or;
+  } else {
+    filter["$and"] = andClauses;
   }
 
   return filter;

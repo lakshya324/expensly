@@ -47,7 +47,9 @@ const COLUMNS: Column<ITicketData>[] = [
     header: 'Amount',
     render: (row) => (
       <span className="font-semibold text-foreground">
-        {formatCurrency(row.amount, row.currency)}
+        {row.amount != null && row.currency
+          ? formatCurrency(row.amount, row.currency)
+          : <span className="text-muted-foreground italic text-xs">Pending</span>}
       </span>
     ),
   },

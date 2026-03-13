@@ -32,18 +32,18 @@ export interface ApprovalStep {
   comments: string | null;
 }
 
-export interface OcrField {
-  value: string | number | null;
-  confidence: number;
-}
-
+/** Matches the backend IOcrData shape (flat primitives, all nullable until OCR completes). */
 export interface OcrData {
-  vendor: OcrField;
-  date: OcrField;
-  total: OcrField;
-  currency: OcrField;
-  rawText: string;
-  confidence: number;
+  status: 'processing' | 'completed' | 'failed';
+  merchantName: string | null;
+  amount: number | null;
+  currency: string | null;
+  transactionDate: string | null;
+  taxAmount: number | null;
+  suggestedCategory: string | null;
+  rawText: string | null;
+  confidence: number | null;
+  processedAt: string | null;
 }
 
 export interface AiValidationCheck {

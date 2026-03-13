@@ -34,7 +34,13 @@ export function UserDashboardPage() {
     {
       key: 'amount',
       header: 'Amount',
-      render: (row) => <span className="font-semibold text-[var(--foreground)]">{formatCurrency(row.amount, row.currency)}</span>,
+      render: (row) => (
+        <span className="font-semibold text-[var(--foreground)]">
+          {row.amount != null && row.currency
+            ? formatCurrency(row.amount, row.currency)
+            : <span className="text-[var(--muted-foreground)] italic text-xs">Pending</span>}
+        </span>
+      ),
     },
     {
       key: 'status',
