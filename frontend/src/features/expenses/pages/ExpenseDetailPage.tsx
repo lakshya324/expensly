@@ -14,7 +14,7 @@ import {
 import { useExpense, useUpdateExpenseStatus, useFlagExpense, useReceiptUrl, useDiscussion } from '../hooks/useExpenses';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { formatCurrency, formatDateTime, formatRelativeTime } from '@/core/utils/formatters';
-import { CURRENCY_SYMBOLS, ROUTES } from '@/core/constants/constants';
+import { ROUTES } from '@/core/constants/constants';
 
 export function ExpenseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -178,7 +178,7 @@ export function ExpenseDetailPage() {
                   </dd>
                   {ticket.convertedAmount && (
                     <dd className="text-xs text-[var(--muted-foreground)]">
-                      ≈ {CURRENCY_SYMBOLS['USD'] ?? '$'}{ticket.convertedAmount.toFixed(2)} USD (locked)
+                      ≈ {formatCurrency(ticket.convertedAmount, 'USD')} USD (locked)
                     </dd>
                   )}
                 </div>

@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/sha
 import { Skeleton } from '@/shared/components/ui/Skeleton';
 import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
 import { ROUTES } from '@/core/constants/constants';
-import { formatCurrency, formatPercent } from '@/core/utils/formatters';
+import { formatCurrency } from '@/core/utils/formatters';
+import { useAuthStore } from '@/features/auth/store/authStore';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -15,6 +16,7 @@ import {
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const { data, loading, refreshing, refresh } = useAnalytics();
+  const baseCurrency = useAuthStore((s) => s.user?.org?.baseCurrency ?? 'USD');
 
   return (
     <AppShell title="Admin Dashboard">
@@ -45,7 +47,7 @@ export function AdminDashboardPage() {
           <StatCard
             title="Approved"
             value={loading ? '—' : (data?.org.totalApproved ?? 0)}
-            subtitle={data ? formatCurrency(data.org.totalAmountApproved, 'USD', true) : undefined}
+            subtitle={data ? formatCurrency(data.org.totalAmountApproved, baseCurrency, true) : undefined}
             icon={CheckCircle2} color="success" loading={loading}
           />
           <StatCard

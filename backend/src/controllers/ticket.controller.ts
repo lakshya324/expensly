@@ -177,14 +177,31 @@ export default class TicketController {
         description,
         tags,
         timestamp,
+        statusIntent,
+        merchant: merchantId,
+        category: categoryId,
+        bundleId,
       } = req.body as Record<string, string | undefined>;
 
-      const dept = await Department.findOne({
-        _id: new Types.ObjectId(department as string),
-        orgId: org._id,
-        isActive: true,
-      });
-      if (!dept)
+      const ticketStatus =
+        statusIntent === "draft" ? TICKET_STATUS.DRAFT : TICKET_STATUS.PENDING;
+
+      let dept: Awaited<ReturnType<typeof Department.findOne>> | null = null;
+      if (department) {
+        dept = await Department.findOne({
+          _id: new Types.ObjectId(department),
+          orgId: org._id,
+          isActive: true,
+        });
+        if (!dept)
+          throw createError(
+            `Department not found or inactive`,
+            400,
+            "INVALID_DEPARTMENT",
+          );
+      }
+
+      if (ticketStatus === TICKET_STATUS.PENDING && !dept)
         throw createError(
           `Department not found or inactive`,
           400,
@@ -194,11 +211,16 @@ export default class TicketController {
       // Manager approval required only when the user has a manager AND the ticket
       // amount meets or exceeds the department threshold for that currency.
       // If no threshold is configured, default to requiring manager approval.
-      const parsedAmount = parseFloat(amount ?? "0");
+      const parsedAmount =
+        amount && amount.trim() !== "" ? parseFloat(amount) : null;
       const currencyThreshold =
-        dept.approvalThresholds.get(currency ?? "") ?? null;
+        ticketStatus === TICKET_STATUS.PENDING && dept && currency
+          ? (dept.approvalThresholds.get(currency) ?? null)
+          : null;
       const needsManagerApproval =
+        ticketStatus === TICKET_STATUS.PENDING &&
         user?.managerId != null &&
+        parsedAmount != null &&
         (currencyThreshold === null || parsedAmount >= currencyThreshold);
 
       const parsedTags: string[] = tags
@@ -229,18 +251,21 @@ export default class TicketController {
 
       const ticket = await Ticket.create({
         _id: newTicketId,
-        title,
+        title: title?.trim() || null,
         submittedBy: user._id,
         submitterManagerId: user.managerId ?? null,
         orgId: org._id,
         amount: parsedAmount,
-        currency,
-        department,
+        currency: currency ?? null,
+        department: department ? new Types.ObjectId(department) : null,
         description: description ?? "",
         tags: parsedTags,
         receiptIds: receiptId ? [receiptId] : [],
-        status: TICKET_STATUS.PENDING,
-        managerApproval: needsManagerApproval
+        status: ticketStatus,
+        merchant: merchantId ? new Types.ObjectId(merchantId) : null,
+        category: categoryId ? new Types.ObjectId(categoryId) : null,
+        managerApproval:
+          ticketStatus === TICKET_STATUS.PENDING && needsManagerApproval
           ? {
               required: true,
               approved: null,
@@ -249,26 +274,26 @@ export default class TicketController {
               comments: null,
             }
           : null,
-        financeApproval: {
-          approved: null,
-          reviewedBy: null,
-          reviewedAt: null,
-          comments: null,
-        },
+        financeApproval:
+          ticketStatus === TICKET_STATUS.PENDING
+            ? {
+                approved: null,
+                reviewedBy: null,
+                reviewedAt: null,
+                comments: null,
+              }
+            : null,
         ...(timestamp && { createdAt: new Date(timestamp) }),
       });
 
       // Add any new tags into the department's tag pool
-      if (parsedTags.length > 0) {
+      if (parsedTags.length > 0 && dept) {
         await Department.findByIdAndUpdate(dept._id, {
           $addToSet: { tags: { $each: parsedTags } },
         });
       }
 
       // Link to bundle if bundleId was provided (non-fatal — silently ignored if bundle not found)
-      const bundleId = (req.body as Record<string, string | undefined>)[
-        "bundleId"
-      ];
       if (bundleId) {
         try {
           await Bundle.findOneAndUpdate(
@@ -290,36 +315,38 @@ export default class TicketController {
       }).catch(() => {});
       emitNewTicket(org._id.toString(), ticketData, user._id.toString());
 
-      // Notify manager and org admins about new submission (non-blocking)
-      try {
-        const notifyTargets: { email: string; name: string }[] = [];
-        // Fetch manager and org admins in parallel — both independent of each other.
-        const [manager, admins] = await Promise.all([
-          user.managerId
-            ? User.findById(user.managerId).select("email name").lean()
-            : Promise.resolve(null),
-          User.find({ orgId: org._id, role: ROLES.ADMIN, isDisabled: false })
-            .select("email name")
-            .lean(),
-        ]);
-        if (manager)
-          notifyTargets.push({ email: manager.email, name: manager.name });
-        for (const admin of admins) {
-          if (!notifyTargets.some((t) => t.email === admin.email))
-            notifyTargets.push({ email: admin.email, name: admin.name });
+      // Notify manager and org admins only for pending submissions (non-blocking)
+      if (ticketStatus === TICKET_STATUS.PENDING) {
+        try {
+          const notifyTargets: { email: string; name: string }[] = [];
+          // Fetch manager and org admins in parallel — both independent of each other.
+          const [manager, admins] = await Promise.all([
+            user.managerId
+              ? User.findById(user.managerId).select("email name").lean()
+              : Promise.resolve(null),
+            User.find({ orgId: org._id, role: ROLES.ADMIN, isDisabled: false })
+              .select("email name")
+              .lean(),
+          ]);
+          if (manager)
+            notifyTargets.push({ email: manager.email, name: manager.name });
+          for (const admin of admins) {
+            if (!notifyTargets.some((t) => t.email === admin.email))
+              notifyTargets.push({ email: admin.email, name: admin.name });
+          }
+          for (const target of notifyTargets) {
+            sendTicketSubmittedEmail(
+              target.email,
+              target.name,
+              user.name,
+              ticket.title!,
+              ticket.amount!,
+              ticket.currency!,
+            );
+          }
+        } catch {
+          // Non-fatal notification
         }
-        for (const target of notifyTargets) {
-          sendTicketSubmittedEmail(
-            target.email,
-            target.name,
-            user.name,
-            ticket.title!,
-            ticket.amount!,
-            ticket.currency!,
-          );
-        }
-      } catch {
-        // Non-fatal notification
       }
 
       const payload: ResponsePayload<ITicketData> = {
@@ -334,7 +361,7 @@ export default class TicketController {
         message: "Error creating ticket",
         code: "TICKET_CREATE_ERROR",
       });
-      createError("Failed to create ticket", 500, "TICKET_CREATE_ERROR");
+      next(err);
     }
   }
 

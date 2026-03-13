@@ -11,22 +11,8 @@ import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
 import type { ApiResponse, PaginatedData } from '@/core/types/api.types';
 import type { IBundleData, BundleStatus } from '@/core/types/ticket.types';
-import { ROUTES } from '@/core/constants/constants';
+import { ROUTES, BUNDLE_STATUS_LABELS, BUNDLE_STATUS_VARIANT } from '@/core/constants/constants';
 import { formatRelativeTime } from '@/core/utils/formatters';
-
-const BUNDLE_STATUS_LABELS: Record<BundleStatus, string> = {
-  draft: 'Draft',
-  submitted: 'Submitted',
-  approved: 'Approved',
-  rejected: 'Rejected',
-};
-
-const BUNDLE_STATUS_VARIANT: Record<BundleStatus, 'muted' | 'warning' | 'success' | 'danger'> = {
-  draft: 'muted',
-  submitted: 'warning',
-  approved: 'success',
-  rejected: 'danger',
-};
 
 function useAdminBundles(page: number, status: string) {
   const [data, setData] = useState<IBundleData[]>([]);

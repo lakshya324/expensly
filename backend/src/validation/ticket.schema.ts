@@ -2,18 +2,55 @@ import { body, query } from "express-validator";
 import { CURRENCIES, MAX_LIMIT, TICKET_STATUS } from "../config/constants.js";
 
 export const createTicketValidation = [
-  body("title").trim().notEmpty().withMessage("Title is required"),
+  body("statusIntent")
+    .optional()
+    .isIn(["draft", "pending"])
+    .withMessage("statusIntent must be 'draft' or 'pending'"),
+  body("title")
+    .optional()
+    .custom((value, { req }) => {
+      if (req.body["statusIntent"] !== "draft" && !`${value ?? ""}`.trim())
+        throw new Error("Title is required");
+      return true;
+    }),
   body("amount")
-    .isFloat({ min: 0.01 })
-    .withMessage("Amount must be a positive number"),
+    .optional()
+    .custom((value, { req }) => {
+      const isDraft = req.body["statusIntent"] === "draft";
+      if (isDraft && (value === undefined || value === "")) return true;
+      const parsedAmount = parseFloat(`${value ?? ""}`);
+      if (Number.isNaN(parsedAmount) || parsedAmount < 0.01)
+        throw new Error("Amount must be a positive number");
+      return true;
+    }),
   body("currency")
-    .isIn(CURRENCIES)
-    .withMessage(`Currency must be one of: ${CURRENCIES.join(", ")}`),
-  body("department").trim().notEmpty().withMessage("Department is required"),
+    .optional()
+    .custom((value, { req }) => {
+      const isDraft = req.body["statusIntent"] === "draft";
+      if (isDraft && (value === undefined || value === "")) return true;
+      if (!CURRENCIES.includes(value))
+        throw new Error(`Currency must be one of: ${CURRENCIES.join(", ")}`);
+      return true;
+    }),
+  body("department")
+    .optional()
+    .custom((value, { req }) => {
+      if (req.body["statusIntent"] !== "draft" && !`${value ?? ""}`.trim())
+        throw new Error("Department is required");
+      return true;
+    }),
   body("bundleId")
     .optional()
     .isMongoId()
     .withMessage("bundleId must be a valid MongoDB ObjectId"),
+  body("merchant")
+    .optional()
+    .isMongoId()
+    .withMessage("merchant must be a valid MongoDB ObjectId"),
+  body("category")
+    .optional()
+    .isMongoId()
+    .withMessage("category must be a valid MongoDB ObjectId"),
 ];
 
 export const updateStatusValidation = [

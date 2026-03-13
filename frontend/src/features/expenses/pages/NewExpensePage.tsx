@@ -3,8 +3,8 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Upload, X, FileText, Image, Tag, Sparkles, PenLine,
-  CheckCircle2, AlertTriangle, Info, ScanLine, XCircle,
+  ArrowLeft, Upload, X, FileText, Image, Sparkles, PenLine,
+  CheckCircle2, AlertTriangle, ScanLine, XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/utils/cn';
@@ -26,7 +26,7 @@ import type { SocketEnvelope } from '@/core/types/socket.types';
 
 // ─── Shared helpers ────────────────────────────────────────────
 
-type Mode = 'picker' | 'ai_upload' | 'ai_scanning' | 'ai_review' | 'ai_failed' | 'manual';
+type Mode = 'ai_upload' | 'ai_scanning' | 'ai_review' | 'ai_failed' | 'manual';
 
 const SCAN_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 3_000;
@@ -45,73 +45,14 @@ function FileIcon({ type }: { type: string }) {
   return <Image className="w-5 h-5 text-brand-500" />;
 }
 
-// ─── Mode picker ───────────────────────────────────────────────
-
-function ModePicker({ onSelect }: { onSelect: (mode: 'ai' | 'manual') => void }) {
-  return (
-    <div className="space-y-4">
-      <div className="text-center mb-2">
-        <h2 className="text-xl font-bold text-[var(--foreground)]">New Expense</h2>
-        <p className="text-sm text-[var(--muted-foreground)] mt-1">How would you like to create this expense?</p>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* AI Scan Card */}
-        <button
-          type="button"
-          onClick={() => onSelect('ai')}
-          className="group relative text-left rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] p-6 transition-all hover:border-brand-500 hover:shadow-lg hover:shadow-brand-500/10 focus:outline-none focus:ring-2 focus:ring-brand-500"
-        >
-          {/* shimmer bg on hover */}
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-brand-500/5 via-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-          <div className="relative">
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 shadow-lg shadow-brand-500/30 mb-4">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <div className="mb-2 flex items-center gap-2">
-              <h3 className="text-base font-bold text-[var(--foreground)]">AI Scan Receipt</h3>
-              <Badge variant="default" className="text-[10px] px-1.5 py-0.5">SMART</Badge>
-            </div>
-            <p className="text-sm text-[var(--muted-foreground)] leading-relaxed">
-              Snap or upload a photo. Our AI reads the receipt and fills in all the details automatically.
-            </p>
-            <div className="mt-4 flex items-center gap-1.5 text-xs font-medium text-brand-600 dark:text-brand-400">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Auto-fills amount, merchant &amp; date</span>
-            </div>
-          </div>
-        </button>
-
-        {/* Manual Card */}
-        <button
-          type="button"
-          onClick={() => onSelect('manual')}
-          className="group text-left rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] p-6 transition-all hover:border-[var(--foreground)]/30 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-500"
-        >
-          <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-[var(--muted)] mb-4">
-            <PenLine className="w-6 h-6 text-[var(--muted-foreground)]" />
-          </div>
-          <h3 className="text-base font-bold text-[var(--foreground)] mb-2">Manual Entry</h3>
-          <p className="text-sm text-[var(--muted-foreground)] leading-relaxed">
-            Fill in the expense details yourself. Optionally attach a receipt for your records.
-          </p>
-          <div className="mt-4 flex items-center gap-1.5 text-xs font-medium text-[var(--muted-foreground)]">
-            <Info className="w-3.5 h-3.5" />
-            <span>Full control over all fields</span>
-          </div>
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ─── AI Upload Step ────────────────────────────────────────────
 
 function AiUploadStep({
   onFileSelected,
-  onBack,
+  onManualEntry,
 }: {
   onFileSelected: (file: File) => void;
-  onBack: () => void;
+  onManualEntry: () => void;
 }) {
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -124,14 +65,12 @@ function AiUploadStep({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon-sm" onClick={onBack}>
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <div>
-          <h2 className="text-xl font-bold text-[var(--foreground)]">Scan Receipt</h2>
-          <p className="text-sm text-[var(--muted-foreground)]">Upload your receipt and AI will extract all details</p>
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-bold text-[var(--foreground)]">New Expense</h2>
+          <Badge variant="default" className="text-[10px] px-1.5 py-0.5">AI FIRST</Badge>
         </div>
+        <p className="text-sm text-[var(--muted-foreground)]">Upload a receipt to auto-create your expense, or switch to manual entry.</p>
       </div>
 
       {/* Drop zone */}
@@ -190,18 +129,15 @@ function AiUploadStep({
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
       />
 
-      {/* Feature hints */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { icon: '🔍', label: 'Reads amounts' },
-          { icon: '🏪', label: 'Detects merchant' },
-          { icon: '📅', label: 'Extracts date' },
-        ].map(({ icon, label }) => (
-          <div key={label} className="flex flex-col items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-center">
-            <span className="text-xl">{icon}</span>
-            <span className="text-xs text-[var(--muted-foreground)]">{label}</span>
-          </div>
-        ))}
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-[var(--foreground)]">Prefer entering details yourself?</p>
+          <p className="text-xs text-[var(--muted-foreground)] mt-1">Use manual entry with merchant, category, and draft save support.</p>
+        </div>
+        <Button type="button" variant="outline" onClick={onManualEntry}>
+          <PenLine className="w-4 h-4" />
+          Manual Entry
+        </Button>
       </div>
     </div>
   );
@@ -517,18 +453,15 @@ function AiReviewStep({
 
 interface ManualFormProps {
   onBack: () => void;
+  merchants: Array<Pick<IMerchantData, '_id' | 'name'>>;
+  categories: Array<Pick<ICategoryData, '_id' | 'name'>>;
 }
 
-function ManualForm({ onBack }: ManualFormProps) {
+function ManualForm({ onBack, merchants, categories }: ManualFormProps) {
   const navigate = useNavigate();
   const { createExpense, loading } = useCreateExpense();
   const { user } = useAuthStore();
-  const [deptTags, setDeptTags] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState('');
-  const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
-  const [tagHighlight, setTagHighlight] = useState(-1);
-  const tagInputRef = useRef<HTMLInputElement>(null);
+  const [activeAction, setActiveAction] = useState<'submit' | 'draft' | null>(null);
   const [receipt, setReceipt] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -537,55 +470,9 @@ function ManualForm({ onBack }: ManualFormProps) {
     register,
     handleSubmit,
     control,
+    getValues,
     formState: { errors },
   } = useForm<CreateExpenseFormValues>({ resolver: zodResolver(createExpenseSchema) });
-
-  useEffect(() => {
-    const deptId = user?.department?._id;
-    if (!deptId) return;
-    apiClient
-      .get<ApiResponse<string[]>>(EP.USER_DEPT_TAGS(deptId))
-      .then((res) => setDeptTags(res.data.data))
-      .catch(() => {});
-  }, [user?.department?._id]);
-
-  const toggleTag = (tag: string) => {
-    const trimmed = tag.trim().toLowerCase();
-    if (!trimmed) return;
-    if (selectedTags.includes(trimmed)) {
-      setSelectedTags((prev) => prev.filter((t) => t !== trimmed));
-    } else if (selectedTags.length < 5) {
-      setSelectedTags((prev) => [...prev, trimmed]);
-    }
-  };
-
-  const closeTagDropdown = useCallback(() => {
-    setTagDropdownOpen(false);
-    setTagHighlight(-1);
-  }, []);
-
-  const addTagsFromString = useCallback((raw: string) => {
-    const parts = raw.split(/[,\s]+/).map((t) => t.trim().toLowerCase()).filter(Boolean);
-    setSelectedTags((prev) => {
-      const merged = [...prev];
-      for (const part of parts) {
-        if (merged.length >= 5) break;
-        if (!merged.includes(part)) merged.push(part);
-      }
-      return merged;
-    });
-    setTagInput('');
-    setTagDropdownOpen(false);
-    setTagHighlight(-1);
-  }, []);
-
-  const addTagFromInput = useCallback(() => {
-    addTagsFromString(tagInput);
-  }, [tagInput, addTagsFromString]);
-
-  const filteredSuggestions = deptTags
-    .filter((t) => t.toLowerCase().includes(tagInput.toLowerCase()) && !selectedTags.includes(t))
-    .slice(0, 6);
 
   const handleFile = (file: File) => {
     const err = validateFile(file);
@@ -593,17 +480,33 @@ function ManualForm({ onBack }: ManualFormProps) {
     setReceipt(file);
   };
 
-  const onSubmit = async (values: CreateExpenseFormValues) => {
+  const submitManual = async (
+    values: Partial<CreateExpenseFormValues>,
+    statusIntent: 'pending' | 'draft',
+  ) => {
     const fd = new FormData();
-    fd.append('title', values.title);
-    fd.append('amount', values.amount);
-    fd.append('currency', values.currency);
+    if (values.title?.trim()) fd.append('title', values.title.trim());
+    if (values.amount?.trim()) fd.append('amount', values.amount.trim());
+    if (values.currency?.trim()) fd.append('currency', values.currency);
+    if (values.description?.trim()) fd.append('description', values.description.trim());
+    if (values.merchant) fd.append('merchant', values.merchant);
+    if (values.category) fd.append('category', values.category);
     if (user?.department?._id) fd.append('department', user.department._id);
-    if (values.description) fd.append('description', values.description);
-    selectedTags.forEach((t) => fd.append('tags[]', t));
+    if (statusIntent === 'draft') fd.append('statusIntent', 'draft');
     if (receipt) fd.append('receipt', receipt);
-    const result = await createExpense(fd);
+    const result = await createExpense(fd, statusIntent);
+    setActiveAction(null);
     if (result) navigate(ROUTES.EXPENSES);
+  };
+
+  const onSubmit = async (values: CreateExpenseFormValues) => {
+    setActiveAction('submit');
+    await submitManual(values, 'pending');
+  };
+
+  const onSaveDraft = async () => {
+    setActiveAction('draft');
+    await submitManual(getValues(), 'draft');
   };
 
   const activeCurrencies = user?.org?.activeCurrencies ?? [];
@@ -669,67 +572,41 @@ function ManualForm({ onBack }: ManualFormProps) {
             />
           </div>
 
-          {/* Tags */}
-          <div>
-            <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-              Tags <span className="text-[var(--muted-foreground)] font-normal">({selectedTags.length}/5)</span>
-            </label>
-            {selectedTags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {selectedTags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-brand-600 dark:bg-brand-500 text-white"
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Merchant</label>
+              <Controller
+                name="merchant"
+                control={control}
+                render={({ field }) => (
+                  <select
+                    {...field}
+                    value={field.value ?? ''}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
-                    <Tag className="w-3 h-3" />
-                    {tag}
-                    <button type="button" onClick={() => toggleTag(tag)} className="ml-0.5 hover:opacity-70 transition">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-            {selectedTags.length < 5 && (
-              <div className="relative">
-                <input
-                  ref={tagInputRef}
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => { setTagInput(e.target.value); setTagDropdownOpen(true); setTagHighlight(-1); }}
-                  onFocus={() => setTagDropdownOpen(true)}
-                  onBlur={() => setTimeout(() => closeTagDropdown(), 150)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'ArrowDown') { e.preventDefault(); setTagDropdownOpen(true); setTagHighlight((i) => Math.min(i + 1, filteredSuggestions.length - 1)); }
-                    else if (e.key === 'ArrowUp') { e.preventDefault(); setTagHighlight((i) => Math.max(i - 1, -1)); }
-                    else if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (tagHighlight >= 0 && filteredSuggestions[tagHighlight]) { toggleTag(filteredSuggestions[tagHighlight]); setTagInput(''); closeTagDropdown(); }
-                      else { addTagFromInput(); }
-                    } else if (e.key === 'Escape') { closeTagDropdown(); }
-                  }}
-                  onPaste={(e) => { e.preventDefault(); addTagsFromString(tagInput + e.clipboardData.getData('text')); }}
-                  placeholder="Add tags…"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
-                />
-                {tagDropdownOpen && filteredSuggestions.length > 0 && (
-                  <div className="absolute z-10 mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] shadow-lg overflow-hidden">
-                    {filteredSuggestions.map((tag, i) => (
-                      <button
-                        key={tag}
-                        type="button"
-                        onMouseEnter={() => setTagHighlight(i)}
-                        onMouseDown={(e) => { e.preventDefault(); toggleTag(tag); setTagInput(''); closeTagDropdown(); }}
-                        className={`w-full text-left px-3.5 py-2 text-sm text-[var(--foreground)] flex items-center gap-2 transition ${i === tagHighlight ? 'bg-[var(--accent)]' : 'hover:bg-[var(--accent)]'}`}
-                      >
-                        <Tag className="w-3.5 h-3.5 text-[var(--muted-foreground)]" />
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
+                    <option value="">Select merchant</option>
+                    {merchants.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}
+                  </select>
                 )}
-              </div>
-            )}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Category</label>
+              <Controller
+                name="category"
+                control={control}
+                render={({ field }) => (
+                  <select
+                    {...field}
+                    value={field.value ?? ''}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option value="">Select category</option>
+                    {categories.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}
+                  </select>
+                )}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -782,14 +659,15 @@ function ManualForm({ onBack }: ManualFormProps) {
       <div className="flex gap-3">
         <Button
           type="button"
-          variant="ghost"
-          className="flex-1 border border-dashed border-[var(--border)] opacity-50 cursor-not-allowed"
-          onClick={() => toast.info('Save as Draft is coming soon')}
-          title="Save as Draft (coming soon)"
+          variant="outline"
+          className="flex-1"
+          onClick={onSaveDraft}
+          loading={loading && activeAction === 'draft'}
+          disabled={loading}
         >
           Save as Draft
         </Button>
-        <Button type="submit" loading={loading} className="flex-1">
+        <Button type="submit" loading={loading && activeAction === 'submit'} disabled={loading} className="flex-1">
           Submit Expense
         </Button>
       </div>
@@ -802,7 +680,7 @@ function ManualForm({ onBack }: ManualFormProps) {
 export function NewExpensePage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const [mode, setMode] = useState<Mode>('picker');
+  const [mode, setMode] = useState<Mode>('ai_upload');
   const [scanFile, setScanFile] = useState<File | null>(null);
   const [draftTicket, setDraftTicket] = useState<ITicketData | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -967,20 +845,16 @@ export function NewExpensePage() {
       `}</style>
 
       <div className="max-w-2xl mx-auto space-y-4">
-        {mode === 'picker' && (
+        {mode === 'ai_upload' && (
           <Button variant="ghost" size="icon-sm" onClick={() => navigate(ROUTES.EXPENSES)} className="mb-1">
             <ArrowLeft className="w-4 h-4" />
           </Button>
         )}
 
-        {mode === 'picker' && (
-          <ModePicker onSelect={(m) => setMode(m === 'ai' ? 'ai_upload' : 'manual')} />
-        )}
-
         {mode === 'ai_upload' && (
           <AiUploadStep
             onFileSelected={handleFileSelected}
-            onBack={() => setMode('picker')}
+            onManualEntry={() => setMode('manual')}
           />
         )}
 
@@ -1029,7 +903,11 @@ export function NewExpensePage() {
         )}
 
         {mode === 'manual' && (
-          <ManualForm onBack={() => setMode('picker')} />
+          <ManualForm
+            onBack={() => setMode('ai_upload')}
+            merchants={merchantOptions}
+            categories={categoryOptions}
+          />
         )}
       </div>
     </AppShell>

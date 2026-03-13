@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/sha
 import { Skeleton } from '@/shared/components/ui/Skeleton';
 import { useAnalytics } from '../hooks/useAnalytics';
 import { formatCurrency, formatDuration, formatPercent, formatRelativeTime } from '@/core/utils/formatters';
+import { useAuthStore } from '@/features/auth/store/authStore';
 import type { Currency } from '@/core/types/api.types';
 
 const PIE_COLORS = ['#7c3aed', '#a855f7', '#c084fc', '#ddd6fe', '#ede9fe'];
@@ -17,6 +18,7 @@ const BAR_COLOR = '#7c3aed';
 
 export function AnalyticsPage() {
   const { data, loading, refreshing, refresh } = useAnalytics();
+  const baseCurrency = useAuthStore((s) => s.user?.org?.baseCurrency ?? 'USD');
 
   return (
     <AppShell title="Analytics">
@@ -47,7 +49,7 @@ export function AnalyticsPage() {
           <StatCard
             title="Approved"
             value={loading ? '—' : (data?.org.totalApproved ?? 0)}
-            subtitle={data ? `${formatCurrency(data.org.totalAmountApproved, 'USD', true)} total` : undefined}
+            subtitle={data ? `${formatCurrency(data.org.totalAmountApproved, baseCurrency, true)} total` : undefined}
             icon={CheckCircle2}
             color="success"
             loading={loading}

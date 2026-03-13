@@ -9,9 +9,11 @@ export const createExpenseSchema = z.object({
     .min(1, 'Amount is required')
     .regex(/^[0-9]+(\.[0-9]+)?$/, 'Amount must be a valid positive number')
     .refine((v) => Number(v) > 0, 'Amount must be greater than 0'),
-  currency: z.enum(CURRENCIES as [string, ...string[]]),
+  currency: z.enum(CURRENCIES as [string, ...string[]], 'Invalid currency'),
   description: z.string().trim().max(1000, 'Description too long').optional(),
   tags: z.array(z.string().trim().min(1)).optional(),
+  merchant: z.string().optional(),
+  category: z.string().optional(),
 });
 
 export const updateExpenseStatusSchema = z.object({

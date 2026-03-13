@@ -24,23 +24,9 @@ import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
 import type { ApiResponse, PaginatedData } from '@/core/types/api.types';
 import type { IBundleData, BundleStatus, ITicketData } from '@/core/types/ticket.types';
-import { ROUTES, CURRENCY_SYMBOLS } from '@/core/constants/constants';
+import { ROUTES, CURRENCY_SYMBOLS, BUNDLE_STATUS_LABELS, BUNDLE_STATUS_VARIANT } from '@/core/constants/constants';
 import { formatRelativeTime, formatDate } from '@/core/utils/formatters';
 import { useAuthStore } from '@/features/auth/store/authStore';
-
-const STATUS_LABEL: Record<BundleStatus, string> = {
-  draft: 'Draft',
-  submitted: 'Submitted',
-  approved: 'Approved',
-  rejected: 'Rejected',
-};
-
-const STATUS_VARIANT: Record<BundleStatus, 'muted' | 'warning' | 'success' | 'danger'> = {
-  draft: 'muted',
-  submitted: 'warning',
-  approved: 'success',
-  rejected: 'danger',
-};
 
 type BundleApproval = {
   approved: boolean | null;
@@ -289,7 +275,7 @@ export function BundleDetailPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-bold text-[var(--foreground)] truncate">{bundle.title}</h1>
-              <Badge variant={STATUS_VARIANT[bundle.status]}>{STATUS_LABEL[bundle.status]}</Badge>
+              <Badge variant={BUNDLE_STATUS_VARIANT[bundle.status]}>{BUNDLE_STATUS_LABELS[bundle.status]}</Badge>
             </div>
             {bundle.tags && bundle.tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1">

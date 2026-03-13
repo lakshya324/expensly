@@ -65,16 +65,21 @@ export function useExpense(id: string) {
 export function useCreateExpense() {
   const [loading, setLoading] = useState(false);
 
-  const createExpense = async (formData: FormData): Promise<ITicketData | null> => {
+  const createExpense = async (
+    formData: FormData,
+    statusIntent: 'pending' | 'draft' = 'pending',
+  ): Promise<ITicketData | null> => {
     setLoading(true);
     try {
       const res = await apiClient.post<ApiResponse<ITicketData>>(EP.EXPENSES, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      toast.success('Expense submitted successfully');
+      toast.success(statusIntent === 'draft' ? 'Draft saved successfully' : 'Expense submitted successfully');
       return res.data.data;
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to create expense';
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (statusIntent === 'draft' ? 'Failed to save draft' : 'Failed to create expense');
       toast.error(msg);
       return null;
     } finally {

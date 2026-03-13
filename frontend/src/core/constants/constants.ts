@@ -1,4 +1,5 @@
 import type { Currency, TicketStatus } from '../types/api.types';
+import type { BundleStatus } from '../types/ticket.types';
 
 export const CURRENCIES: Currency[] = [
   'USD', 'EUR', 'GBP', 'INR', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'SGD',
@@ -30,6 +31,20 @@ export const TICKET_STATUS_COLORS: Record<TicketStatus, string> = {
   ocr_failed: 'danger',
   pending: 'warning',
   awaiting_finance: 'info',
+  approved: 'success',
+  rejected: 'danger',
+};
+
+export const BUNDLE_STATUS_LABELS: Record<BundleStatus, string> = {
+  draft: 'Draft',
+  submitted: 'Submitted',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
+
+export const BUNDLE_STATUS_VARIANT: Record<BundleStatus, 'muted' | 'warning' | 'success' | 'danger'> = {
+  draft: 'muted',
+  submitted: 'warning',
   approved: 'success',
   rejected: 'danger',
 };

@@ -29,6 +29,8 @@ import type { IDepartmentData, IPolicyData, PermissionKey } from '@/core/types/t
 import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
 import type { ApiResponse } from '@/core/types/api.types';
+import { CURRENCIES } from '@/core/constants/constants';
+import { useAuthStore } from '@/features/auth/store/authStore';
 
 const RESET_PERIOD_LABELS: Record<string, string> = {
   none: 'No Reset',
@@ -36,11 +38,6 @@ const RESET_PERIOD_LABELS: Record<string, string> = {
   quarterly: 'Quarterly',
   yearly: 'Yearly',
 };
-
-const CURRENCIES = [
-  'USD', 'EUR', 'GBP', 'INR', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'SGD',
-  'AED', 'HKD', 'MXN', 'BRL', 'KRW', 'SEK', 'NOK', 'DKK', 'NZD', 'ZAR',
-];
 
 const DEPT_PERM_LABELS: { key: string; label: string }[] = [
   { key: 'view_all_tickets', label: 'View All Tickets' },
@@ -51,6 +48,7 @@ const DEPT_PERM_LABELS: { key: string; label: string }[] = [
 
 export function DepartmentsPage() {
   const { data, loading, refetch } = useDepartments({ limit: 100 });
+  const baseCurrency = useAuthStore((s) => s.user?.org?.baseCurrency ?? 'USD');
 
   // Policies
   const [policies, setPolicies] = useState<IPolicyData[]>([]);
@@ -603,7 +601,7 @@ function DepartmentCard({
             <span
               className={`font-medium ${isOverBudget ? 'text-danger-500' : 'text-[var(--foreground)]'}`}
             >
-              {formatCurrency(dept.spent, 'USD')} / {formatCurrency(dept.budget, 'USD')}
+              {formatCurrency(dept.spent, baseCurrency)} / {formatCurrency(dept.budget, baseCurrency)}
             </span>
           </div>
           <div className="h-2 rounded-full bg-[var(--muted)] overflow-hidden">
