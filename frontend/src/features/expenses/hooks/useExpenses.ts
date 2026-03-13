@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
-import type { ITicketData, IDiscussionMessageData } from '@/core/types/ticket.types';
+import type { ITicketData, ITicketSummaryData, IDiscussionMessageData } from '@/core/types/ticket.types';
 import type { ApiResponse, PaginatedData, TicketStatus } from '@/core/types/api.types';
 
 interface TicketFilters {
@@ -18,7 +18,7 @@ interface TicketFilters {
 }
 
 export function useExpenses(filters: TicketFilters = {}) {
-  const [data, setData] = useState<ITicketData[]>([]);
+  const [data, setData] = useState<ITicketSummaryData[]>([]);
   const [pagination, setPagination] = useState<import('@/core/types/api.types').PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export function useExpenses(filters: TicketFilters = {}) {
       const params = Object.fromEntries(
         Object.entries(filters).filter(([, v]) => v !== '' && v !== undefined),
       );
-      const res = await apiClient.get<ApiResponse<PaginatedData<ITicketData>>>(EP.EXPENSES, { params });
+      const res = await apiClient.get<ApiResponse<PaginatedData<ITicketSummaryData>>>(EP.EXPENSES, { params });
       setData(res.data.data.data);
       setPagination(res.data.data.pagination);
     } catch (err: unknown) {

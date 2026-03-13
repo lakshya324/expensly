@@ -58,6 +58,11 @@ export interface AiValidation {
   checks: AiValidationCheck[];
 }
 
+export interface IReceiptRef {
+  _id: string;
+  url: string;
+}
+
 export interface ITicketData {
   _id: string;
   title: string | null;
@@ -69,14 +74,12 @@ export interface ITicketData {
   department: { _id: string; name: string } | null;
   description: string;
   tags: string[];
-  receiptKey: string | null;
-  receiptKeys: string[];
+  receipts: IReceiptRef[];
   status: TicketStatus;
   flagged: boolean;
   merchant: { _id: string; name: string; logoUrl?: string | null } | null;
-  category: { _id: string; name: string; color?: string | null } | null;
-  bundleId: string | null;
-  bundle: { _id: string; title: string } | null;
+  category: { _id: string; name: string; iconUrl?: string | null } | null;
+  bundle: { _id: string; title: string; description: string } | null;
   expenseType: ExpenseType;
   ocrData: OcrData | null;
   aiValidation: AiValidation | null;
@@ -87,6 +90,17 @@ export interface ITicketData {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * Lighter shape returned by paginated list endpoints.
+ * merchant/category carry only _id + name (no S3 URLs).
+ * receipts carry only _id (no presigned URLs).
+ */
+export type ITicketSummaryData = Omit<ITicketData, 'receipts' | 'merchant' | 'category'> & {
+  receipts: { _id: string }[];
+  merchant: { _id: string; name: string } | null;
+  category: { _id: string; name: string } | null;
+};
 
 export interface IDiscussionMessageData {
   _id: string;

@@ -125,13 +125,13 @@ export function ExpenseDetailPage() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <StatusBadge status={ticket.status} />
-            {ticket.bundleId && (
+            {ticket.bundle && (
               <button
-                onClick={() => navigate(ROUTES.BUNDLE_DETAIL(ticket.bundleId!))}
+                onClick={() => navigate(ROUTES.BUNDLE_DETAIL(ticket.bundle!._id))}
                 className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-50 text-info-600 dark:bg-info-500/15 dark:text-info-400 hover:opacity-80 transition-opacity"
               >
                 <Package className="w-3 h-3" />
-                {ticket.bundle?.title ?? 'Bundle'}
+                {ticket.bundle.title}
               </button>
             )}
             {ticket.flagged && (
@@ -215,11 +215,8 @@ export function ExpenseDetailPage() {
                   <div>
                     <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">Category</dt>
                     <dd className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-[var(--foreground)]">
-                      {ticket.category.color && (
-                        <span
-                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: ticket.category.color }}
-                        />
+                      {ticket.category.iconUrl && (
+                        <img src={ticket.category.iconUrl} alt="" className="w-4 h-4 rounded object-contain" />
                       )}
                       {ticket.category.name}
                     </dd>
@@ -315,7 +312,7 @@ export function ExpenseDetailPage() {
           <Card>
             <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              {ticket.receiptKeys?.length > 0 && (
+              {ticket.receipts.length > 0 && (
                 <Button variant="outline" size="sm" className="w-full" onClick={openReceipt}>
                   <Download className="w-4 h-4" />
                   View Receipt

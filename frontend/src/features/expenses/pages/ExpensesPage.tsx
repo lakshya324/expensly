@@ -10,7 +10,7 @@ import { ExpenseFiltersBar } from '../components/ExpenseFiltersBar';
 import { useExpenses, useExpenseStats } from '../hooks/useExpenses';
 import { ROUTES, CURRENCY_SYMBOLS } from '@/core/constants/constants';
 import { formatDate } from '@/core/utils/formatters';
-import type { ITicketData } from '@/core/types/ticket.types';
+import type { ITicketSummaryData } from '@/core/types/ticket.types';
 import type { TicketStatus } from '@/core/types/api.types';
 
 export function ExpensesPage() {
@@ -47,7 +47,7 @@ export function ExpensesPage() {
 
   const hasActiveFilters = !!searchInput || !!status || !!dateFrom || !!dateTo || flagged;
 
-  const columns: Column<ITicketData>[] = [
+  const columns: Column<ITicketSummaryData>[] = [
     {
       key: 'title',
       header: 'Title',

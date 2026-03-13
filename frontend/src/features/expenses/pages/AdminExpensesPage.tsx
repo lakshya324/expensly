@@ -10,11 +10,11 @@ import { ROUTES } from '@/core/constants/constants';
 import { EP } from '@/infrastructure/api/endpoints';
 import apiClient from '@/infrastructure/api/client';
 import type { TicketStatus, ApiResponse, PaginatedData } from '@/core/types/api.types';
-import type { ITicketData, IDepartmentData } from '@/core/types/ticket.types';
+import type { ITicketSummaryData, IDepartmentData } from '@/core/types/ticket.types';
 import type { IUserData } from '@/core/types/user.types';
 import type { ComboboxOption } from '@/shared/components/ui/SearchCombobox';
 
-const COLUMNS: Column<ITicketData>[] = [
+const COLUMNS: Column<ITicketSummaryData>[] = [
   {
     key: 'title',
     header: 'Title',

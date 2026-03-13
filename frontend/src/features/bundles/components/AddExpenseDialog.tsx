@@ -10,7 +10,7 @@ import { Skeleton } from '@/shared/components/ui/Skeleton';
 import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
 import type { ApiResponse, PaginatedData } from '@/core/types/api.types';
-import type { ITicketData } from '@/core/types/ticket.types';
+import type { ITicketSummaryData } from '@/core/types/ticket.types';
 import { CURRENCY_SYMBOLS } from '@/core/constants/constants';
 import { formatDate } from '@/core/utils/formatters';
 
@@ -26,7 +26,7 @@ const LIMIT = 10;
 export function AddExpenseDialog({ open, onOpenChange, bundleId, onAdded }: Props) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [expenses, setExpenses] = useState<ITicketData[]>([]);
+  const [expenses, setExpenses] = useState<ITicketSummaryData[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -37,7 +37,7 @@ export function AddExpenseDialog({ open, onOpenChange, bundleId, onAdded }: Prop
     try {
       const params: Record<string, unknown> = { page, limit: LIMIT };
       if (search.trim()) params.search = search.trim();
-      const res = await apiClient.get<ApiResponse<PaginatedData<ITicketData>>>(EP.EXPENSES, { params });
+      const res = await apiClient.get<ApiResponse<PaginatedData<ITicketSummaryData>>>(EP.EXPENSES, { params });
       setExpenses(res.data.data?.data ?? []);
       setTotalPages(res.data.data?.pagination?.totalPages ?? 1);
     } catch {
@@ -125,8 +125,8 @@ export function AddExpenseDialog({ open, onOpenChange, bundleId, onAdded }: Prop
               <p className="text-sm text-(--muted-foreground) text-center py-6">No expenses found</p>
             ) : (
               expenses.map((exp) => {
-                const alreadyInThisBundle = exp.bundleId === bundleId;
-                const inOtherBundle = !alreadyInThisBundle && exp.bundleId != null;
+                const alreadyInThisBundle = exp.bundle?._id === bundleId;
+                const inOtherBundle = !alreadyInThisBundle && exp.bundle != null;
                 const isChecked = selected.has(exp._id);
                 const sym = exp.currency ? (CURRENCY_SYMBOLS[exp.currency] ?? exp.currency) : '';
 
