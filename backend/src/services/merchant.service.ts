@@ -31,7 +31,7 @@ export const createMerchant = async (
     createdBy: new Types.ObjectId(input.createdBy),
   });
 
-  return doc.toData();
+  return await doc.toData();
 };
 
 /**
@@ -46,18 +46,9 @@ export const listMerchants = async (
   };
   if (!includeInactive) filter["isActive"] = true;
 
-  const docs = await Merchant.find(filter).sort({ name: 1 }).lean();
-  return docs.map((d) => ({
-    _id: d._id.toString(),
-    orgId: d.orgId.toString(),
-    name: d.name,
-    normalizedName: d.normalizedName,
-    isActive: d.isActive,
-    createdBy: d.createdBy.toString(),
-    logoKey: (d as { logoKey?: string | null }).logoKey ?? null,
-    createdAt: d.createdAt,
-    updatedAt: d.updatedAt,
-  }));
+  const docs = await Merchant.find(filter).sort({ name: 1 });
+  return Promise.all(docs.map((d) => d.toData())); 
+  // Note: we can optimize this later if needed by generating signed URLs in batch via the receipt service.
 };
 
 /**
@@ -85,7 +76,7 @@ export const updateMerchant = async (
   );
   if (!doc) throw createError("Merchant not found", 404, "NOT_FOUND");
 
-  return doc.toData();
+  return await doc.toData();
 };
 
 /**

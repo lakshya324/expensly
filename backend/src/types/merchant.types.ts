@@ -9,12 +9,12 @@ export interface IMerchant extends Document {
   normalizedName: string;
   isActive: boolean;
   createdBy: Types.ObjectId;
-  /** S3 key for the merchant logo image (null = no logo) */
-  logoKey: string | null;
+  /** Reference to Receipt document for merchant logo (null = no logo) */
+  logoId: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
 
-  toData(): IMerchantData;
+  toData(): Promise<IMerchantData>;
 }
 
 export interface IMerchantData {
@@ -24,8 +24,8 @@ export interface IMerchantData {
   normalizedName: string;
   isActive: boolean;
   createdBy: string;
-  /** S3 key for the merchant logo image */
-  logoKey: string | null;
+  /** Pre-signed S3 URL for the merchant logo */
+  logoUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

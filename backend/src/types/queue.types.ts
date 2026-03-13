@@ -3,15 +3,20 @@
  * Each job carries a `jobType` discriminator so the worker can dispatch correctly.
  */
 
+export enum QueueJobType {
+  OcrScan = "ocr_scan",
+  AiValidate = "ai_validate",
+}
+
 export interface OcrScanJob {
-  jobType: "ocr_scan";
+  jobType: QueueJobType.OcrScan;
   ticketId: string;
-  receiptKey: string;
+  receiptId: string;
   orgId: string;
 }
 
 export interface AiValidateJob {
-  jobType: "ai_validate";
+  jobType: QueueJobType.AiValidate;
   ticketId: string;
   orgId: string;
 }

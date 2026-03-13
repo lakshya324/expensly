@@ -9,10 +9,15 @@ import {
 import { createError } from "../utils/error.js";
 import { ResponsePayload } from "../types/payloads.types.js";
 import { IMerchantData } from "../types/merchant.types.js";
-import { AUDIT_ACTION, ENTITY_TYPE } from "../config/constants.js";
+import {
+  AUDIT_ACTION,
+  ENTITY_TYPE,
+  RECEIPT_USE_CASE,
+} from "../config/constants.js";
 import { logAction } from "../services/auditLog.service.js";
-import { uploadFile, deleteFiles } from "../services/s3.service.js";
 import { Merchant } from "../models/Merchant.model.js";
+import { Receipt } from "../models/Receipt.model.js";
+import { deleteReceiptAndFile } from "../services/receipt.service.js";
 
 export default class MerchantController {
   /** GET /api/admin/merchants */
@@ -22,7 +27,10 @@ export default class MerchantController {
       const includeInactive =
         (req.query["includeInactive"] as string) === "true";
 
-      const merchants = await listMerchants(org._id.toString(), includeInactive);
+      const merchants = await listMerchants(
+        org._id.toString(),
+        includeInactive,
+      );
 
       const payload: ResponsePayload<IMerchantData[]> = {
         success: true,
@@ -145,22 +153,32 @@ export default class MerchantController {
       const user = req.user!;
       const merchantId = req.params["id"] as string;
 
-      if (!req.file)
-        throw createError("Logo file is required", 400, "NO_FILE");
+      const s3File = req.file as Express.MulterS3.File | undefined;
+      if (!s3File) throw createError("Logo file is required", 400, "NO_FILE");
 
-      const merchant = await Merchant.findOne({ _id: merchantId, orgId: org._id });
+      const merchant = await Merchant.findOne({
+        _id: merchantId,
+        orgId: org._id,
+      });
       if (!merchant) throw createError("Merchant not found", 404, "NOT_FOUND");
 
-      // Remove old logo from S3 if present
-      if (merchant.logoKey) {
-        await deleteFiles([merchant.logoKey]).catch(() => {});
+      // Remove old logo Receipt if present
+      if (merchant.logoId) {
+        await deleteReceiptAndFile(merchant.logoId.toString());
       }
 
-      const ext = req.file.mimetype.split("/")[1]!;
-      const logoKey = `logos/${org.slug}/${merchantId}.${ext}`;
-      await uploadFile(logoKey, req.file.buffer, req.file.mimetype);
+      // Create new Receipt document for the logo
+      const receiptData = await Receipt.create({
+        orgId: org._id,
+        s3Key: s3File.key,
+        mimetype: s3File.mimetype,
+        originalName: s3File.originalname,
+        size: s3File.size,
+        useCase: RECEIPT_USE_CASE.MERCHANT_LOGO,
+        uploadedBy: user._id,
+      });
 
-      merchant.logoKey = logoKey;
+      merchant.logoId = receiptData._id;
       await merchant.save();
 
       logAction({
@@ -170,13 +188,13 @@ export default class MerchantController {
         action: AUDIT_ACTION.UPDATED,
         performedBy: user._id,
         ip: req.ip ?? null,
-        metadata: { field: "logoKey" },
+        metadata: { field: "logoId" },
       }).catch(() => {});
 
       const payload: ResponsePayload<IMerchantData> = {
         success: true,
         message: "Merchant logo uploaded successfully",
-        data: merchant.toData(),
+        data: await merchant.toData(),
         timestamp: new Date().toISOString(),
       };
       res.status(200).json(payload);

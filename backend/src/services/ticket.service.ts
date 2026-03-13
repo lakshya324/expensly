@@ -2,7 +2,10 @@ import { Types } from "mongoose";
 import { Ticket } from "../models/Ticket.model.js";
 import { User } from "../models/User.model.js";
 import { Department } from "../models/Department.model.js";
-import { ITicketData } from "../types/ticket.types.js";
+import { Merchant } from "../models/Merchant.model.js";
+import { Category } from "../models/Category.model.js";
+import { Bundle } from "../models/Bundle.model.js";
+import { ITicketSummaryData } from "../types/ticket.types.js";
 
 /**
  * Fetches a paginated list of tickets matching the provided filter, along with their related user and department data. The function performs efficient batch queries to avoid N+1 issues when resolving references.
@@ -37,7 +40,7 @@ export async function listTicketsPaginated(
   page: number,
   limit: number,
   orgCurrentRateSnapshotId: string | null,
-): Promise<{ data: ITicketData[]; total: number }> {
+): Promise<{ data: ITicketSummaryData[]; total: number }> {
   // !listTicketsPaginated
   // Fetches one page of tickets matching `filter` and resolves all referenced
   // departments and users via two parallel batch queries (no N+1 per ticket).
@@ -121,6 +124,33 @@ export async function listTicketsPaginated(
   );
   const userMap = new Map(involvedUsers.map((u) => [u._id.toString(), u]));
 
+  //! Round 4: batch-fetch merchant, category, and bundle summaries for this page
+  const merchantIds = [
+    ...new Set(tickets.filter((t) => t.merchant).map((t) => t.merchant!.toString())),
+  ];
+  const categoryIds = [
+    ...new Set(tickets.filter((t) => t.category).map((t) => t.category!.toString())),
+  ];
+  const bundleIds = [
+    ...new Set(tickets.filter((t) => t.bundleId).map((t) => t.bundleId!.toString())),
+  ];
+  const [merchantDocs, categoryDocs, bundleDocs] = await Promise.all([
+    merchantIds.length > 0
+      ? Merchant.find({ _id: { $in: merchantIds } }).select("_id name")
+      : Promise.resolve([]),
+    categoryIds.length > 0
+      ? Category.find({ _id: { $in: categoryIds } }).select("_id name")
+      : Promise.resolve([]),
+    bundleIds.length > 0
+      ? Bundle.find({ _id: { $in: bundleIds } }).select("_id title description")
+      : Promise.resolve([]),
+  ]);
+  const merchantMap = new Map(merchantDocs.map((m) => [m._id.toString(), m.name]));
+  const categoryMap = new Map(categoryDocs.map((c) => [c._id.toString(), c.name]));
+  const bundleMap = new Map(
+    bundleDocs.map((b) => [b._id.toString(), { _id: b._id.toString(), title: b.title, description: b.description }]),
+  );
+
   // Resolve a user reference to its minimal shape (with dept)
   const toUserMinimal = (userId: Types.ObjectId | null | undefined) => {
     if (!userId) return null;
@@ -138,7 +168,7 @@ export async function listTicketsPaginated(
     };
   };
 
-  const data: ITicketData[] = tickets.map((t) => {
+  const data: ITicketSummaryData[] = tickets.map((t) => {
     const ticketDept = t.department
       ? (deptMap.get(t.department.toString()) ?? null)
       : null;
@@ -146,6 +176,9 @@ export async function listTicketsPaginated(
       t.exchangeRateSnapshotId != null &&
       orgCurrentRateSnapshotId != null &&
       t.exchangeRateSnapshotId.toString() !== orgCurrentRateSnapshotId;
+    const merchantId = t.merchant?.toString();
+    const categoryId = t.category?.toString();
+    const bundleId = t.bundleId?.toString();
     return {
       _id: t._id.toString(),
       title: t.title,
@@ -159,7 +192,7 @@ export async function listTicketsPaginated(
       department: ticketDept ? ticketDept.toData() : null,
       description: t.description,
       tags: t.tags,
-      receiptKeys: t.receiptKeys,
+      receipts: t.receiptIds.map((id) => ({ _id: id.toString() })),
       status: t.status,
       flagged: t.flagged,
       managerApproval: t.managerApproval
@@ -184,12 +217,13 @@ export async function listTicketsPaginated(
         ? t.exchangeRateSnapshotId.toString()
         : null,
       ratesChangedSinceApproval,
-      // New extensibility fields — not resolved in the batch path (no cross-collection
-      // join needed for list view; single-ticket view via ticket.data() resolves them)
-      merchant: null,
-      category: null,
-      bundleId: t.bundleId ? t.bundleId.toString() : null,
-      bundle: null,
+      merchant: merchantId && merchantMap.has(merchantId)
+        ? { _id: merchantId, name: merchantMap.get(merchantId)! }
+        : null,
+      category: categoryId && categoryMap.has(categoryId)
+        ? { _id: categoryId, name: categoryMap.get(categoryId)! }
+        : null,
+      bundle: bundleId ? (bundleMap.get(bundleId) ?? null) : null,
       expenseType: t.expenseType,
       ocrData: t.ocrData ?? null,
       aiValidation: t.aiValidation ?? null,

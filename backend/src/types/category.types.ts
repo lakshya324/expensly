@@ -11,10 +11,12 @@ export interface ICategory extends Document {
   isActive: boolean;
   isSystem: boolean;
   createdBy: Types.ObjectId;
+  /** Reference to Receipt document for category icon (null = no icon) */
+  iconId: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
 
-  toData(): ICategoryData;
+  toData(): Promise<ICategoryData>;
 }
 
 export interface ICategoryData {
@@ -26,6 +28,8 @@ export interface ICategoryData {
   isActive: boolean;
   isSystem: boolean;
   createdBy: string;
+  /** Pre-signed S3 URL for the category icon */
+  iconUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

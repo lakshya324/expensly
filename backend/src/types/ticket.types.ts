@@ -8,6 +8,7 @@ import { IAiValidationResult } from "./aiValidation.types.js";
 import { IMerchantData } from "./merchant.types.js";
 import { ICategoryData } from "./category.types.js";
 import { IBundleData, IBundleSummaryData } from "./bundle.types.js";
+import { IReceiptRef } from "./receipt.types.js";
 
 export interface IApproval {
   required?: boolean;
@@ -34,7 +35,7 @@ export interface ITicket extends Document {
   description: string;
   tags: string[];
   /** Replaces the old single receiptKey field — supports multi-receipt uploads */
-  receiptKeys: string[];
+  receiptIds: Types.ObjectId[];
   status: TicketStatus;
   flagged: boolean;
   managerApproval: IApproval | null;
@@ -69,6 +70,7 @@ export interface IApprovalData {
   comments: string | null;
 }
 
+/** Full ticket shape — returned by single-ticket endpoints, websocket events, and OCR/AI workers. */
 export interface ITicketData {
   _id: string;
   title: string | null;
@@ -80,20 +82,33 @@ export interface ITicketData {
   department: IDepartmentData | null;
   description: string;
   tags: string[];
-  receiptKeys: string[];
+  /** Receipt references with pre-signed S3 URLs */
+  receipts: IReceiptRef[];
   status: TicketStatus;
   flagged: boolean;
   managerApproval: IApprovalData | null;
   financeApproval: IApprovalData | null;
   exchangeRateSnapshotId: string | null;
   ratesChangedSinceApproval: boolean;
-  // ─── Extensibility fields ────────────────────────────────────────────────
+  // ─── Relation fields ───────────────────────────────────────────────────────
   merchant: IMerchantData | null;
   category: ICategoryData | null;
-  bundleId: string | null;
+  /** Nested bundle summary — use bundle._id to navigate to the bundle */
   bundle: IBundleSummaryData | null;
   expenseType: ExpenseType;
   ocrData: IOcrData | null;
   aiValidation: IAiValidationResult | null;
   createdAt: Date;
 }
+
+/**
+ * Lightweight ticket shape for paginated list responses.
+ * Merchant and category are name-only summaries (no S3 URL resolution).
+ * Receipts contain IDs only (no pre-signed URLs — use the dedicated receipt endpoint).
+ */
+export type ITicketSummaryData = Omit<ITicketData, "receipts" | "merchant" | "category"> & {
+  /** Receipt IDs only — no pre-signed URLs in list context */
+  receipts: { _id: string }[];
+  merchant: { _id: string; name: string } | null;
+  category: { _id: string; name: string } | null;
+};

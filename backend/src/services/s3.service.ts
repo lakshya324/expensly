@@ -1,5 +1,4 @@
 import {
-  S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
@@ -7,17 +6,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import config from '../config/env.config.js';
 import { S3_URL_EXPIRY } from '../config/constants.js';
-
-const s3 = new S3Client({
-  region: config.awsConfig.awsRegion,
-  credentials:
-    config.awsConfig.awsAccessKeyId && config.awsConfig.awsSecretAccessKey
-      ? {
-          accessKeyId: config.awsConfig.awsAccessKeyId,
-          secretAccessKey: config.awsConfig.awsSecretAccessKey,
-        }
-      : undefined,
-});
+import { s3Client } from '../config/s3.config.js';
 
 /**
  * Upload a file buffer to S3.
@@ -27,7 +16,7 @@ export const uploadFile = async (
   buffer: Buffer,
   mimetype: string
 ): Promise<string> => {
-  await s3.send(
+  await s3Client.send(
     new PutObjectCommand({
       Bucket: config.awsConfig.awsBucket,
       Key: key,
@@ -46,14 +35,14 @@ export const getReceiptSignedUrl = async (key: string): Promise<string> => {
     Bucket: config.awsConfig.awsBucket,
     Key: key,
   });
-  return getSignedUrl(s3, command, { expiresIn: S3_URL_EXPIRY });
+  return getSignedUrl(s3Client, command, { expiresIn: S3_URL_EXPIRY });
 };
 
 /**
  * Delete a file from S3.
  */
 export const deleteFile = async (key: string): Promise<void> => {
-  await s3.send(
+  await s3Client.send(
     new DeleteObjectCommand({
       Bucket: config.awsConfig.awsBucket,
       Key: key,
@@ -114,14 +103,14 @@ export const getReportSignedUrl = async (key: string): Promise<string> => {
     Bucket: config.awsConfig.awsBucket,
     Key: key,
   });
-  return getSignedUrl(s3, command, { expiresIn: REPORT_URL_EXPIRY });
+  return getSignedUrl(s3Client, command, { expiresIn: REPORT_URL_EXPIRY });
 };
 
 /**
  * Fetch a report from S3 and return it as a Buffer.
  */
 export const getReportBuffer = async (key: string): Promise<Buffer> => {
-  const { Body } = await s3.send(
+  const { Body } = await s3Client.send(
     new GetObjectCommand({ Bucket: config.awsConfig.awsBucket, Key: key }),
   );
   if (!Body) throw new Error('Empty S3 body for report key: ' + key);
@@ -138,7 +127,7 @@ export const getReportBuffer = async (key: string): Promise<Buffer> => {
  * Used by the OCR worker to fetch receipt images for processing.
  */
 export const downloadFile = async (key: string): Promise<Buffer> => {
-  const { Body } = await s3.send(
+  const { Body } = await s3Client.send(
     new GetObjectCommand({ Bucket: config.awsConfig.awsBucket, Key: key }),
   );
   if (!Body) throw new Error('Empty S3 body for key: ' + key);

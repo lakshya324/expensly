@@ -140,9 +140,19 @@ export const ENTITY_TYPE = {
   BUNDLE: 'bundle',
   MERCHANT: 'merchant',
   CATEGORY: 'category',
+  RECEIPT: 'receipt',
 } as const;
 
 export type EntityType = (typeof ENTITY_TYPE)[keyof typeof ENTITY_TYPE];
+
+// ─── Receipt use-case ─────────────────────────────────────────────────────────
+export const RECEIPT_USE_CASE = {
+  RECEIPT: 'receipt',
+  MERCHANT_LOGO: 'merchant_logo',
+  CATEGORY_ICON: 'category_icon',
+} as const;
+
+export type ReceiptUseCase = (typeof RECEIPT_USE_CASE)[keyof typeof RECEIPT_USE_CASE];
 
 // Analytics snapshot max age before considered stale (ms)
 export const ANALYTICS_STALE_AFTER_MS = 60 * 60 * 1000; // 1 hour

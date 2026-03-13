@@ -55,6 +55,7 @@ export const listCategories = async (
     isActive: d.isActive,
     isSystem: d.isSystem ?? false,
     createdBy: d.createdBy.toString(),
+    iconUrl: null, // Todo: implement category icons upload and retrieval
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
   }));

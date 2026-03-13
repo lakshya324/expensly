@@ -10,6 +10,8 @@ import { User } from "./User.model.js";
 import { IOrganization } from "../types/organization.types.js";
 import { Department } from "./Department.model.js";
 import { createError } from "../utils/error.js";
+import { getReceiptRefsById } from "../services/receipt.service.js";
+import { IReceiptRef } from "../types/receipt.types.js";
 
 const ApprovalSchema = new Schema<IApproval>(
   {
@@ -41,8 +43,8 @@ const TicketSchema = new Schema<ITicket>(
     },
     description: { type: String, trim: true, default: "" },
     tags: { type: [String], default: [] },
-    /** Replaces the old single receiptKey — supports multiple receipt uploads */
-    receiptKeys: { type: [String], default: [] },
+    /** References to Receipt documents for attached files */
+    receiptIds: { type: [{ type: Schema.Types.ObjectId, ref: "Receipt" }], default: [] },
     status: {
       type: String,
       enum: Object.values(TICKET_STATUS),
@@ -262,17 +264,28 @@ TicketSchema.methods.data = async function (
     this.exchangeRateSnapshotId.toString() !==
       org.currentRateSnapshotId.toString();
 
-  // Resolve optional merchant, category, and bundle references in parallel
-  const [merchantDoc, categoryDoc, bundleDoc] = await Promise.all([
+  // Resolve optional merchant, category, bundle, and receipt references — fully parallel.
+  // Dynamic imports are chained without intermediate awaits so all four branches
+  // start concurrently (including the S3 presign calls inside toData()).
+  const [merchant, category, bundleDoc, receipts] = await Promise.all([
     this.merchant
-      ? (await import("./Merchant.model.js")).Merchant.findById(this.merchant)
+      ? import("./Merchant.model.js").then(({ Merchant }) =>
+          Merchant.findById(this.merchant).then((d) => (d ? d.toData() : null)),
+        )
       : Promise.resolve(null),
     this.category
-      ? (await import("./Category.model.js")).Category.findById(this.category)
+      ? import("./Category.model.js").then(({ Category }) =>
+          Category.findById(this.category).then((d) => (d ? d.toData() : null)),
+        )
       : Promise.resolve(null),
     this.bundleId
-      ? (await import("./Bundle.model.js")).Bundle.findById(this.bundleId).select("title")
+      ? import("./Bundle.model.js").then(({ Bundle }) =>
+          Bundle.findById(this.bundleId).select("title description"),
+        )
       : Promise.resolve(null),
+    this.receiptIds.length > 0
+      ? getReceiptRefsById(this.receiptIds)
+      : Promise.resolve([] as IReceiptRef[]),
   ]);
 
   return {
@@ -292,7 +305,7 @@ TicketSchema.methods.data = async function (
     department: dept ? dept.toData() : null,
     description: this.description,
     tags: this.tags,
-    receiptKeys: this.receiptKeys,
+    receipts,
     status: this.status,
     flagged: this.flagged,
     managerApproval,
@@ -301,9 +314,8 @@ TicketSchema.methods.data = async function (
       ? this.exchangeRateSnapshotId.toString()
       : null,
     ratesChangedSinceApproval,
-    merchant: merchantDoc ? merchantDoc.toData() : null,
-    category: categoryDoc ? categoryDoc.toData() : null,
-    bundleId: this.bundleId ? this.bundleId.toString() : null,
+    merchant: merchant ?? null,
+    category: category ?? null,
     bundle: bundleDoc ? bundleDoc.toSummaryData() : null,
     expenseType: this.expenseType,
     ocrData: this.ocrData ?? null,

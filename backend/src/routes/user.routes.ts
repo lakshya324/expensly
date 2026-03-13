@@ -2,6 +2,7 @@ import { Router } from "express";
 import ticketRoutes from "./ticket.routes.js";
 import reportsRoutes from "./reports.routes.js";
 import bundleRoutes from "./bundle.routes.js";
+import receiptRoutes from "./receipt.routes.js";
 import DepartmentController from "../controllers/department.controller.js";
 
 const router = Router();
@@ -13,6 +14,9 @@ router.use("/expenses", ticketRoutes);
 
 //* Bundle Routes [ALL Methods /api/users/bundles]
 router.use("/bundles", bundleRoutes);
+
+//* Receipt Routes [ALL Methods /api/users/receipts]
+router.use("/receipts", receiptRoutes);
 
 //* Reports Routes [ALL Methods /api/users/reports]
 router.use("/reports", reportsRoutes);

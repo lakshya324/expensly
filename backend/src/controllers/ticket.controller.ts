@@ -7,13 +7,9 @@ import {
   DEFAULT_LIMIT,
   MAX_LIMIT,
   PERMISSION_KEY,
+  RECEIPT_USE_CASE,
 } from "../config/constants.js";
-import {
-  uploadFile,
-  getReceiptSignedUrls,
-  deleteFiles,
-  buildReceiptKey,
-} from "../services/s3.service.js";
+import { deleteReceiptsAndFiles, getReceiptUrl } from "../services/receipt.service.js";
 import { createError } from "../utils/error.js";
 import { AuthRequest } from "../types/types.js";
 import { buildTicketFilter } from "../utils/tickets.js";
@@ -23,7 +19,7 @@ import {
   ResponsePayload,
 } from "../types/payloads.types.js";
 import { logError } from "../utils/logger.js";
-import { ITicket, ITicketData } from "../types/ticket.types.js";
+import { ITicket, ITicketData, ITicketSummaryData } from "../types/ticket.types.js";
 import { Ticket } from "../models/Ticket.model.js";
 import { User } from "../models/User.model.js";
 import { Department } from "../models/Department.model.js";
@@ -57,6 +53,7 @@ import { AUDIT_ACTION, ENTITY_TYPE, BUNDLE_STATUS } from "../config/constants.js
 import { IUser } from "../types/user.types.js";
 import { IOrganization } from "../types/organization.types.js";
 import { Bundle } from "../models/Bundle.model.js";
+import { Receipt } from "../models/Receipt.model.js";
 
 export default class TicketController {
   /**
@@ -125,7 +122,7 @@ export default class TicketController {
         orgSnapshotId,
       );
 
-      const payload: ResponsePaginationPayload<ITicketData> = {
+      const payload: ResponsePaginationPayload<ITicketSummaryData> = {
         success: true,
         message: "Tickets retrieved successfully",
         timestamp: new Date().toISOString(),
@@ -197,11 +194,21 @@ export default class TicketController {
       // Pre-generate the MongoDB _id so we can build the S3 receipt key before
       // the DB insert, eliminating the second ticket.save() when a file is attached.
       const newTicketId = new mongoose.Types.ObjectId();
-      const receiptKey = req.file
-        ? buildReceiptKey(newTicketId.toString(), org.slug, req.file.mimetype)
-        : null;
-      if (receiptKey) {
-        await uploadFile(receiptKey, req.file!.buffer, req.file!.mimetype);
+
+      // If a file was uploaded via multer-s3, create a Receipt document
+      let receiptId: mongoose.Types.ObjectId | null = null;
+      const s3File = req.file as Express.MulterS3.File | undefined;
+      if (s3File) {
+        const receiptData = await Receipt.create({
+          orgId: org._id,
+          s3Key: s3File.key,
+          mimetype: s3File.mimetype,
+          originalName: s3File.originalname,
+          size: s3File.size,
+          useCase: RECEIPT_USE_CASE.RECEIPT,
+          uploadedBy: user._id,
+        });
+        receiptId = receiptData._id;
       }
 
       const ticket = await Ticket.create({
@@ -215,7 +222,7 @@ export default class TicketController {
         department,
         description: description ?? "",
         tags: parsedTags,
-        receiptKeys: receiptKey ? [receiptKey] : [],
+        receiptIds: receiptId ? [receiptId] : [],
         status: TICKET_STATUS.PENDING,
         managerApproval: needsManagerApproval
           ? {
@@ -440,9 +447,9 @@ export default class TicketController {
           "FORBIDDEN",
         );
 
-      if (ticket.receiptKeys.length > 0) {
+      if (ticket.receiptIds.length > 0) {
         try {
-          await deleteFiles(ticket.receiptKeys);
+          await deleteReceiptsAndFiles(ticket.receiptIds);
         } catch {
           logError(
             new Error(`Failed to delete receipt files for ticket ${ticket._id}`),
@@ -731,10 +738,11 @@ export default class TicketController {
         orgId: org._id,
       });
       if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
-      if (!ticket.receiptKeys || ticket.receiptKeys.length === 0)
+      if (!ticket.receiptIds || ticket.receiptIds.length === 0)
         throw createError("No receipt attached to this ticket", 404, "NO_RECEIPT");
 
-      const signedUrls = await getReceiptSignedUrls(ticket.receiptKeys);
+      const { getReceiptUrls } = await import("../services/receipt.service.js");
+      const signedUrls = await getReceiptUrls(ticket.receiptIds);
       const payload: ResponsePayload<string[]> = {
         success: true,
         message: "Receipt URL(s) retrieved successfully",
@@ -761,8 +769,19 @@ export default class TicketController {
         throw createError("Receipt file is required", 400, "NO_FILE");
 
       const newTicketId = new mongoose.Types.ObjectId();
-      const receiptKey = buildReceiptKey(newTicketId.toString(), org.slug, req.file.mimetype);
-      await uploadFile(receiptKey, req.file.buffer, req.file.mimetype);
+
+      // File already uploaded by multer-s3, create Receipt document
+      const s3File = req.file as Express.MulterS3.File;
+      const receiptData = await Receipt.create({
+        orgId: org._id,
+        s3Key: s3File.key,
+        mimetype: s3File.mimetype,
+        originalName: s3File.originalname,
+        size: s3File.size,
+        useCase: RECEIPT_USE_CASE.RECEIPT,
+        uploadedBy: user._id,
+      });
+      const receiptId = receiptData._id;
 
       const ticket = await Ticket.create({
         _id: newTicketId,
@@ -773,7 +792,7 @@ export default class TicketController {
         amount: null,
         currency: null,
         department: user.department ?? null,
-        receiptKeys: [receiptKey],
+        receiptIds: [receiptId],
         status: TICKET_STATUS.SCANNING,
         managerApproval: null,
         financeApproval: { approved: null, reviewedBy: null, reviewedAt: null, comments: null },
@@ -794,7 +813,7 @@ export default class TicketController {
       await enqueueJob({
         jobType: "ocr_scan",
         ticketId: ticket._id.toString(),
-        receiptKey,
+        receiptId: receiptId.toString(),
         orgId: org._id.toString(),
       });
 

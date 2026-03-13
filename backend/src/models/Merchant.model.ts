@@ -1,5 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import { IMerchant, IMerchantData } from "../types/merchant.types.js";
+import { getReceiptUrl } from "../services/receipt.service.js";
 
 const MerchantSchema = new Schema<IMerchant>(
   {
@@ -10,8 +11,8 @@ const MerchantSchema = new Schema<IMerchant>(
     normalizedName: { type: String, required: true, lowercase: true },
     isActive: { type: Boolean, default: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    /** S3 key for the merchant logo image (null = no logo uploaded) */
-    logoKey: { type: String, default: null },
+    /** Reference to a Receipt document for the merchant logo (null = no logo) */
+    logoId: { type: Schema.Types.ObjectId, ref: "Receipt", default: null },
   },
   { timestamps: true },
 );
@@ -23,7 +24,10 @@ MerchantSchema.index(
 );
 MerchantSchema.index({ orgId: 1, isActive: 1 });
 
-MerchantSchema.methods.toData = function (this: IMerchant): IMerchantData {
+MerchantSchema.methods.toData = async function (this: IMerchant): Promise<IMerchantData> {
+  const logoUrl = this.logoId
+    ? await getReceiptUrl(this.logoId.toString()).catch(() => null)
+    : null;
   return {
     _id: this._id.toString(),
     orgId: this.orgId.toString(),
@@ -31,7 +35,7 @@ MerchantSchema.methods.toData = function (this: IMerchant): IMerchantData {
     normalizedName: this.normalizedName,
     isActive: this.isActive,
     createdBy: this.createdBy.toString(),
-    logoKey: this.logoKey,
+    logoUrl,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };
