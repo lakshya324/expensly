@@ -59,12 +59,6 @@ export function useExpenses(filters: TicketFilters = {}) {
           ...row,
           ocrData: {
             ...(row.ocrData ?? {
-              merchantName: null,
-              amount: null,
-              currency: null,
-              transactionDate: null,
-              taxAmount: null,
-              suggestedCategory: null,
               rawText: null,
               confidence: null,
               processedAt: null,

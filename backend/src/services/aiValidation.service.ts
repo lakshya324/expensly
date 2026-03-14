@@ -65,15 +65,8 @@ ${ticketContext}
 ## Raw Receipt Text (source of truth)
 ${hasRawText ? `\`\`\`\n${ocrData!.rawText}\n\`\`\`` : "Not available."}
 
-## OCR Pre-parsed Fields
-${
-  ocrData
-    ? `- Merchant: ${ocrData.merchantName ?? "unknown"}
-- Amount: ${ocrData.amount ?? "unknown"} ${ocrData.currency ?? ""}
-- Date: ${ocrData.transactionDate ?? "unknown"}
-- Confidence: ${ocrData.confidence != null ? `${Math.round(ocrData.confidence * 100)}%` : "unknown"}`
-    : "No OCR data available."
-}
+## OCR Metadata
+${ocrData ? `- Confidence: ${ocrData.confidence != null ? `${Math.round(ocrData.confidence * 100)}%` : "unknown"}` : "No OCR metadata available."}
 
 ## Your task
 Respond ONLY with a valid JSON object (no markdown, no extra text):

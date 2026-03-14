@@ -287,12 +287,6 @@ export default class TicketController {
         ocrData: receiptId
           ? {
               status: OCR_STATUS.PENDING,
-              merchantName: null,
-              amount: null,
-              currency: null,
-              transactionDate: null,
-              taxAmount: null,
-              suggestedCategory: null,
               rawText: null,
               confidence: null,
               processedAt: null,
@@ -932,12 +926,6 @@ export default class TicketController {
         },
         ocrData: {
           status: OCR_STATUS.PROCESSING,
-          merchantName: null,
-          amount: null,
-          currency: null,
-          transactionDate: null,
-          taxAmount: null,
-          suggestedCategory: null,
           rawText: null,
           confidence: null,
           processedAt: null,

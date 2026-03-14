@@ -63,10 +63,6 @@ export async function processAiValidationJob(job: AiValidateJob): Promise<void> 
     ) {
       ticket.currency = result.suggestedCurrency as Currency;
     }
-    // Keep OCR-extracted date in ocrData (transactionDate) if AI extracted it
-    if (result.suggestedDate && ticket.ocrData && !ticket.ocrData.transactionDate) {
-      ticket.ocrData.transactionDate = result.suggestedDate;
-    }
     if (result.suggestedDescription && !ticket.description?.trim()) {
       ticket.description = result.suggestedDescription;
     }

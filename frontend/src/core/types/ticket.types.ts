@@ -35,12 +35,6 @@ export interface ApprovalStep {
 /** Matches the backend IOcrData shape (flat primitives, all nullable until OCR completes). */
 export interface OcrData {
   status: 'processing' | 'completed' | 'failed';
-  merchantName: string | null;
-  amount: number | null;
-  currency: string | null;
-  transactionDate: string | null;
-  taxAmount: number | null;
-  suggestedCategory: string | null;
   rawText: string | null;
   confidence: number | null;
   processedAt: string | null;

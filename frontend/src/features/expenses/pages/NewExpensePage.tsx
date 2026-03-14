@@ -259,7 +259,7 @@ function AiReviewStep({
   const ai = draft.aiValidation;
   const merchantSuggestionText = ai?.unmatchedMerchantSuggestionText ?? ai?.suggestedMerchantName;
   const categorySuggestionText =
-    ai?.unmatchedCategorySuggestionText ?? ai?.suggestedCategoryName ?? ocr?.suggestedCategory;
+    ai?.unmatchedCategorySuggestionText ?? ai?.suggestedCategoryName;
   const failedChecks = ai?.checks?.filter((check) => !check.passed) ?? [];
 
   const handleSubmit = (e: React.FormEvent) => {

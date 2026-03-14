@@ -385,6 +385,11 @@ export function ExpenseDetailPage() {
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Brain className="w-4 h-4 text-brand-500" />
                   AI Analysis
+                  {ticket.ocrData?.confidence != null && (
+                    <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                      OCR · {Math.round(ticket.ocrData.confidence * 100)}% confidence
+                    </span>
+                  )}
                 </CardTitle>
                 <button
                   type="button"
@@ -397,40 +402,6 @@ export function ExpenseDetailPage() {
             </CardHeader>
             {aiPanelOpen && (
               <CardContent className="space-y-4">
-                {/* OCR extracted fields */}
-                {ticket.ocrData && (
-                  <div>
-                    <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-2">Extracted from receipt</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {Object.entries(ticket.ocrData).map(([key, value]) => {
-                        if (key === 'status' || key === 'rawText' || key === 'processedAt' || key === 'confidence') return null;
-                        if (value === null || value === '') return null;
-                        return (
-                          <div key={key} className="rounded-lg bg-[var(--muted)] px-3 py-2">
-                            <p className="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
-                              {key.replace(/_/g, ' ')}
-                            </p>
-                            <p className="mt-0.5 text-sm font-semibold text-[var(--foreground)]">{String(value)}</p>
-                            {ticket.ocrData?.confidence != null && (
-                              <>
-                                <div className="mt-1.5 h-1 rounded-full bg-[var(--border)] overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full bg-brand-500"
-                                    style={{ width: `${Math.round(ticket.ocrData.confidence * 100)}%` }}
-                                  />
-                                </div>
-                                <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
-                                  {Math.round(ticket.ocrData.confidence * 100)}% confidence
-                                </p>
-                              </>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
                 {/* AI validation checks */}
                 {ticket.aiValidation && (
                   <div>

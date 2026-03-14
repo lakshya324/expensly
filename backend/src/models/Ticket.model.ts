@@ -76,12 +76,6 @@ const TicketSchema = new Schema<ITicket>(
       type: new Schema(
         {
           status: { type: String, enum: Object.values(OCR_STATUS), required: true },
-          merchantName: { type: String, default: null },
-          amount: { type: Number, default: null },
-          currency: { type: String, default: null },
-          transactionDate: { type: String, default: null },
-          taxAmount: { type: Number, default: null },
-          suggestedCategory: { type: String, default: null },
           rawText: { type: String, default: null },
           confidence: { type: Number, default: null },
           processedAt: { type: String, default: null },
