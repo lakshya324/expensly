@@ -303,6 +303,23 @@ export function useDiscussion(ticketId: string) {
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
 
+  const appendMessage = useCallback((message: IDiscussionMessageData) => {
+    setMessages((prev) => {
+      if (prev.some((item) => item._id === message._id)) return prev;
+      return [...prev, message];
+    });
+  }, []);
+
+  const replaceMessage = useCallback((message: IDiscussionMessageData) => {
+    setMessages((prev) => prev.map((item) => (item._id === message._id ? message : item)));
+  }, []);
+
+  const markDeleted = useCallback((messageId: string) => {
+    setMessages((prev) =>
+      prev.map((item) => (item._id === messageId ? { ...item, deleted: true, text: '[deleted]' } : item)),
+    );
+  }, []);
+
   const fetchMessages = useCallback(async () => {
     setLoading(true);
     try {
@@ -321,6 +338,25 @@ export function useDiscussion(ticketId: string) {
     fetchMessages();
   }, [fetchMessages]);
 
+  const handleDiscussionMessage = useCallback((payload: SocketEnvelope<{ ticketId: string; message: IDiscussionMessageData }>) => {
+    if (payload?.data?.ticketId !== ticketId || !payload?.data?.message) return;
+    appendMessage(payload.data.message);
+  }, [appendMessage, ticketId]);
+
+  const handleDiscussionEdit = useCallback((payload: SocketEnvelope<{ ticketId: string; message: IDiscussionMessageData }>) => {
+    if (payload?.data?.ticketId !== ticketId || !payload?.data?.message) return;
+    replaceMessage(payload.data.message);
+  }, [replaceMessage, ticketId]);
+
+  const handleDiscussionDelete = useCallback((payload: SocketEnvelope<{ ticketId: string; messageId: string }>) => {
+    if (payload?.data?.ticketId !== ticketId || !payload?.data?.messageId) return;
+    markDeleted(payload.data.messageId);
+  }, [markDeleted, ticketId]);
+
+  useSocket('discussion:message', handleDiscussionMessage);
+  useSocket('discussion:edit', handleDiscussionEdit);
+  useSocket('discussion:delete', handleDiscussionDelete);
+
   const postMessage = async (text: string): Promise<boolean> => {
     if (!text.trim()) return false;
     setPosting(true);
@@ -329,7 +365,7 @@ export function useDiscussion(ticketId: string) {
         EP.EXPENSE_DISCUSSION(ticketId),
         { text },
       );
-      setMessages((prev) => [...prev, res.data.data]);
+      appendMessage(res.data.data);
       return true;
     } catch (err: unknown) {
       const msg =

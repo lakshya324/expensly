@@ -1,6 +1,5 @@
 import type { IOrgAnalyticsData } from './analytics.types';
-import type { IDepartmentData } from './ticket.types';
-import type { ITicketData } from './ticket.types';
+import type { IDepartmentData, IDiscussionMessageData, ITicketData } from './ticket.types';
 import type { IUserData } from './user.types';
 import type { Currency } from './api.types';
 
@@ -46,4 +45,7 @@ export type SocketEvents = {
   'ticket:ocr_completed': SocketEnvelope<{ ticket: ITicketData }>;
   'ticket:ocr_failed': SocketEnvelope<{ ticketId: string; error: string }>;
   'ticket:ai_validated': SocketEnvelope<{ ticket: ITicketData }>;
+  'discussion:message': SocketEnvelope<{ ticketId: string; message: IDiscussionMessageData }>;
+  'discussion:edit': SocketEnvelope<{ ticketId: string; message: IDiscussionMessageData }>;
+  'discussion:delete': SocketEnvelope<{ ticketId: string; messageId: string }>;
 };

@@ -14,6 +14,5 @@ export function useSocket<K extends keyof SocketEvents>(event: K, handler: Serve
     return () => {
       socketClient.off(event, handler as any);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event]);
+  }, [event, handler]);
 }

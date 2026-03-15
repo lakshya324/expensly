@@ -25,7 +25,8 @@ export function ExpenseDetailPage() {
   const { openReceipt } = useReceiptUrl(id!);
   const { messages, loading: discussionLoading, posting, postMessage } = useDiscussion(id!);
   const [discussionInput, setDiscussionInput] = useState('');
-  const [aiPanelOpen, setAiPanelOpen] = useState(true);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [discussionOpen, setDiscussionOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [statusModal, setStatusModal] = useState<{ 
     open: boolean; 
@@ -103,6 +104,9 @@ export function ExpenseDetailPage() {
     ticket.managerApproval.approved === null;
 
   const isSubmitter = ticket.submittedBy._id === user?._id;
+  const aiAnalysisPassed =
+    ticket.aiValidation?.status === 'passed' &&
+    (ticket.aiValidation?.checks?.every((check) => check.passed) ?? true);
 
   return (
     <AppShell title="Expense Detail">
@@ -385,6 +389,11 @@ export function ExpenseDetailPage() {
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Brain className="w-4 h-4 text-brand-500" />
                   AI Analysis
+                  {ticket.aiValidation && (
+                    aiAnalysisPassed
+                      ? <CheckCircle className="w-4 h-4 text-success-600 dark:text-success-400" />
+                      : <XCircle className="w-4 h-4 text-danger-500" />
+                  )}
                   {ticket.ocrData?.confidence != null && (
                     <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                       OCR · {Math.round(ticket.ocrData.confidence * 100)}% confidence
@@ -443,44 +452,59 @@ export function ExpenseDetailPage() {
         {/* Discussion Thread */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <MessageSquare className="w-4 h-4" />
-              Discussion
-              {messages.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setDiscussionOpen((prev) => !prev)}
+              className="w-full flex items-center gap-2 text-left"
+              aria-expanded={discussionOpen}
+            >
+              <CardTitle className="flex items-center gap-2 text-base w-full">
+                <MessageSquare className="w-4 h-4" />
+                Discussion
                 <span className="ml-auto text-xs font-normal text-[var(--muted-foreground)]">
                   {messages.length} {messages.length === 1 ? 'message' : 'messages'}
                 </span>
-              )}
-            </CardTitle>
+                {discussionOpen ? (
+                  <ChevronUp className="w-4 h-4 text-[var(--muted-foreground)]" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-[var(--muted-foreground)]" />
+                )}
+              </CardTitle>
+            </button>
           </CardHeader>
-          <CardContent>
+          {discussionOpen && <CardContent>
             {/* Message list */}
-            <div className="space-y-3 max-h-80 overflow-y-auto mb-4 pr-1">
+            <div className="space-y-2.5 max-h-80 overflow-y-auto mb-4 pr-1">
               {discussionLoading ? (
                 <div className="flex justify-center py-6">
                   <Loader2 className="w-5 h-5 animate-spin text-[var(--muted-foreground)]" />
                 </div>
               ) : messages.length === 0 ? (
-                <p className="text-sm text-[var(--muted-foreground)] text-center py-6">
-                  No messages yet. Start the conversation.
-                </p>
+                <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--muted)]/40 px-4 py-6 text-center">
+                  <p className="text-sm text-[var(--muted-foreground)]">
+                    No messages yet. Start the conversation.
+                  </p>
+                </div>
               ) : (
                 messages.map((msg) => (
-                  <div key={msg._id} className="flex gap-2.5">
+                  <div key={msg._id} className="flex gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--muted)]/25 px-3 py-2.5">
                     <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-brand-700 dark:text-brand-300 uppercase">
                       {msg.author.name.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-semibold text-[var(--foreground)]">{msg.author.name}</span>
                         <span className="text-[10px] text-[var(--muted-foreground)]">
                           {formatRelativeTime(msg.createdAt)}
                         </span>
+                        {msg.editedAt && !msg.deleted && (
+                          <span className="text-[10px] text-[var(--muted-foreground)] italic">edited</span>
+                        )}
                       </div>
                       {msg.deleted ? (
                         <p className="text-xs italic text-[var(--muted-foreground)] mt-0.5">Message deleted</p>
                       ) : (
-                        <p className="text-sm text-[var(--foreground)] mt-0.5 break-words">{msg.text}</p>
+                        <p className="text-sm leading-5 text-[var(--foreground)] mt-0.5 break-words whitespace-pre-wrap">{msg.text}</p>
                       )}
                     </div>
                   </div>
@@ -490,25 +514,27 @@ export function ExpenseDetailPage() {
             </div>
 
             {/* Post input */}
-            <div className="flex gap-2 items-end pt-3 border-t border-[var(--border)]">
+            <div className="pt-3 border-t border-[var(--border)]">
+              <div className="flex gap-2 items-end rounded-xl border border-[var(--input)] bg-[var(--background)] px-2.5 py-2">
               <textarea
                 value={discussionInput}
                 onChange={(e) => setDiscussionInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === 'Enter' && !e.shiftKey && !posting) {
                     e.preventDefault();
                     if (discussionInput.trim()) {
                       postMessage(discussionInput).then((ok) => { if (ok) setDiscussionInput(''); });
                     }
                   }
                 }}
+                disabled={posting || discussionLoading}
                 rows={2}
-                placeholder="Write a message... (Enter to send)"
-                className="flex-1 px-3 py-2 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+                placeholder={posting ? 'Sending message...' : 'Write a message... (Enter to send, Shift+Enter for newline)'}
+                className="flex-1 px-2 py-1.5 rounded-lg bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none disabled:opacity-70 resize-none"
               />
               <Button
                 size="icon-sm"
-                disabled={!discussionInput.trim() || posting}
+                disabled={!discussionInput.trim() || posting || discussionLoading}
                 loading={posting}
                 onClick={() => {
                   if (discussionInput.trim()) {
@@ -519,7 +545,12 @@ export function ExpenseDetailPage() {
                 <Send className="w-4 h-4" />
               </Button>
             </div>
+              <p className="mt-1.5 px-1 text-[10px] text-[var(--muted-foreground)]">
+                Press Enter to send · Shift + Enter for a new line
+              </p>
+            </div>
           </CardContent>
+          }
         </Card>
 
         {/* Status Change Dialog */}
