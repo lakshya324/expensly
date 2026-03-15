@@ -25,17 +25,17 @@ export default class DiscussionController {
     try {
       const org = req.organization!;
       const ticketId = req.params["ticketId"] as string;
-      const page = parseInt((req.query["page"] as string) ?? "") || 1;
-      const { data, total } = await getThread(
+      const page = parseInt((req.query["page"] as string) ?? "") || -1;
+      const { data, total, page: actualPage, pageSize } = await getThread(
         org._id.toString(),
         ticketId,
         page,
       );
-      const payload: ResponsePayload<{ data: IDiscussionMessageData[]; total: number }> = {
+      const payload: ResponsePayload<{ data: IDiscussionMessageData[]; total: number; page: number; pageSize: number }> = {
         success: true,
         message: "Thread retrieved successfully",
         timestamp: new Date().toISOString(),
-        data: { data, total },
+        data: { data, total, page: actualPage, pageSize },
       };
       res.status(200).json(payload);
     } catch (err) {

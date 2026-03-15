@@ -111,7 +111,7 @@ export interface IDiscussionMessageData {
   _id: string;
   ticketId: string;
   orgId: string;
-  author: { _id: string; name: string; email: string; role: string };
+  author: { _id: string; name: string; email: string; role: string; department: { _id: string; name: string } | null };
   text: string;
   editedAt: string | null;
   deleted: boolean;

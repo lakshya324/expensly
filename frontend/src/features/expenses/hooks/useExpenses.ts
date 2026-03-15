@@ -302,6 +302,11 @@ export function useDiscussion(ticketId: string) {
   const [messages, setMessages] = useState<IDiscussionMessageData[]>([]);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+  const [currentPage, setCurrentPage] = useState<number | null>(null);
+  const [totalMessages, setTotalMessages] = useState(0);
+  const [loadingPrev, setLoadingPrev] = useState(false);
+
+  const hasOlderMessages = currentPage != null && currentPage > 1;
 
   const appendMessage = useCallback((message: IDiscussionMessageData) => {
     setMessages((prev) => {
@@ -323,10 +328,13 @@ export function useDiscussion(ticketId: string) {
   const fetchMessages = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get<ApiResponse<{ data: IDiscussionMessageData[]; total: number }>>(
+      const res = await apiClient.get<ApiResponse<{ data: IDiscussionMessageData[]; total: number; page: number; pageSize: number }>>(
         EP.EXPENSE_DISCUSSION(ticketId),
       );
-      setMessages(res.data.data.data);
+      const { data, total, page } = res.data.data;
+      setMessages(data);
+      setTotalMessages(total);
+      setCurrentPage(page);
     } catch {
       // silently fail — discussion is non-critical
     } finally {
@@ -357,6 +365,29 @@ export function useDiscussion(ticketId: string) {
   useSocket('discussion:edit', handleDiscussionEdit);
   useSocket('discussion:delete', handleDiscussionDelete);
 
+  const loadPrevious = useCallback(async () => {
+    if (currentPage == null || currentPage <= 1) return;
+    setLoadingPrev(true);
+    try {
+      const targetPage = currentPage - 1;
+      const res = await apiClient.get<ApiResponse<{ data: IDiscussionMessageData[]; total: number; page: number; pageSize: number }>>(
+        `${EP.EXPENSE_DISCUSSION(ticketId)}?page=${targetPage}`,
+      );
+      const { data, total, page } = res.data.data;
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m._id));
+        const newMsgs = data.filter((m) => !existingIds.has(m._id));
+        return [...newMsgs, ...prev];
+      });
+      setTotalMessages(total);
+      setCurrentPage(page);
+    } catch {
+      toast.error('Failed to load previous messages');
+    } finally {
+      setLoadingPrev(false);
+    }
+  }, [ticketId, currentPage]);
+
   const postMessage = async (text: string): Promise<boolean> => {
     if (!text.trim()) return false;
     setPosting(true);
@@ -378,7 +409,7 @@ export function useDiscussion(ticketId: string) {
     }
   };
 
-  return { messages, loading, posting, postMessage, refetch: fetchMessages };
+  return { messages, loading, posting, postMessage, refetch: fetchMessages, loadPrevious, hasOlderMessages, loadingPrev, totalMessages };
 }
 
 export function useReceiptUrl(id: string) {

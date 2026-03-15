@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Flag, Download, CheckCircle, XCircle, Loader2, Clock, User, AlertTriangle,
@@ -23,11 +23,13 @@ export function ExpenseDetailPage() {
   const { data: ticket, loading, setData } = useExpense(id!);
   const { toggleFlag, loading: flagLoading } = useFlagExpense(id!, setData);
   const { openReceipt } = useReceiptUrl(id!);
-  const { messages, loading: discussionLoading, posting, postMessage } = useDiscussion(id!);
+  const { messages, loading: discussionLoading, posting, postMessage, loadPrevious, hasOlderMessages, loadingPrev } = useDiscussion(id!);
   const [discussionInput, setDiscussionInput] = useState('');
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [discussionOpen, setDiscussionOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const scrollAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
   const [statusModal, setStatusModal] = useState<{ 
     open: boolean; 
     action: 'approved' | 'rejected' | null;
@@ -41,10 +43,27 @@ export function ExpenseDetailPage() {
   });
   const [comments, setComments] = useState('');
 
-  // Scroll discussion to bottom when new messages arrive
+  // Scroll to bottom on initial load; restore position after loading previous
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    if (scrollAnchorRef.current) {
+      // Restore scroll position after prepending older messages
+      const { scrollHeight: prevHeight, scrollTop: prevTop } = scrollAnchorRef.current;
+      container.scrollTop = prevTop + (container.scrollHeight - prevHeight);
+      scrollAnchorRef.current = null;
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
+
+  const handleLoadPrevious = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      scrollAnchorRef.current = { scrollHeight: container.scrollHeight, scrollTop: container.scrollTop };
+    }
+    loadPrevious();
+  }, [loadPrevious]);
 
   const { updateStatus, loading: statusLoading } = useUpdateExpenseStatus(id!, (updated) => {
     setData(updated);
@@ -472,85 +491,108 @@ export function ExpenseDetailPage() {
               </CardTitle>
             </button>
           </CardHeader>
-          {discussionOpen && <CardContent>
-            {/* Message list */}
-            <div className="space-y-2.5 max-h-80 overflow-y-auto mb-4 pr-1">
-              {discussionLoading ? (
-                <div className="flex justify-center py-6">
-                  <Loader2 className="w-5 h-5 animate-spin text-[var(--muted-foreground)]" />
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--muted)]/40 px-4 py-6 text-center">
-                  <p className="text-sm text-[var(--muted-foreground)]">
-                    No messages yet. Start the conversation.
-                  </p>
-                </div>
-              ) : (
-                messages.map((msg) => (
-                  <div key={msg._id} className="flex gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--muted)]/25 px-3 py-2.5">
-                    <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-brand-700 dark:text-brand-300 uppercase">
-                      {msg.author.name.charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-[var(--foreground)]">{msg.author.name}</span>
-                        <span className="text-[10px] text-[var(--muted-foreground)]">
-                          {formatRelativeTime(msg.createdAt)}
-                        </span>
-                        {msg.editedAt && !msg.deleted && (
-                          <span className="text-[10px] text-[var(--muted-foreground)] italic">edited</span>
-                        )}
-                      </div>
-                      {msg.deleted ? (
-                        <p className="text-xs italic text-[var(--muted-foreground)] mt-0.5">Message deleted</p>
-                      ) : (
-                        <p className="text-sm leading-5 text-[var(--foreground)] mt-0.5 break-words whitespace-pre-wrap">{msg.text}</p>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-              <div ref={messagesEndRef} />
-            </div>
 
-            {/* Post input */}
-            <div className="pt-3 border-t border-[var(--border)]">
-              <div className="flex gap-2 items-end rounded-xl border border-[var(--input)] bg-[var(--background)] px-2.5 py-2">
-              <textarea
-                value={discussionInput}
-                onChange={(e) => setDiscussionInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !posting) {
-                    e.preventDefault();
-                    if (discussionInput.trim()) {
-                      postMessage(discussionInput).then((ok) => { if (ok) setDiscussionInput(''); });
-                    }
-                  }
-                }}
-                disabled={posting || discussionLoading}
-                rows={2}
-                placeholder={posting ? 'Sending message...' : 'Write a message... (Enter to send, Shift+Enter for newline)'}
-                className="flex-1 px-2 py-1.5 rounded-lg bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none disabled:opacity-70 resize-none"
-              />
-              <Button
-                size="icon-sm"
-                disabled={!discussionInput.trim() || posting || discussionLoading}
-                loading={posting}
-                onClick={() => {
-                  if (discussionInput.trim()) {
-                    postMessage(discussionInput).then((ok) => { if (ok) setDiscussionInput(''); });
-                  }
-                }}
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-            </div>
-              <p className="mt-1.5 px-1 text-[10px] text-[var(--muted-foreground)]">
-                Press Enter to send · Shift + Enter for a new line
-              </p>
-            </div>
-          </CardContent>
-          }
+          {discussionOpen && (
+            <CardContent>
+              <div ref={messagesContainerRef} className="space-y-2.5 max-h-80 overflow-y-auto mb-4 pr-1">
+                {discussionLoading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="w-5 h-5 animate-spin text-[var(--muted-foreground)]" />
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--muted)]/40 px-4 py-6 text-center">
+                    <p className="text-sm text-[var(--muted-foreground)]">No messages yet. Start the conversation.</p>
+                  </div>
+                ) : (
+                  <>
+                    {hasOlderMessages && (
+                      <div className="flex justify-center pt-1 pb-0.5">
+                        <button
+                          type="button"
+                          onClick={handleLoadPrevious}
+                          disabled={loadingPrev}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--muted)]/60 px-3 py-1 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+                        >
+                          {loadingPrev ? <Loader2 className="w-3 h-3 animate-spin" /> : <ChevronUp className="w-3 h-3" />}
+                          {loadingPrev ? 'Loading…' : 'Load previous messages'}
+                        </button>
+                      </div>
+                    )}
+
+                    {messages.map((msg) => (
+                      <div key={msg._id} className="flex gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--muted)]/25 px-3 py-2.5">
+                        <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-brand-700 dark:text-brand-300 uppercase">
+                          {msg.author.name.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold text-[var(--foreground)]">{msg.author.name}</span>
+                            {msg.author.department?.name && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--muted)] text-[var(--muted-foreground)] border border-[var(--border)]">
+                                {msg.author.department.name}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-[var(--muted-foreground)]">{formatRelativeTime(msg.createdAt)}</span>
+                            {msg.editedAt && !msg.deleted && (
+                              <span className="text-[10px] text-[var(--muted-foreground)] italic">edited</span>
+                            )}
+                          </div>
+                          {msg.deleted ? (
+                            <p className="text-xs italic text-[var(--muted-foreground)] mt-0.5">Message deleted</p>
+                          ) : (
+                            <p className="text-sm leading-5 text-[var(--foreground)] mt-0.5 break-words whitespace-pre-wrap">{msg.text}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              <div className="pt-3 border-t border-[var(--border)]">
+                <div className="flex gap-2 items-end rounded-xl border border-[var(--input)] bg-[var(--background)] px-2.5 py-2">
+                  <textarea
+                    value={discussionInput}
+                    onChange={(e) => setDiscussionInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && !posting) {
+                        e.preventDefault();
+                        if (discussionInput.trim()) {
+                          postMessage(discussionInput).then((ok) => {
+                            if (ok) setDiscussionInput('');
+                          });
+                        }
+                      }
+                    }}
+                    disabled={posting || discussionLoading}
+                    rows={2}
+                    placeholder={posting ? 'Sending message...' : 'Write a message... (Enter to send, Shift+Enter for newline)'}
+                    className="flex-1 px-2 py-1.5 rounded-lg bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none disabled:opacity-70 resize-none"
+                  />
+
+                  <Button
+                    size="icon-sm"
+                    disabled={!discussionInput.trim() || posting || discussionLoading}
+                    loading={posting}
+                    onClick={() => {
+                      if (discussionInput.trim()) {
+                        postMessage(discussionInput).then((ok) => {
+                          if (ok) setDiscussionInput('');
+                        });
+                      }
+                    }}
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                <p className="mt-1.5 px-1 text-[10px] text-[var(--muted-foreground)]">
+                  Press Enter to send · Shift + Enter for a new line
+                </p>
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         {/* Status Change Dialog */}

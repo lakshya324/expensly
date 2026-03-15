@@ -4,7 +4,7 @@ import { Ticket } from "../models/Ticket.model.js";
 import { User } from "../models/User.model.js";
 import { ROLES } from "../config/constants.js";
 import { createError } from "../utils/error.js";
-import { IDiscussionMessageData } from "../types/discussion.types.js";
+import { IDiscussionMessageData, IDiscussionMessageDataAuthor } from "../types/discussion.types.js";
 
 export interface PostMessageInput {
   ticketId: string;
@@ -20,9 +20,20 @@ export interface EditMessageInput {
 export interface DiscussionThreadPage {
   data: IDiscussionMessageData[];
   total: number;
+  page: number;
+  pageSize: number;
 }
 
 const PAGE_SIZE = 20;
+
+
+async function fetchAuthors(authorIds: string[]): Promise<Map<string, IDiscussionMessageDataAuthor>> {
+  const authors = await User.find({ _id: { $in: authorIds } })
+    .select("_id name email role department")
+    .populate<{ department: { _id: Types.ObjectId; name: string } | null }>("department", "_id name")
+    .lean();
+  return new Map(authors.map((a) => [a._id.toString(), a as unknown as IDiscussionMessageDataAuthor]));
+}
 
 // ---------------------------------------------------------------------------
 // Build IDiscussionMessageData from a lean message doc + author lookup map
@@ -39,7 +50,7 @@ function mapMessage(
     createdAt: Date;
     updatedAt: Date;
   },
-  authorsById: Map<string, { _id: Types.ObjectId; name: string; email: string; role: string }>,
+  authorsById: Map<string, IDiscussionMessageDataAuthor>,
 ): IDiscussionMessageData {
   const deleted = msg.deletedAt != null;
   const author = authorsById.get(msg.authorId.toString());
@@ -48,8 +59,16 @@ function mapMessage(
     ticketId: msg.ticketId.toString(),
     orgId: msg.orgId.toString(),
     author: author
-      ? { _id: author._id.toString(), name: author.name, email: author.email, role: author.role }
-      : { _id: msg.authorId.toString(), name: "[unknown]", email: "", role: "" },
+      ? {
+          _id: author._id.toString(),
+          name: author.name,
+          email: author.email,
+          role: author.role,
+          department: author.department
+            ? { _id: author.department._id.toString(), name: author.department.name }
+            : null,
+        }
+      : { _id: msg.authorId.toString(), name: "[unknown]", email: "", role: "", department: null },
     text: deleted ? "[deleted]" : msg.text,
     editedAt: msg.editedAt,
     deleted,
@@ -64,34 +83,33 @@ function mapMessage(
 export const getThread = async (
   orgId: string,
   ticketId: string,
-  page = 1,
+  page = -1,
 ): Promise<DiscussionThreadPage> => {
   // Access gate — confirms the ticket belongs to this org
   const ticketExists = await Ticket.exists({ _id: ticketId, orgId });
   if (!ticketExists) throw createError("Ticket not found", 404, "NOT_FOUND");
 
-  const skip = (page - 1) * PAGE_SIZE;
+  const total = await DiscussionMessage.countDocuments({ ticketId, orgId });
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  // page < 1 means "last page" (initial load shows newest messages)
+  const actualPage = page < 1 ? lastPage : Math.min(page, lastPage);
+  const skip = (actualPage - 1) * PAGE_SIZE;
 
-  const [messages, total] = await Promise.all([
-    DiscussionMessage.find({ ticketId, orgId })
-      .sort({ createdAt: 1 })
-      .skip(skip)
-      .limit(PAGE_SIZE)
-      .lean(),
-    DiscussionMessage.countDocuments({ ticketId, orgId }),
-  ]);
-
-  if (messages.length === 0) return { data: [], total };
-
-  const authorIds = [...new Set(messages.map((m) => m.authorId.toString()))];
-  const authors = await User.find({ _id: { $in: authorIds } })
-    .select("_id name email role")
+  const messages = await DiscussionMessage.find({ ticketId, orgId })
+    .sort({ createdAt: 1 })
+    .skip(skip)
+    .limit(PAGE_SIZE)
     .lean();
-  const authorsById = new Map(authors.map((a) => [a._id.toString(), a]));
+
+  if (messages.length === 0) return { data: [], total, page: actualPage, pageSize: PAGE_SIZE };
+
+  const authorsById = await fetchAuthors([...new Set(messages.map((m) => m.authorId.toString()))]);
 
   return {
     data: messages.map((m) => mapMessage(m as Parameters<typeof mapMessage>[0], authorsById)),
     total,
+    page: actualPage,
+    pageSize: PAGE_SIZE,
   };
 };
 
@@ -109,8 +127,7 @@ export const postMessage = async (input: PostMessageInput): Promise<IDiscussionM
     text: input.text,
   });
 
-  const author = await User.findById(input.authorId).select("_id name email role").lean();
-  const authorsById = new Map(author ? [[author._id.toString(), author]] : []);
+  const authorsById = await fetchAuthors([input.authorId]);
 
   return mapMessage(msg.toObject() as Parameters<typeof mapMessage>[0], authorsById);
 };
@@ -135,8 +152,7 @@ export const editMessage = async (
   msg.editedAt = new Date();
   await msg.save();
 
-  const author = await User.findById(authorId).select("_id name email role").lean();
-  const authorsById = new Map(author ? [[author._id.toString(), author]] : []);
+  const authorsById = await fetchAuthors([authorId]);
 
   return mapMessage(msg.toObject() as Parameters<typeof mapMessage>[0], authorsById);
 };

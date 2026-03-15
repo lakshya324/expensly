@@ -14,16 +14,19 @@ export interface IDiscussionMessage extends Document {
   updatedAt: Date;
 }
 
+export interface IDiscussionMessageDataAuthor {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  department: { _id: string; name: string } | null;
+}
+
 export interface IDiscussionMessageData {
   _id: string;
   ticketId: string;
   orgId: string;
-  author: {
-    _id: string;
-    name: string;
-    email: string;
-    role: string;
-  };
+  author: IDiscussionMessageDataAuthor;
   text: string;
   editedAt: Date | null;
   /** Deleted messages are included as tombstones so thread indices remain stable */
