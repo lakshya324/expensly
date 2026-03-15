@@ -11,7 +11,7 @@ import { StatusBadge } from '@/shared/components/data-display/StatusBadge';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/shared/components/ui/Dialog';
-import { useExpense, useUpdateExpenseStatus, useFlagExpense, useReceiptUrl, useDiscussion } from '../hooks/useExpenses';
+import { useExpense, useUpdateExpenseStatus, useFlagExpense, useReceiptUrl, useDiscussion, useSubmitDraft } from '../hooks/useExpenses';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { formatCurrency, formatDateTime, formatRelativeTime } from '@/core/utils/formatters';
 import { ROUTES } from '@/core/constants/constants';
@@ -42,6 +42,7 @@ export function ExpenseDetailPage() {
     requiresOverrideWarning: false,
   });
   const [comments, setComments] = useState('');
+  const { submitDraft, loading: submitDraftLoading } = useSubmitDraft();
 
   // Scroll to bottom on initial load; restore position after loading previous
   useEffect(() => {
@@ -95,8 +96,8 @@ export function ExpenseDetailPage() {
   // Priority: user role (admin) → user-level permission → dept-level permission
   const hasFinancePermission =
     user?.role === 'admin' ||
-    user?.permissions?.canApprove === true ||
-    (user?.permissions?.canApprove == null && user?.department?.permissions?.canApprove === true);
+    user?.permissions?.approve_finance === true ||
+    (user?.permissions?.approve_finance == null && user?.department?.permissions?.approve_finance === true);
 
   // Finance users can act when:
   //   - status is 'awaiting_finance' (manager already approved)
@@ -123,9 +124,27 @@ export function ExpenseDetailPage() {
     ticket.managerApproval.approved === null;
 
   const isSubmitter = ticket.submittedBy._id === user?._id;
+  const canPublishDraft = ticket.status === 'draft' && isSubmitter;
   const aiAnalysisPassed =
     ticket.aiValidation?.status === 'passed' &&
     (ticket.aiValidation?.checks?.every((check) => check.passed) ?? true);
+
+  const handlePublishDraft = async () => {
+    if (!canPublishDraft) return;
+
+    const updated = await submitDraft(ticket._id, {
+      title: ticket.title ?? undefined,
+      amount: ticket.amount != null ? String(ticket.amount) : undefined,
+      currency: ticket.currency ?? undefined,
+      description: ticket.description ?? undefined,
+      merchant: ticket.merchant?._id,
+      category: ticket.category?._id,
+    });
+
+    if (updated) {
+      setData(updated);
+    }
+  };
 
   return (
     <AppShell title="Expense Detail">
@@ -350,6 +369,17 @@ export function ExpenseDetailPage() {
                 >
                   <Flag className={`w-4 h-4 ${ticket.flagged ? 'fill-warning-500 text-warning-500' : ''}`} />
                   {ticket.flagged ? 'Unflag' : 'Flag'} Expense
+                </Button>
+              )}
+              {canPublishDraft && (
+                <Button
+                  size="sm"
+                  className="w-full"
+                  loading={submitDraftLoading}
+                  onClick={handlePublishDraft}
+                >
+                  <Send className="w-4 h-4" />
+                  Publish Draft
                 </Button>
               )}
               {canApproveAsManager && (

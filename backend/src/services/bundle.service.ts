@@ -31,9 +31,15 @@ export interface UpdateBundleInput {
 }
 
 export interface ApproveBundleInput {
-  step: "manager" | "finance";
+  step?: "manager" | "finance";
   approved: boolean;
   comments?: string;
+}
+
+export interface ApproveBundleResult {
+  bundle: IBundleData;
+  approvedTicketCount: number;
+  skippedTicketCount: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -45,6 +51,11 @@ const ELIGIBLE_TICKET_STATUSES: string[] = [
   TICKET_STATUS.PENDING,
   TICKET_STATUS.AWAITING_FINANCE,
   TICKET_STATUS.REJECTED,
+];
+
+const APPROVABLE_BUNDLE_TICKET_STATUSES: string[] = [
+  TICKET_STATUS.PENDING,
+  TICKET_STATUS.AWAITING_FINANCE,
 ];
 
 // ---------------------------------------------------------------------------
@@ -387,7 +398,7 @@ export const approveBundleStatus = async (
   reviewerRole: string,
   reviewerHasApproveFinance: boolean,
   input: ApproveBundleInput,
-): Promise<IBundleData> => {
+): Promise<ApproveBundleResult> => {
   const canApprove = reviewerRole === ROLES.ADMIN || reviewerHasApproveFinance;
 
   const bundle = await Bundle.findOne({
@@ -398,7 +409,10 @@ export const approveBundleStatus = async (
   if (bundle.status !== BUNDLE_STATUS.SUBMITTED)
     throw createError("This bundle is not pending approval", 400, "INVALID_STATE");
 
-  const { step, approved, comments } = input;
+  const { approved, comments } = input;
+  const step = input.step ?? "finance";
+  let approvedTicketCount = 0;
+  let skippedTicketCount = 0;
 
   if (step === "manager") {
     if (!canApprove)
@@ -427,7 +441,7 @@ export const approveBundleStatus = async (
     if (!approved) {
       bundle.status = BUNDLE_STATUS.REJECTED;
     } else {
-      // Finance approved → cascade to all constituent tickets
+      // Finance approved → cascade to only eligible constituent tickets
       bundle.status = BUNDLE_STATUS.APPROVED;
 
       const org = await Organization.findById(orgId);
@@ -444,13 +458,17 @@ export const approveBundleStatus = async (
       const deptSpent = new Map<string, { currency: string; amount: number }[]>();
 
       for (const t of tickets) {
-        if (t.status === TICKET_STATUS.APPROVED) continue; // already approved
+        if (!APPROVABLE_BUNDLE_TICKET_STATUSES.includes(t.status)) {
+          skippedTicketCount += 1;
+          continue;
+        }
         // Lock the exchange rate snapshot at approval time
         if (currentSnapshotId) {
           t.exchangeRateSnapshotId = currentSnapshotId as Types.ObjectId;
         }
         t.status = TICKET_STATUS.APPROVED;
         await t.save();
+        approvedTicketCount += 1;
 
         if (t.department && t.amount != null && t.currency) {
           const deptId = t.department.toString();
@@ -480,7 +498,11 @@ export const approveBundleStatus = async (
   }
 
   await bundle.save();
-  return bundle.toData();
+  return {
+    bundle: await bundle.toData(),
+    approvedTicketCount,
+    skippedTicketCount,
+  };
 };
 
 // ---------------------------------------------------------------------------

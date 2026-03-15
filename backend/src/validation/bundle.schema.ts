@@ -47,8 +47,27 @@ export const addTicketsValidation = [
 /** Validation for approving/rejecting a bundle at a given step */
 export const updateBundleStatusValidation = [
   body("step")
+    .optional()
     .isIn(["manager", "finance"])
     .withMessage("step must be 'manager' or 'finance'"),
-  body("approved").isBoolean().withMessage("approved must be a boolean"),
+  body("approved")
+    .optional()
+    .isBoolean()
+    .withMessage("approved must be a boolean"),
+  body("action")
+    .optional()
+    .isIn(["approve", "reject"])
+    .withMessage("action must be 'approve' or 'reject'"),
+  body().custom((_, { req }) => {
+    const hasApproved = typeof req.body?.approved === "boolean";
+    const hasAction =
+      req.body?.action === "approve" || req.body?.action === "reject";
+    if (!hasApproved && !hasAction) {
+      throw new Error(
+        "Provide either approved (boolean) or action ('approve'|'reject')",
+      );
+    }
+    return true;
+  }),
   body("comments").optional().trim().isLength({ max: 2000 }),
 ];

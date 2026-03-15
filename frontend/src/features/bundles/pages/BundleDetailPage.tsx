@@ -228,13 +228,14 @@ export function BundleDetailPage() {
     setReviewSaving(true);
     try {
       const res = await apiClient.patch<ApiResponse<IBundleData>>(EP.BUNDLE_STATUS(id), {
-        action: reviewAction,
+        step: 'finance',
+        approved: reviewAction === 'approve',
         comments: values.comments || undefined,
       });
       setBundle(res.data.data);
       setReviewAction(null);
       reviewForm.reset();
-      toast.success(`Bundle ${reviewAction === 'approve' ? 'approved' : 'rejected'}`);
+      toast.success(res.data.message ?? `Bundle ${reviewAction === 'approve' ? 'approved' : 'rejected'}`);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to update status';
       toast.error(msg);
@@ -317,10 +318,15 @@ export function BundleDetailPage() {
         {/* ── Admin approve/reject actions ─────────────────────────────────── */}
         {isSubmitted && canApprove && (
           <Card className="border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5">
-            <CardContent className="flex items-center justify-between py-3 px-4">
-              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                This bundle is awaiting your review
-              </p>
+            <CardContent className="flex items-center justify-between gap-3 py-3 px-4">
+              <div>
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                  This bundle is awaiting your review
+                </p>
+                <p className="text-xs text-amber-700/80 dark:text-amber-400/80">
+                  Approving will auto-approve eligible expenses (pending and awaiting finance).
+                </p>
+              </div>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -392,7 +398,9 @@ export function BundleDetailPage() {
               </h2>
             </CardHeader>
             <CardContent className="pt-0">
-              <ApprovalStepRow label="Manager Approval" approval={bundle.managerApproval} />
+              {bundle.managerApproval && (
+                <ApprovalStepRow label="Manager Approval" approval={bundle.managerApproval} />
+              )}
               <ApprovalStepRow label="Finance Approval" approval={bundle.financeApproval} />
             </CardContent>
           </Card>

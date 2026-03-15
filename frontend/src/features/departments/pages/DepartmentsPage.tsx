@@ -215,6 +215,7 @@ export function DepartmentsPage() {
                   dept={dept}
                   pct={pct}
                   isOverBudget={isOverBudget}
+                  baseCurrency={baseCurrency}
                   onEdit={() => openEdit(dept)}
                   onReset={() => setResetTarget(dept)}
                   onDelete={() => setDeleteTarget(dept)}
@@ -542,6 +543,7 @@ interface DepartmentCardProps {
   dept: IDepartmentData;
   pct: number;
   isOverBudget: boolean;
+  baseCurrency: string;
   onEdit: () => void;
   onReset: () => void;
   onDelete: () => void;
@@ -551,6 +553,7 @@ function DepartmentCard({
   dept,
   pct,
   isOverBudget,
+  baseCurrency,
   onEdit,
   onReset,
   onDelete,

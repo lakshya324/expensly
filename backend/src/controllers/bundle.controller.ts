@@ -17,6 +17,7 @@ import { ResponsePayload, ResponsePaginationPayload } from "../types/payloads.ty
 import { IBundleData } from "../types/bundle.types.js";
 import { ITicketData } from "../types/ticket.types.js";
 import { logAction } from "../services/auditLog.service.js";
+import { createError } from "../utils/error.js";
 import { AUDIT_ACTION, ENTITY_TYPE, ROLES, PERMISSION_KEY, DEFAULT_PAGE, DEFAULT_LIMIT, MAX_LIMIT } from "../config/constants.js";
 
 export default class BundleController {
@@ -218,11 +219,27 @@ export default class BundleController {
       const org = req.organization!;
       const user = req.user!;
       const bundleId = req.params["id"] as string;
-      const { step, approved, comments } = req.body as {
+      const { step, approved, action, comments } = req.body as {
         step?: "manager" | "finance";
         approved?: boolean;
+        action?: "approve" | "reject";
         comments?: string;
       };
+      const resolvedApproved =
+        typeof approved === "boolean"
+          ? approved
+          : action === "approve"
+            ? true
+            : action === "reject"
+              ? false
+              : undefined;
+      if (typeof resolvedApproved !== "boolean") {
+        throw createError(
+          "Provide either 'approved' boolean or 'action' ('approve'|'reject')",
+          400,
+          "VALIDATION_ERROR",
+        );
+      }
       // Resolve finance permission: explicit user override, then fall back to department-level
       const userApproveFinance = user.permissions?.approve_finance;
       const deptApproveFinance = req.userDepartment?.permissions?.approve_finance;
@@ -230,25 +247,38 @@ export default class BundleController {
         userApproveFinance === true ||
         (userApproveFinance == null && deptApproveFinance === true);
 
-      const data = await approveBundleStatus(
+      const result = await approveBundleStatus(
         org._id.toString(),
         bundleId,
         user._id.toString(),
         user.role,
         hasApproveFinance,
-        { step: step!, approved: approved!, comments },
+        { step: step ?? "finance", approved: resolvedApproved, comments },
       );
+      const data = result.bundle;
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
-        action: approved ? AUDIT_ACTION.APPROVED : AUDIT_ACTION.REJECTED,
+        action: resolvedApproved ? AUDIT_ACTION.APPROVED : AUDIT_ACTION.REJECTED,
         entityType: ENTITY_TYPE.BUNDLE,
         entityId: bundleId,
-        metadata: { step, comments: comments ?? null },
+        metadata: {
+          step: step ?? "finance",
+          comments: comments ?? null,
+          approvedTicketCount: result.approvedTicketCount,
+          skippedTicketCount: result.skippedTicketCount,
+        },
       }).catch(() => {});
+
+      const message = resolvedApproved
+        ? result.skippedTicketCount > 0
+          ? `Bundle approved. ${result.approvedTicketCount} expenses approved, ${result.skippedTicketCount} skipped (only pending/awaiting_finance are eligible).`
+          : `Bundle approved. ${result.approvedTicketCount} expenses approved.`
+        : "Bundle rejected";
+
       const payload: ResponsePayload<IBundleData> = {
         success: true,
-        message: approved ? "Bundle approved" : "Bundle rejected",
+        message,
         timestamp: new Date().toISOString(),
         data,
       };

@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Pencil, Trash2, Store } from 'lucide-react';
+import { Plus, Pencil, Trash2, Store, ToggleLeft, ToggleRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { Button } from '@/shared/components/ui/Button';
@@ -27,7 +27,11 @@ const merchantSchema = z.object({
 });
 type MerchantFormValues = z.infer<typeof merchantSchema>;
 
-function useMerchants() {
+type ApiErr = { response?: { data?: { message?: string } } };
+const errMsg = (e: unknown, fallback: string) =>
+  (e as ApiErr)?.response?.data?.message ?? fallback;
+
+function useMerchants(includeInactive: boolean) {
   const [data, setData] = useState<IMerchantData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,7 +39,7 @@ function useMerchants() {
     setLoading(true);
     try {
       const res = await apiClient.get<ApiResponse<IMerchantData[]>>(
-        EP.ADMIN_MERCHANTS,
+        EP.ADMIN_MERCHANTS + (includeInactive ? '?includeInactive=true' : ''),
       );
       setData(res.data.data ?? []);
     } catch {
@@ -43,22 +47,31 @@ function useMerchants() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [includeInactive]);
 
   useEffect(() => { fetch(); }, [fetch]);
   return { data, loading, refetch: fetch };
 }
 
 export function AdminMerchantsPage() {
-  const { data, loading, refetch } = useMerchants();
+  const [showInactive, setShowInactive] = useState(true);
+  const { data, loading, refetch } = useMerchants(showInactive);
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<IMerchantData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<IMerchantData | null>(null);
+  const [toggleTarget, setToggleTarget] = useState<IMerchantData | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [toggling, setToggling] = useState(false);
 
-  const createForm = useForm<MerchantFormValues>({ resolver: zodResolver(merchantSchema) });
-  const editForm = useForm<MerchantFormValues>({ resolver: zodResolver(merchantSchema) });
+  const createForm = useForm<MerchantFormValues>({
+    resolver: zodResolver(merchantSchema),
+    defaultValues: { name: '' },
+  });
+  const editForm = useForm<MerchantFormValues>({
+    resolver: zodResolver(merchantSchema),
+    defaultValues: { name: '' },
+  });
 
   const openEdit = (m: IMerchantData) => {
     setEditTarget(m);
@@ -68,14 +81,15 @@ export function AdminMerchantsPage() {
   const handleCreate = createForm.handleSubmit(async (values) => {
     setSaving(true);
     try {
-      await apiClient.post(EP.ADMIN_MERCHANTS, values);
+      await apiClient.post(EP.ADMIN_MERCHANTS, {
+        name: values.name.trim(),
+      });
       toast.success('Merchant created');
       setCreateOpen(false);
       createForm.reset();
       refetch();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to create merchant';
-      toast.error(msg);
+    } catch (e: unknown) {
+      toast.error(errMsg(e, 'Failed to create merchant'));
     } finally { setSaving(false); }
   });
 
@@ -83,24 +97,29 @@ export function AdminMerchantsPage() {
     if (!editTarget) return;
     setSaving(true);
     try {
-      await apiClient.patch(EP.ADMIN_MERCHANT(editTarget._id), values);
+      await apiClient.patch(EP.ADMIN_MERCHANT(editTarget._id), {
+        name: values.name.trim(),
+      });
       toast.success('Merchant updated');
       setEditTarget(null);
+      editForm.reset();
       refetch();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to update merchant';
-      toast.error(msg);
+    } catch (e: unknown) {
+      toast.error(errMsg(e, 'Failed to update merchant'));
     } finally { setSaving(false); }
   });
 
-  const handleToggleActive = async (m: IMerchantData) => {
+  const handleConfirmToggle = async () => {
+    if (!toggleTarget) return;
+    setToggling(true);
     try {
-      await apiClient.patch(EP.ADMIN_MERCHANT(m._id), { isActive: !m.isActive });
-      toast.success(m.isActive ? 'Merchant deactivated' : 'Merchant activated');
+      await apiClient.patch(EP.ADMIN_MERCHANT(toggleTarget._id), { isActive: !toggleTarget.isActive });
+      toast.success(toggleTarget.isActive ? 'Merchant deactivated' : 'Merchant activated');
+      setToggleTarget(null);
       refetch();
-    } catch {
-      toast.error('Failed to update status');
-    }
+    } catch (e: unknown) {
+      toast.error(errMsg(e, 'Failed to update status'));
+    } finally { setToggling(false); }
   };
 
   const handleDelete = async () => {
@@ -111,9 +130,8 @@ export function AdminMerchantsPage() {
       toast.success('Merchant deleted');
       setDeleteTarget(null);
       refetch();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to delete merchant';
-      toast.error(msg);
+    } catch (e: unknown) {
+      toast.error(errMsg(e, 'Failed to delete merchant'));
     } finally { setDeleting(false); }
   };
 
@@ -152,9 +170,13 @@ export function AdminMerchantsPage() {
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={(e) => { e.stopPropagation(); handleToggleActive(row); }}
+            onClick={(e) => { e.stopPropagation(); setToggleTarget(row); }}
+            title={row.isActive ? 'Deactivate' : 'Activate'}
+            className={row.isActive ? 'text-warning-500 hover:text-warning-600 hover:bg-warning-50 dark:hover:bg-warning-500/10' : 'text-success-500 hover:text-success-600 hover:bg-success-50 dark:hover:bg-success-500/10'}
           >
-            <span className="text-xs">{row.isActive ? 'Deactivate' : 'Activate'}</span>
+            {row.isActive
+              ? <ToggleRight className="w-4 h-4" />
+              : <ToggleLeft className="w-4 h-4" />}
           </Button>
           <Button variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); openEdit(row); }}>
             <Pencil className="w-3.5 h-3.5" />
@@ -177,13 +199,24 @@ export function AdminMerchantsPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-[var(--foreground)]">Merchants</h1>
-            <p className="text-sm text-[var(--muted-foreground)]">Manage your organisation's merchant directory</p>
+            <h1 className="text-xl font-bold text-(--foreground)">Merchants</h1>
+            <p className="text-sm text-(--muted-foreground)">Manage your organisation's merchant directory</p>
           </div>
-          <Button onClick={() => { createForm.reset(); setCreateOpen(true); }}>
-            <Plus className="w-4 h-4" />
-            Add Merchant
-          </Button>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-(--muted-foreground) cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="accent-brand-600"
+              />
+              Show inactive
+            </label>
+            <Button onClick={() => { createForm.reset(); setCreateOpen(true); }}>
+              <Plus className="w-4 h-4" />
+              Add Merchant
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -224,7 +257,12 @@ export function AdminMerchantsPage() {
       </Dialog>
 
       {/* Edit dialog */}
-      <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
+      <Dialog open={!!editTarget} onOpenChange={(o) => {
+        if (!o) {
+          setEditTarget(null);
+          editForm.reset();
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Merchant</DialogTitle>
@@ -233,11 +271,12 @@ export function AdminMerchantsPage() {
           <form onSubmit={handleEdit} className="space-y-4 mt-2">
             <Input
               label="Name"
+              placeholder="e.g. Starbucks"
               error={editForm.formState.errors.name?.message}
               {...editForm.register('name')}
             />
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setEditTarget(null)} disabled={saving}>
+              <Button type="button" variant="outline" onClick={() => { setEditTarget(null); editForm.reset(); }} disabled={saving}>
                 Cancel
               </Button>
               <Button type="submit" loading={saving}>Save</Button>
@@ -256,6 +295,19 @@ export function AdminMerchantsPage() {
         variant="destructive"
         loading={deleting}
         onConfirm={handleDelete}
+      />
+
+      <ConfirmDialog
+        open={!!toggleTarget}
+        onOpenChange={(open) => { if (!open) setToggleTarget(null); }}
+        title={`${toggleTarget?.isActive ? 'Deactivate' : 'Activate'} Merchant`}
+        description={toggleTarget
+          ? `Are you sure you want to ${toggleTarget.isActive ? 'deactivate' : 'activate'} "${toggleTarget.name}"?`
+          : ''}
+        confirmLabel={toggleTarget?.isActive ? 'Deactivate' : 'Activate'}
+        variant={toggleTarget?.isActive ? 'destructive' : 'default'}
+        loading={toggling}
+        onConfirm={handleConfirmToggle}
       />
     </AppShell>
   );

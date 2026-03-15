@@ -28,6 +28,10 @@ const categorySchema = z.object({
 });
 type CategoryFormValues = z.infer<typeof categorySchema>;
 
+type ApiErr = { response?: { data?: { message?: string } } };
+const errMsg = (e: unknown, fallback: string) =>
+  (e as ApiErr)?.response?.data?.message ?? fallback;
+
 function useCategories(includeInactive: boolean) {
   const [data, setData] = useState<ICategoryData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,11 +60,18 @@ export function AdminCategoriesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ICategoryData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ICategoryData | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const createForm = useForm<CategoryFormValues>({ resolver: zodResolver(categorySchema) });
-  const editForm = useForm<CategoryFormValues>({ resolver: zodResolver(categorySchema) });
+  const createForm = useForm<CategoryFormValues>({
+    resolver: zodResolver(categorySchema),
+    defaultValues: { name: '', description: '' },
+  });
+  const editForm = useForm<CategoryFormValues>({
+    resolver: zodResolver(categorySchema),
+    defaultValues: { name: '', description: '' },
+  });
 
   const openEdit = (c: ICategoryData) => {
     setEditTarget(c);
@@ -68,31 +79,36 @@ export function AdminCategoriesPage() {
   };
 
   const handleCreate = createForm.handleSubmit(async (values) => {
-    setSaving(true);
+    setCreating(true);
     try {
-      await apiClient.post(EP.ADMIN_CATEGORIES, values);
+      await apiClient.post(EP.ADMIN_CATEGORIES, {
+        name: values.name.trim(),
+        description: values.description?.trim() || undefined,
+      });
       toast.success('Category created');
       setCreateOpen(false);
       createForm.reset();
       refetch();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to create category';
-      toast.error(msg);
-    } finally { setSaving(false); }
+    } catch (e: unknown) {
+      toast.error(errMsg(e, 'Failed to create category'));
+    } finally { setCreating(false); }
   });
 
   const handleEdit = editForm.handleSubmit(async (values) => {
     if (!editTarget) return;
-    setSaving(true);
+    setUpdating(true);
     try {
-      await apiClient.patch(EP.ADMIN_CATEGORY(editTarget._id), values);
+      await apiClient.patch(EP.ADMIN_CATEGORY(editTarget._id), {
+        name: values.name.trim(),
+        description: values.description?.trim() || undefined,
+      });
       toast.success('Category updated');
       setEditTarget(null);
+      editForm.reset();
       refetch();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to update category';
-      toast.error(msg);
-    } finally { setSaving(false); }
+    } catch (e: unknown) {
+      toast.error(errMsg(e, 'Failed to update category'));
+    } finally { setUpdating(false); }
   });
 
   const handleToggleActive = async (c: ICategoryData) => {
@@ -113,9 +129,8 @@ export function AdminCategoriesPage() {
       toast.success('Category deleted');
       setDeleteTarget(null);
       refetch();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to delete category';
-      toast.error(msg);
+    } catch (e: unknown) {
+      toast.error(errMsg(e, 'Failed to delete category'));
     } finally { setDeleting(false); }
   };
 
@@ -195,11 +210,11 @@ export function AdminCategoriesPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-[var(--foreground)]">Categories</h1>
-            <p className="text-sm text-[var(--muted-foreground)]">Manage expense categories for your organisation</p>
+            <h1 className="text-xl font-bold text-(--foreground)">Categories</h1>
+            <p className="text-sm text-(--muted-foreground)">Manage expense categories for your organisation</p>
           </div>
           <div className="flex items-center gap-2">
-            <label className="flex items-center gap-2 text-sm text-[var(--muted-foreground)] cursor-pointer select-none">
+            <label className="flex items-center gap-2 text-sm text-(--muted-foreground) cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={showInactive}
@@ -249,17 +264,22 @@ export function AdminCategoriesPage() {
               {...createForm.register('description')}
             />
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => { setCreateOpen(false); createForm.reset(); }} disabled={saving}>
+              <Button type="button" variant="outline" onClick={() => { setCreateOpen(false); createForm.reset(); }} disabled={creating}>
                 Cancel
               </Button>
-              <Button type="submit" loading={saving}>Create</Button>
+              <Button type="submit" loading={creating}>Create</Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
       {/* Edit dialog */}
-      <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
+      <Dialog open={!!editTarget} onOpenChange={(o) => {
+        if (!o) {
+          setEditTarget(null);
+          editForm.reset();
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Category</DialogTitle>
@@ -268,19 +288,21 @@ export function AdminCategoriesPage() {
           <form onSubmit={handleEdit} className="space-y-4 mt-2">
             <Input
               label="Name"
+              placeholder="e.g. Travel"
               error={editForm.formState.errors.name?.message}
               {...editForm.register('name')}
             />
             <Input
               label="Description"
+              placeholder="Optional description"
               error={editForm.formState.errors.description?.message}
               {...editForm.register('description')}
             />
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setEditTarget(null)} disabled={saving}>
+              <Button type="button" variant="outline" onClick={() => { setEditTarget(null); editForm.reset(); }} disabled={updating}>
                 Cancel
               </Button>
-              <Button type="submit" loading={saving}>Save</Button>
+              <Button type="submit" loading={updating}>Save</Button>
             </div>
           </form>
         </DialogContent>
