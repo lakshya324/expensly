@@ -1,7 +1,7 @@
-import { RefreshCw, BarChart3, TrendingUp, CheckCircle2, Clock, XCircle, Receipt } from 'lucide-react';
+import { RefreshCw, CheckCircle2, Clock, XCircle, Receipt, AlertTriangle } from 'lucide-react';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend,
+  Tooltip, ResponsiveContainer, Legend, ComposedChart, Area, Line,
 } from 'recharts';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { StatCard } from '@/shared/components/data-display/StatCard';
@@ -12,9 +12,51 @@ import { useAnalytics } from '../hooks/useAnalytics';
 import { formatCurrency, formatDuration, formatPercent, formatRelativeTime } from '@/core/utils/formatters';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import type { Currency } from '@/core/types/api.types';
+import type { ExpenseTypeBreakdownItem } from '@/core/types/analytics.types';
 
-const PIE_COLORS = ['#7c3aed', '#a855f7', '#c084fc', '#ddd6fe', '#ede9fe'];
+const PIE_COLORS = ['#6d28d9', '#7c3aed', '#8b5cf6', '#a855f7', '#9333ea', '#7e22ce', '#6b21a8', '#9d4edd', '#7c3aed', '#5b21b6'];
 const BAR_COLOR = '#7c3aed';
+const AREA_COLOR = '#a855f7';
+
+const EXPENSE_TYPE_COLORS: Record<string, string> = {
+  regular: '#7c3aed',
+  per_diem: '#0ea5e9',
+  mileage: '#10b981',
+};
+
+const EXPENSE_TYPE_LABELS: Record<string, string> = {
+  regular: 'Regular',
+  per_diem: 'Per Diem',
+  mileage: 'Mileage',
+};
+
+function formatMonthLabel(year: number, month: number): string {
+  return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+}
+
+function expenseTypeColor(item: ExpenseTypeBreakdownItem): string {
+  return EXPENSE_TYPE_COLORS[item.type] ?? '#94a3b8';
+}
+
+function truncateLabel(value: string, max = 18): string {
+  if (!value) return '';
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+const PIE_SIDE_LEGEND_STYLE = {
+  fontSize: '11px',
+  lineHeight: '14px',
+  paddingLeft: '2px',
+  right: '8px',
+};
+
+function renderLegendLabel(value: string): JSX.Element {
+  return <span className="text-[11px] text-[var(--foreground)]">{value}</span>;
+}
+
+function merchantChartHeight(count: number): number {
+  return Math.max(160, Math.min(240, count * 34));
+}
 
 export function AnalyticsPage() {
   const { data, loading, refreshing, refresh } = useAnalytics();
@@ -22,7 +64,7 @@ export function AnalyticsPage() {
 
   return (
     <AppShell title="Analytics">
-      <div className="space-y-6">
+      <div className="space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
@@ -38,7 +80,7 @@ export function AnalyticsPage() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <StatCard
             title="Total Expenses"
             value={loading ? '—' : (data?.org.totalTickets ?? 0)}
@@ -68,38 +110,143 @@ export function AnalyticsPage() {
             color="danger"
             loading={loading}
           />
+          <StatCard
+            title="Flagged"
+            value={loading ? '—' : (data?.org.totalFlagged ?? 0)}
+            subtitle={data?.org.flaggedRate != null ? `${data.org.flaggedRate.toFixed(1)}% of total` : undefined}
+            icon={AlertTriangle}
+            color="warning"
+            loading={loading}
+          />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Currency Breakdown */}
+        {/* Monthly Spending Trend */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Monthly Spending Trend</CardTitle>
+            <CardDescription>Expenses submitted and approved over the last 12 months</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? <Skeleton className="h-64 w-full" /> : (
+              data?.org.monthlyTrend && data.org.monthlyTrend.length > 0 ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <ComposedChart data={data.org.monthlyTrend.map((p) => ({
+                    ...p,
+                    label: formatMonthLabel(p.year, p.month),
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis yAxisId="left" tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrency(v, baseCurrency, true)} width={90} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--popover-foreground)' }}
+                      formatter={(value: number, name: string) =>
+                        name === 'Approved Amount'
+                          ? [formatCurrency(value, baseCurrency), name]
+                          : [value, name]
+                      }
+                    />
+                    <Legend />
+                    <Area yAxisId="left" type="monotone" dataKey="submittedCount" name="Submitted" fill={AREA_COLOR} stroke={AREA_COLOR} fillOpacity={0.15} dot={false} />
+                    <Line yAxisId="right" type="monotone" dataKey="approvedAmount" name="Approved Amount" stroke={BAR_COLOR} strokeWidth={2} dot={false} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-sm text-[var(--muted-foreground)] text-center py-12">No trend data yet</p>
+              )
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Category Breakdown + Expense Type Split */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <Card>
             <CardHeader>
-              <CardTitle>Currency Breakdown</CardTitle>
-              <CardDescription>Approved amount by currency (converted to base currency)</CardDescription>
+              <CardTitle>Category Breakdown</CardTitle>
+              <CardDescription>Top 10 categories by approved spend (All-time)</CardDescription>
             </CardHeader>
-            <CardContent>
-              {loading ? <Skeleton className="h-48 w-full" /> : (
-                data?.org.currencyBreakdown && data.org.currencyBreakdown.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={220}>
+            <CardContent className="pt-2 pb-3">
+              {loading ? <Skeleton className="h-44 w-full" /> : (
+                data?.org.categoryBreakdown && data.org.categoryBreakdown.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={210}>
                     <PieChart>
                       <Pie
-                        data={data.org.currencyBreakdown}
-                        dataKey="total"
-                        nameKey="currency"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={75}
-                        label={(props: any) => `${props.currency} ${((props.percent ?? 0) * 100).toFixed(0)}%`}
+                        data={data.org.categoryBreakdown}
+                        dataKey="totalAmount"
+                        nameKey="name"
+                        cx="40%"
+                        cy="48%"
+                        innerRadius={36}
+                        outerRadius={70}
+                        label={false}
+                        labelLine={false}
                       >
-                        {data.org.currencyBreakdown.map((_, i) => (
+                        {data.org.categoryBreakdown.map((_, i) => (
                           <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(_v: number | undefined, _name: string | undefined, props: { payload?: { currency?: string; originalTotal?: number } }) => {
-                        const currency = props?.payload?.currency ?? '';
-                        const originalTotal = props?.payload?.originalTotal ?? 0;
-                        return [formatCurrency(originalTotal, currency as Currency), 'Total'];
-                      }} />
+                      <Legend
+                        layout="vertical"
+                        align="right"
+                        verticalAlign="middle"
+                        iconSize={7}
+                        wrapperStyle={PIE_SIDE_LEGEND_STYLE}
+                        iconType="circle"
+                        formatter={(value) => renderLegendLabel(truncateLabel(String(value), 14))}
+                      />
+                      <Tooltip
+                        formatter={(v: number, _name: string, props: any) => [
+                          formatCurrency(v, baseCurrency),
+                          props?.payload?.name ?? 'Category',
+                        ]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-sm text-[var(--muted-foreground)] text-center py-12">No category data yet</p>
+                )
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Expense Type Split</CardTitle>
+              <CardDescription>Distribution by expense type (All-time)</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2 pb-3">
+              {loading ? <Skeleton className="h-44 w-full" /> : (
+                data?.org.expenseTypeBreakdown && data.org.expenseTypeBreakdown.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={210}>
+                    <PieChart>
+                      <Pie
+                        data={data.org.expenseTypeBreakdown.map((e) => ({ ...e, label: EXPENSE_TYPE_LABELS[e.type] ?? e.type }))}
+                        dataKey="count"
+                        nameKey="label"
+                        cx="40%"
+                        cy="48%"
+                        innerRadius={36}
+                        outerRadius={70}
+                        label={false}
+                        labelLine={false}
+                      >
+                        {data.org.expenseTypeBreakdown.map((e, i) => (
+                          <Cell key={i} fill={expenseTypeColor(e)} />
+                        ))}
+                      </Pie>
+                      <Legend
+                        layout="vertical"
+                        align="right"
+                        verticalAlign="middle"
+                        iconSize={7}
+                        wrapperStyle={PIE_SIDE_LEGEND_STYLE}
+                        iconType="circle"
+                        formatter={(value) => renderLegendLabel(truncateLabel(String(value), 14))}
+                      />
+                      <Tooltip formatter={(v: number, _name: string, props: any) => [
+                        `${v} tickets · ${formatCurrency(props?.payload?.totalAmount ?? 0, baseCurrency, true)}`,
+                        props?.payload?.label ?? '',
+                      ]} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
@@ -108,27 +255,82 @@ export function AnalyticsPage() {
               )}
             </CardContent>
           </Card>
+        </div>
 
-          {/* Top Tags */}
+        {/* Top Merchants + Currency Breakdown */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <Card>
             <CardHeader>
-              <CardTitle>Top Tags</CardTitle>
-              <CardDescription>Most used expense tags</CardDescription>
+              <CardTitle>Top Merchants</CardTitle>
+              <CardDescription>Top 10 merchants by approved spend (All-time)</CardDescription>
             </CardHeader>
-            <CardContent>
-              {loading ? <Skeleton className="h-48 w-full" /> : (
-                data?.org.topTags && data.org.topTags.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={data.org.topTags.slice(0, 8)} layout="vertical">
+            <CardContent className="pt-2 pb-3">
+              {loading ? <Skeleton className="h-44 w-full" /> : (
+                data?.org.merchantBreakdown && data.org.merchantBreakdown.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={merchantChartHeight(data.org.merchantBreakdown.slice(0, 8).length)}>
+                    <BarChart data={data.org.merchantBreakdown.slice(0, 8)} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                      <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <YAxis type="category" dataKey="tag" tick={{ fontSize: 11 }} width={80} />
-                      <Tooltip />
-                      <Bar dataKey="count" fill={BAR_COLOR} radius={[0, 4, 4, 0]} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrency(v, baseCurrency, true)} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={88} />
+                      <Tooltip formatter={(v: number) => [formatCurrency(v, baseCurrency), 'Spend']} />
+                      <Bar dataKey="totalAmount" fill={BAR_COLOR} radius={[0, 4, 4, 0]} barSize={16} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-sm text-[var(--muted-foreground)] text-center py-12">No tags yet</p>
+                  <p className="text-sm text-[var(--muted-foreground)] text-center py-12">No merchant data yet</p>
+                )
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Currency Breakdown */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Currency Breakdown</CardTitle>
+              <CardDescription>Approved amount by currency (All-time, converted to {baseCurrency})</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2 pb-3">
+              {loading ? <Skeleton className="h-44 w-full" /> : (
+                data?.org.currencyBreakdown && data.org.currencyBreakdown.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={210}>
+                    <PieChart>
+                      <Pie
+                        data={data.org.currencyBreakdown}
+                        dataKey="total"
+                        nameKey="currency"
+                        cx="40%"
+                        cy="48%"
+                        innerRadius={36}
+                        outerRadius={70}
+                        label={false}
+                        labelLine={false}
+                      >
+                        {data.org.currencyBreakdown.map((_, i) => (
+                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Legend
+                        layout="vertical"
+                        align="right"
+                        verticalAlign="middle"
+                        iconSize={7}
+                        wrapperStyle={PIE_SIDE_LEGEND_STYLE}
+                        iconType="circle"
+                        formatter={(value) => renderLegendLabel(truncateLabel(String(value), 14))}
+                      />
+                      <Tooltip formatter={(_v: number | undefined, _name: string | undefined, props: { payload?: { currency?: string; originalTotal?: number; total?: number } }) => {
+                        const currency = props?.payload?.currency ?? '';
+                        const originalTotal = props?.payload?.originalTotal ?? 0;
+                        const convertedTotal = props?.payload?.total ?? 0;
+                        return [
+                          `${formatCurrency(convertedTotal, baseCurrency, true)} • ${formatCurrency(originalTotal, currency as Currency, true)}`,
+                          currency || 'Currency',
+                        ];
+                      }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-sm text-[var(--muted-foreground)] text-center py-12">No data yet</p>
                 )
               )}
             </CardContent>

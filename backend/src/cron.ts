@@ -33,7 +33,7 @@ export function startCronJobs(): void {
     try {
       const orgs = await Organization.find(
         { isDisabled: false },
-        { _id: 1 },
+        { _id: 1, baseCurrency: 1 },
       ).lean();
 
       await Promise.allSettled(

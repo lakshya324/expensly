@@ -1,5 +1,32 @@
 import type { Currency } from './api.types';
 
+export interface MonthlyTrendPoint {
+  year: number;
+  month: number;
+  submittedCount: number;
+  approvedAmount: number;
+}
+
+export interface CategoryBreakdownItem {
+  categoryId: string | null;
+  name: string;
+  count: number;
+  totalAmount: number;
+}
+
+export interface MerchantBreakdownItem {
+  merchantId: string | null;
+  name: string;
+  count: number;
+  totalAmount: number;
+}
+
+export interface ExpenseTypeBreakdownItem {
+  type: string;
+  count: number;
+  totalAmount: number;
+}
+
 export interface DeptAnalytics {
   departmentId: string;
   name: string;
@@ -25,6 +52,12 @@ export interface OrgAnalytics {
   avgResolutionTimeMs: number;
   topTags: { tag: string; count: number }[];
   currencyBreakdown: { currency: Currency; total: number; originalTotal: number }[];
+  totalFlagged?: number;
+  flaggedRate?: number;
+  monthlyTrend?: MonthlyTrendPoint[];
+  categoryBreakdown?: CategoryBreakdownItem[];
+  merchantBreakdown?: MerchantBreakdownItem[];
+  expenseTypeBreakdown?: ExpenseTypeBreakdownItem[];
 }
 
 export interface IOrgAnalyticsData {
