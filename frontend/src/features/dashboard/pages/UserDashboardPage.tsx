@@ -10,7 +10,7 @@ import { useExpenses, useExpenseStats } from '@/features/expenses/hooks/useExpen
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { ROUTES } from '@/core/constants/constants';
 import { formatCurrency, formatRelativeTime } from '@/core/utils/formatters';
-import type { ITicketData } from '@/core/types/ticket.types';
+import type { ITicketSummaryData } from '@/core/types/ticket.types';
 
 export function UserDashboardPage() {
   const navigate = useNavigate();
@@ -25,7 +25,7 @@ export function UserDashboardPage() {
     rejected: statsData?.rejected ?? 0,
   };
 
-  const recentColumns: Column<ITicketData>[] = [
+  const recentColumns: Column<ITicketSummaryData>[] = [
     {
       key: 'title',
       header: 'Title',

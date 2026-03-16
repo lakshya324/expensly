@@ -108,11 +108,11 @@ export function ProfilePage() {
             <CardContent className="space-y-3 text-sm">
               <PermissionRow
                 label="View all expenses"
-                value={user.permissions?.canViewAllTickets}
+                value={user.permissions?.view_all_tickets}
               />
               <PermissionRow
                 label="Approve expenses"
-                value={user.permissions?.canApprove}
+                value={user.permissions?.approve_finance}
               />
             </CardContent>
           </Card>

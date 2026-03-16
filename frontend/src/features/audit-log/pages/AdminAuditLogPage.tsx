@@ -73,7 +73,7 @@ function useAuditLog(filters: { entityType?: string; action?: string; page: numb
         { params },
       );
       setData(res.data.data?.data ?? []);
-      setTotal(res.data.data?.pagination?.totalItems ?? res.data.data?.total ?? 0);
+      setTotal(res.data.data?.pagination?.totalItems ?? 0);
     } catch {
       toast.error('Failed to load audit log');
     } finally {

@@ -351,7 +351,7 @@ function AiReviewStep({
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
               />
-              {ocr?.amount != null && ocr.confidence != null && (
+              {ocr?.confidence != null && (
                 <span className="absolute right-3 top-8 flex items-center gap-1 text-[10px] text-brand-500 dark:text-brand-400">
                   <Sparkles className="w-2.5 h-2.5" /> {Math.round(ocr.confidence * 100)}%
                 </span>
