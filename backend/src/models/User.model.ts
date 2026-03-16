@@ -55,7 +55,7 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true },
 );
 
-UserSchema.index({ orgId: 1 });
+// UserSchema.index({ orgId: 1 });
 UserSchema.index({ orgId: 1, department: 1 });
 UserSchema.index({ managerId: 1 });
 UserSchema.index({ orgId: 1, role: 1, isDisabled: 1 }); // admin notify + role-filtered listUsers

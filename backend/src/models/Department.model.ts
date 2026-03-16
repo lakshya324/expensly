@@ -47,7 +47,7 @@ const DepartmentSchema = new Schema<IDepartment>(
   { timestamps: true },
 );
 
-DepartmentSchema.index({ orgId: 1 });
+// DepartmentSchema.index({ orgId: 1 });
 DepartmentSchema.index({ orgId: 1, name: 1 }, { unique: true });
 DepartmentSchema.index({ orgId: 1, isActive: 1 });
 DepartmentSchema.index({ nextResetDate: 1, isActive: 1 }); // hourly budget-reset cron: {nextResetDate <= now, isActive: true}

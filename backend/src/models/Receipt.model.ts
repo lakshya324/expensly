@@ -19,7 +19,7 @@ const ReceiptSchema = new Schema<IReceipt>(
   { timestamps: true },
 );
 
-ReceiptSchema.index({ orgId: 1 });
+// ReceiptSchema.index({ orgId: 1 });
 ReceiptSchema.index({ orgId: 1, useCase: 1 });
 
 ReceiptSchema.methods.toData = function (this: IReceipt): IReceiptData {

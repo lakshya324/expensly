@@ -19,6 +19,7 @@ const DiscussionMessageSchema = new Schema<IDiscussionMessage>(
 
 // Load a ticket's thread in chronological order
 DiscussionMessageSchema.index({ ticketId: 1, createdAt: 1 });
+DiscussionMessageSchema.index({ ticketId: 1, orgId: 1, createdAt: 1 });
 // Org-scoped housekeeping / admin search
 DiscussionMessageSchema.index({ orgId: 1, createdAt: -1 });
 

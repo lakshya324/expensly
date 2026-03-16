@@ -18,7 +18,8 @@ const PolicySchema = new Schema<IPolicy>(
   { timestamps: true },
 );
 
-PolicySchema.index({ orgId: 1, isActive: 1 });
+// PolicySchema.index({ orgId: 1, isActive: 1 });
+PolicySchema.index({ orgId: 1, isActive: 1, name: 1 });
 PolicySchema.index({ orgId: 1, name: 1, isSystem: 1 }, { unique: true });
 
 export const Policy = mongoose.model<IPolicy>("Policy", PolicySchema);

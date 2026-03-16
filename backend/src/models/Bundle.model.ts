@@ -47,9 +47,11 @@ const BundleSchema = new Schema<IBundle>(
   { timestamps: true },
 );
 
-BundleSchema.index({ orgId: 1, submittedBy: 1 });
-BundleSchema.index({ orgId: 1, status: 1 });
+// BundleSchema.index({ orgId: 1, submittedBy: 1 });
+// BundleSchema.index({ orgId: 1, status: 1 });
 BundleSchema.index({ orgId: 1, createdAt: -1 });
+BundleSchema.index({ orgId: 1, status: 1, createdAt: -1 });
+BundleSchema.index({ orgId: 1, submittedBy: 1, createdAt: -1 });
 
 // Helper: load a user as IUserMinimalData
 async function loadMinimalUser(userId: Types.ObjectId | null) {

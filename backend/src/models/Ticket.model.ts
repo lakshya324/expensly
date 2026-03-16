@@ -124,10 +124,10 @@ const TicketSchema = new Schema<ITicket>(
   { timestamps: true },
 );
 
-TicketSchema.index({ orgId: 1 });
-TicketSchema.index({ submitterManagerId: 1 });
-TicketSchema.index({ orgId: 1, status: 1 }); // kept for aggregation $match (no sort needed there)
-TicketSchema.index({ orgId: 1, department: 1 }); // kept for aggregation $match (no sort needed there)
+// TicketSchema.index({ orgId: 1 });
+// TicketSchema.index({ submitterManagerId: 1 });
+// TicketSchema.index({ orgId: 1, status: 1 }); // kept for aggregation $match (no sort needed there)
+// TicketSchema.index({ orgId: 1, department: 1 }); // kept for aggregation $match (no sort needed there)
 TicketSchema.index({ orgId: 1, createdAt: -1 }); // all ticket list & CSV export queries
 TicketSchema.index({ orgId: 1, status: 1, createdAt: -1 }); // status-filtered lists + analytics approved query
 TicketSchema.index({ orgId: 1, department: 1, createdAt: -1 }); // dept-filtered lists & CSV exports
