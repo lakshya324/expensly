@@ -1,6 +1,5 @@
 import express from "express";
 import AuthController from "../controllers/auth.controller.js";
-import { authenticate } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import {
   loginValidation,
@@ -42,6 +41,6 @@ router.post("/reset-password", validate(resetPasswordValidation), AuthController
 router.post("/refresh", AuthController.refresh);
 
 //* Logout [POST /api/logout]
-router.post("/logout", authenticate, AuthController.logout);
+router.post("/logout", AuthController.logout);
 
 export default router;
