@@ -17,7 +17,7 @@ import {
 } from "../services/receipt.service.js";
 import { createError } from "../utils/error.js";
 import { AuthRequest } from "../types/types.js";
-import { buildTicketFilter } from "../utils/tickets.js";
+import { buildTicketFilter, buildTicketVisibilityFilter } from "../utils/tickets.js";
 import { resolvePermission } from "../utils/permissions.js";
 import {
   ResponsePaginationPayload,
@@ -63,8 +63,42 @@ import {
 import { IUser } from "../types/user.types.js";
 import { IOrganization } from "../types/organization.types.js";
 import { Bundle } from "../models/Bundle.model.js";
+import { Merchant } from "../models/Merchant.model.js";
+import { Category } from "../models/Category.model.js";
 import { Receipt } from "../models/Receipt.model.js";
 import { QueueJobType } from "../types/queue.types.js";
+
+async function resolveScopedEntityId(
+  rawId: string | undefined,
+  orgId: Types.ObjectId,
+  model: { findOne: (filter: Record<string, unknown>) => any },
+  entityLabel: string,
+  errorCode: string,
+): Promise<Types.ObjectId | null | undefined> {
+  if (rawId === undefined) return undefined;
+  if (!rawId) return null;
+  if (!Types.ObjectId.isValid(rawId))
+    throw createError(`${entityLabel} must be a valid MongoDB ObjectId`, 400, "VALIDATION_ERROR");
+
+  const entity = await model.findOne({ _id: rawId, orgId }).select("_id");
+  if (!entity) throw createError(`${entityLabel} not found`, 400, errorCode);
+  return entity._id;
+}
+
+async function findAccessibleTicket(
+  req: AuthRequest,
+  ticketId: string,
+): Promise<ITicket> {
+  if (!Types.ObjectId.isValid(ticketId))
+    throw createError("Ticket not found", 404, "NOT_FOUND");
+
+  const filter = await buildTicketVisibilityFilter(req);
+  filter["_id"] = new Types.ObjectId(ticketId);
+
+  const ticket = await Ticket.findOne(filter);
+  if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
+  return ticket;
+}
 
 export default class TicketController {
   /**
@@ -136,6 +170,7 @@ export default class TicketController {
         filter,
         page,
         limit,
+        org._id.toString(),
         orgSnapshotId,
       );
 
@@ -209,6 +244,23 @@ export default class TicketController {
           "INVALID_DEPARTMENT",
         );
 
+      const [merchantRef, categoryRef] = await Promise.all([
+        resolveScopedEntityId(
+          merchantId,
+          org._id,
+          Merchant,
+          "Merchant",
+          "INVALID_MERCHANT",
+        ),
+        resolveScopedEntityId(
+          categoryId,
+          org._id,
+          Category,
+          "Category",
+          "INVALID_CATEGORY",
+        ),
+      ]);
+
       // Manager approval required only when the user has a manager AND the ticket
       // amount meets or exceeds the department threshold for that currency.
       // If no threshold is configured, default to requiring manager approval.
@@ -263,8 +315,8 @@ export default class TicketController {
         tags: parsedTags,
         receiptIds: receiptId ? [receiptId] : [],
         status: ticketStatus,
-        merchant: merchantId ? new Types.ObjectId(merchantId) : null,
-        category: categoryId ? new Types.ObjectId(categoryId) : null,
+        merchant: merchantRef ?? null,
+        category: categoryRef ?? null,
         managerApproval:
           ticketStatus === TICKET_STATUS.PENDING && needsManagerApproval
           ? {
@@ -421,13 +473,7 @@ export default class TicketController {
       const user = req.user!;
       const org = req.organization!;
       const ticketId = req.params["id"] as string;
-
-      const ticket = await Ticket.findOne({
-        _id: new mongoose.Types.ObjectId(ticketId),
-        orgId: org._id,
-      });
-
-      if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
+      const ticket = await findAccessibleTicket(req, ticketId);
 
       const payload: ResponsePayload<ITicketData> = {
         success: true,
@@ -442,7 +488,7 @@ export default class TicketController {
         message: "Error retrieving ticket",
         code: "TICKET_RETRIEVE_ERROR",
       });
-      createError("Failed to retrieve ticket", 500, "TICKET_RETRIEVE_ERROR");
+      next(err);
     }
   }
 
@@ -511,12 +557,24 @@ export default class TicketController {
         }
       }
       // Allow merchant / category link update on draft tickets
-      if (merchantId !== undefined) {
-        ticket.merchant = merchantId ? new Types.ObjectId(merchantId) : null;
-      }
-      if (categoryId !== undefined) {
-        ticket.category = categoryId ? new Types.ObjectId(categoryId) : null;
-      }
+      const [merchantRef, categoryRef] = await Promise.all([
+        resolveScopedEntityId(
+          merchantId,
+          org._id,
+          Merchant,
+          "Merchant",
+          "INVALID_MERCHANT",
+        ),
+        resolveScopedEntityId(
+          categoryId,
+          org._id,
+          Category,
+          "Category",
+          "INVALID_CATEGORY",
+        ),
+      ]);
+      if (merchantRef !== undefined) ticket.merchant = merchantRef;
+      if (categoryRef !== undefined) ticket.category = categoryRef;
 
       await ticket.save();
 
@@ -847,12 +905,7 @@ export default class TicketController {
     try {
       const org = req.organization!;
       const ticketId = req.params["id"] as string;
-
-      const ticket = await Ticket.findOne({
-        _id: ticketId,
-        orgId: org._id,
-      });
-      if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
+      const ticket = await findAccessibleTicket(req, ticketId);
       if (!ticket.receiptIds || ticket.receiptIds.length === 0)
         throw createError(
           "No receipt attached to this ticket",
@@ -1045,10 +1098,24 @@ export default class TicketController {
       if (currency !== undefined)
         ticket.currency = currency as ITicket["currency"];
       if (description !== undefined) ticket.description = description;
-      if (merchantId !== undefined)
-        ticket.merchant = merchantId ? new Types.ObjectId(merchantId) : null;
-      if (categoryId !== undefined)
-        ticket.category = categoryId ? new Types.ObjectId(categoryId) : null;
+      const [merchantRef, categoryRef] = await Promise.all([
+        resolveScopedEntityId(
+          merchantId,
+          org._id,
+          Merchant,
+          "Merchant",
+          "INVALID_MERCHANT",
+        ),
+        resolveScopedEntityId(
+          categoryId,
+          org._id,
+          Category,
+          "Category",
+          "INVALID_CATEGORY",
+        ),
+      ]);
+      if (merchantRef !== undefined) ticket.merchant = merchantRef;
+      if (categoryRef !== undefined) ticket.category = categoryRef;
 
       if (!ticket.department)
         throw createError(

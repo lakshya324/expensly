@@ -268,17 +268,21 @@ TicketSchema.methods.data = async function (
   const [merchant, category, bundleDoc, receipts] = await Promise.all([
     this.merchant
       ? import("./Merchant.model.js").then(({ Merchant }) =>
-          Merchant.findById(this.merchant).then((d) => (d ? d.toData() : null)),
+          Merchant.findOne({ _id: this.merchant, orgId: this.orgId }).then((d) =>
+            d ? d.toData() : null,
+          ),
         )
       : Promise.resolve(null),
     this.category
       ? import("./Category.model.js").then(({ Category }) =>
-          Category.findById(this.category).then((d) => (d ? d.toData() : null)),
+          Category.findOne({ _id: this.category, orgId: this.orgId }).then((d) =>
+            d ? d.toData() : null,
+          ),
         )
       : Promise.resolve(null),
     this.bundleId
       ? import("./Bundle.model.js").then(({ Bundle }) =>
-          Bundle.findById(this.bundleId).select("title description"),
+          Bundle.findOne({ _id: this.bundleId, orgId: this.orgId }).select("title description"),
         )
       : Promise.resolve(null),
     this.receiptIds.length > 0

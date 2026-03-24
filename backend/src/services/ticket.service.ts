@@ -39,6 +39,7 @@ export async function listTicketsPaginated(
   filter: Record<string, unknown>,
   page: number,
   limit: number,
+  orgId: string,
   orgCurrentRateSnapshotId: string | null,
 ): Promise<{ data: ITicketSummaryData[]; total: number }> {
   // !listTicketsPaginated
@@ -136,13 +137,13 @@ export async function listTicketsPaginated(
   ];
   const [merchantDocs, categoryDocs, bundleDocs] = await Promise.all([
     merchantIds.length > 0
-      ? Merchant.find({ _id: { $in: merchantIds } }).select("_id name")
+      ? Merchant.find({ _id: { $in: merchantIds }, orgId }).select("_id name")
       : Promise.resolve([]),
     categoryIds.length > 0
-      ? Category.find({ _id: { $in: categoryIds } }).select("_id name")
+      ? Category.find({ _id: { $in: categoryIds }, orgId }).select("_id name")
       : Promise.resolve([]),
     bundleIds.length > 0
-      ? Bundle.find({ _id: { $in: bundleIds } }).select("_id title description")
+      ? Bundle.find({ _id: { $in: bundleIds }, orgId }).select("_id title description")
       : Promise.resolve([]),
   ]);
   const merchantMap = new Map(merchantDocs.map((m) => [m._id.toString(), m.name]));

@@ -2,14 +2,10 @@ import { PERMISSION_KEY, TICKET_STATUS } from "../config/constants.js";
 import { AuthRequest } from "../types/types.js";
 import { resolvePermission } from "./permissions.js";
 
-export async function buildTicketFilter(req: AuthRequest): Promise<Record<string, unknown>> {
+export async function buildTicketVisibilityFilter(
+  req: AuthRequest,
+): Promise<Record<string, unknown>> {
   const user = req.user!;
-  const org = req.organization!;
-  const { status, department, userId, from, to, search, flagged, minAmount, maxAmount } = req.query as Record<
-    string,
-    string | undefined
-  >;
-
   const filter: Record<string, unknown> = { orgId: user.orgId };
 
   // Resolve view-all permission through the full chain (user override → user policy → dept → dept policy)
@@ -24,11 +20,40 @@ export async function buildTicketFilter(req: AuthRequest): Promise<Record<string
         { submitterManagerId: user._id }, // See all tickets from team members
       ];
 
+  // Draft/scanning tickets are private: only the submitter can ever see them,
+  // regardless of manager authority or view_all permission.
+  const draftScanRestriction = {
+    $or: [
+      {
+        status: {
+          $nin: [TICKET_STATUS.DRAFT, TICKET_STATUS.SCANNING, TICKET_STATUS.OCR_FAILED],
+        },
+      },
+      { submittedBy: user._id },
+    ],
+  };
+
+  const andClauses: Record<string, unknown>[] = [draftScanRestriction];
+  if (userScopeOr) andClauses.push({ $or: userScopeOr });
+  filter["$and"] = andClauses;
+
+  return filter;
+}
+
+export async function buildTicketFilter(req: AuthRequest): Promise<Record<string, unknown>> {
+  const { status, department, userId, from, to, search, flagged, minAmount, maxAmount } = req.query as Record<
+    string,
+    string | undefined
+  >;
+
+  const filter = await buildTicketVisibilityFilter(req);
+  const andClauses = (filter["$and"] as Record<string, unknown>[]) ?? [];
+
   if (status && Object.values(TICKET_STATUS).includes(status as any)) filter["status"] = status;
   if (department) filter["department"] = department;
   if (userId) filter["submittedBy"] = userId;
-  if (flagged === 'true') filter["flagged"] = true;
-  
+  if (flagged === "true") filter["flagged"] = true;
+
   if (minAmount || maxAmount) {
     const amtRange: Record<string, number> = {};
     if (minAmount) amtRange["$gte"] = parseFloat(minAmount);
@@ -47,37 +72,14 @@ export async function buildTicketFilter(req: AuthRequest): Promise<Record<string
     filter["createdAt"] = dateRange;
   }
 
-  const searchOr = search
-    ? [
+  if (search) {
+    andClauses.push({
+      $or: [
         { title: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } },
         { tags: { $regex: search, $options: "i" } },
-      ]
-    : null;
-
-  // Draft/scanning tickets are private: only the submitter can ever see them,
-  // regardless of manager authority or view_all permission.
-  const draftScanRestriction = {
-    $or: [
-      {
-        status: {
-          $nin: [TICKET_STATUS.DRAFT, TICKET_STATUS.SCANNING, TICKET_STATUS.OCR_FAILED],
-        },
-      },
-      { submittedBy: user._id },
-    ],
-  };
-
-  // Merge all $and-level constraints so none overwrite each other
-  const andClauses: Record<string, unknown>[] = [draftScanRestriction];
-  if (userScopeOr) andClauses.push({ $or: userScopeOr });
-  if (searchOr) andClauses.push({ $or: searchOr });
-
-  if (andClauses.length === 1) {
-    // Only the draft/scan restriction — write it directly as $or for brevity
-    filter["$or"] = draftScanRestriction.$or;
-  } else {
-    filter["$and"] = andClauses;
+      ],
+    });
   }
 
   return filter;
