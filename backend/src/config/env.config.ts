@@ -73,7 +73,7 @@ const config = {
   //* OpenAI
   openai: {
     apiKey: requireEnv("OPENAI_API_KEY"),
-    model: process.env["OPENAI_MODEL"] ?? "gpt-5-nano",
+    model: process.env["OPENAI_MODEL"] ?? "gpt-5.4-mini",
   },
 };
 

@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import type { Role } from "../config/constants.js";
 import { AuthRequest } from "../types/types.js";
-import { create } from "node:domain";
 import { createError } from "../utils/error.js";
 
 /**

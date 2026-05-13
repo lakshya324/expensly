@@ -14,7 +14,7 @@ export const errorHandler = (
   res: Response,
   next: NextFunction,
 ): void => {
-//   logError(err);
+  logError(err);
 
   const statusCode = err.statusCode || 500;
   const errorCode = err.code || "ERROR";
