@@ -9,12 +9,14 @@
  * 5. Emit socket event to org room
  */
 import { Ticket } from "../../models/Ticket.model.js";
+import { Organization } from "../../models/Organization.model.js";
 import { AI_VALIDATION_STATUS, TICKET_STATUS, CURRENCIES } from "../../config/constants.js";
 import { AiValidateJob } from "../../types/queue.types.js";
 import { validateTicket } from "../../services/aiValidation.service.js";
 import { resolveMerchantAndCategoryMatches } from "../../services/merchantCategoryMatcher.service.js";
 import { emitAiValidated, emitTicketUpdate } from "../../websocket/handlers/ticket.handler.js";
 import { logError, logInfo } from "../../utils/logger.js";
+import { buildTicketData } from "../../utils/ticket.utils.js";
 import type { Currency } from "../../config/constants.js";
 
 // ─── Job processor ────────────────────────────────────────────────────────────
@@ -22,9 +24,17 @@ import type { Currency } from "../../config/constants.js";
 export async function processAiValidationJob(job: AiValidateJob): Promise<void> {
   const { ticketId, orgId } = job;
 
-  const ticket = await Ticket.findById(ticketId);
+  const [ticket, org] = await Promise.all([
+    Ticket.findById(ticketId),
+    Organization.findById(orgId),
+  ]);
+
   if (!ticket) {
     logInfo(`[AI Validation Worker] Ticket ${ticketId} not found — skipping`);
+    return;
+  }
+  if (!org) {
+    logInfo(`[AI Validation Worker] Org ${orgId} not found — skipping`);
     return;
   }
 
@@ -54,7 +64,6 @@ export async function processAiValidationJob(job: AiValidateJob): Promise<void> 
 
   // ─── Scanning → Draft promotion ───────────────────────────────────────────
   if (wasScanning) {
-    // Auto-fill ticket fields from AI extraction
     if (result.suggestedTitle) ticket.title = result.suggestedTitle;
     if (result.suggestedAmount != null) ticket.amount = result.suggestedAmount;
     if (
@@ -75,29 +84,39 @@ export async function processAiValidationJob(job: AiValidateJob): Promise<void> 
 
     if (matchedEntities.merchantId) {
       ticket.merchant = matchedEntities.merchantId;
+      // Fetch name for snapshot (one-time async write, acceptable in worker context)
+      try {
+        const { Merchant } = await import("../../models/Merchant.model.js");
+        const m = await Merchant.findById(matchedEntities.merchantId).select("_id name").lean();
+        ticket.merchantSnapshot = m ? { _id: m._id, name: m.name } : null;
+      } catch {
+        // Non-fatal — snapshot will be null until propagation or next update
+      }
     }
     if (matchedEntities.categoryId) {
       ticket.category = matchedEntities.categoryId;
+      try {
+        const { Category } = await import("../../models/Category.model.js");
+        const c = await Category.findById(matchedEntities.categoryId).select("_id name").lean();
+        ticket.categorySnapshot = c ? { _id: c._id, name: c.name } : null;
+      } catch {
+        // Non-fatal
+      }
     }
     result.unmatchedMerchantSuggestionText = matchedEntities.unmatchedMerchantSuggestionText;
     result.unmatchedCategorySuggestionText = matchedEntities.unmatchedCategorySuggestionText;
 
-    // Promote to draft — the user now sees their ticket pre-filled and can review/edit
     ticket.status = TICKET_STATUS.DRAFT;
     logInfo(`[AI Validation Worker] Promoted ticket ${ticketId} scanning → draft`);
   }
 
   ticket.aiValidation = result;
-
   await ticket.save();
 
-  const ticketData = await ticket.data(ticket.toObject() as never);
+  const ticketData = await buildTicketData(ticket, org);
 
-  // Always emit AI validated event for the AI status icon on FE
   emitAiValidated(orgId, ticketData);
 
-  // For the scanning → draft transition, also emit a full ticket update so the
-  // FE can replace the scanning placeholder row with the newly filled draft.
   if (wasScanning) {
     emitTicketUpdate(orgId, ticketData);
   }

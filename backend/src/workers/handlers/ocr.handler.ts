@@ -10,6 +10,7 @@
  * 6. Emit socket event to org room
  */
 import { Ticket } from "../../models/Ticket.model.js";
+import { Organization } from "../../models/Organization.model.js";
 import { AI_VALIDATION_STATUS, OCR_STATUS, TICKET_STATUS } from "../../config/constants.js";
 import { OcrScanJob, QueueJobType } from "../../types/queue.types.js";
 import { extractReceiptData } from "../../services/ocr.service.js";
@@ -17,6 +18,7 @@ import { enqueueJob } from "../../services/queue.service.js";
 import { emitOcrCompleted, emitOcrFailed } from "../../websocket/handlers/ticket.handler.js";
 import { logError, logInfo } from "../../utils/logger.js";
 import { Receipt } from "../../models/Receipt.model.js";
+import { buildTicketData } from "../../utils/ticket.utils.js";
 
 function markOcrFailure(ticket: InstanceType<typeof Ticket>, isScanningFlow: boolean): void {
   if (isScanningFlow) {
@@ -51,9 +53,16 @@ export async function processOcrJob(job: OcrScanJob): Promise<void> {
   const { ticketId, receiptId, orgId } = job;
 
   // Mark as processing
-  const ticket = await Ticket.findById(ticketId);
+  const [ticket, org] = await Promise.all([
+    Ticket.findById(ticketId),
+    Organization.findById(orgId),
+  ]);
   if (!ticket) {
     logInfo(`[OCR Worker] Ticket ${ticketId} not found — skipping`);
+    return;
+  }
+  if (!org) {
+    logInfo(`[OCR Worker] Org ${orgId} not found — skipping`);
     return;
   }
   const isScanningFlow = ticket.status === TICKET_STATUS.SCANNING;
@@ -85,7 +94,7 @@ export async function processOcrJob(job: OcrScanJob): Promise<void> {
   }
   await ticket.save();
 
-  const ticketData = await ticket.data(ticket.toObject() as never);
+  const ticketData = await buildTicketData(ticket, org);
 
   if (ocrData.status === OCR_STATUS.COMPLETED) {
     emitOcrCompleted(orgId, ticketData);
