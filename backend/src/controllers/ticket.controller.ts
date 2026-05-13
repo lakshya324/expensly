@@ -256,7 +256,7 @@ export default class TicketController {
       // amount meets or exceeds the department threshold for that currency.
       // If no threshold is configured, default to requiring manager approval.
       const parsedAmount =
-        amount && amount.trim() !== "" ? parseFloat(amount) : null;
+        amount != null && amount !== "" ? parseFloat(String(amount)) : null;
       const currencyThreshold =
         ticketStatus === TICKET_STATUS.PENDING && dept && currency
           ? (dept.approvalThresholds.get(currency) ?? null)
@@ -527,7 +527,7 @@ export default class TicketController {
         category: categoryId,
       } = req.body as Record<string, string | undefined>;
       if (title !== undefined) ticket.title = title;
-      if (amount !== undefined) ticket.amount = parseFloat(amount);
+      if (amount !== undefined) ticket.amount = parseFloat(String(amount));
       if (currency !== undefined)
         ticket.currency = currency as ITicket["currency"];
       if (description !== undefined) ticket.description = description;
@@ -1097,7 +1097,7 @@ export default class TicketController {
 
       if (title !== undefined) ticket.title = title.trim() || null;
       if (amount !== undefined) {
-        const parsedAmount = parseFloat(amount);
+        const parsedAmount = parseFloat(String(amount));
         if (Number.isNaN(parsedAmount)) {
           throw createError("Invalid amount", 400, "VALIDATION_ERROR");
         }
