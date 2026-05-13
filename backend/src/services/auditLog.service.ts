@@ -10,6 +10,8 @@ export interface LogActionParams {
   entityId: Types.ObjectId | string;
   action: AuditAction;
   performedBy: Types.ObjectId | string;
+  /** Display name of the performer — embedded in the log entry. */
+  performerName: string;
   ip?: string | null;
   metadata?: Record<string, unknown> | null;
 }
@@ -27,7 +29,10 @@ export const logAction = async (params: LogActionParams): Promise<void> => {
       entityType: params.entityType,
       entityId: new Types.ObjectId(params.entityId.toString()),
       action: params.action,
-      performedBy: new Types.ObjectId(params.performedBy.toString()),
+      performer: {
+        _id: new Types.ObjectId(params.performedBy.toString()),
+        name: params.performerName,
+      },
       ip: params.ip ?? null,
       metadata: params.metadata ?? null,
     });
@@ -82,7 +87,10 @@ export const getAuditLog = async (
     entityType: e.entityType,
     entityId: e.entityId.toString(),
     action: e.action,
-    performedBy: e.performedBy.toString(),
+    performer: {
+      _id: e.performer._id.toString(),
+      name: e.performer.name,
+    },
     ip: e.ip ?? null,
     metadata: e.metadata ?? null,
     createdAt: e.createdAt,

@@ -448,23 +448,15 @@ export async function refreshOrgAnalytics(
     ]),
 
     // Pipeline 4: Category breakdown (approved, top 10 by converted amount)
+    // Uses embedded categorySnapshot — no $lookup needed.
     Ticket.aggregate([
       { $match: { orgId: oid, status: TICKET_STATUS.APPROVED } },
       exchangeLookupStage,
       { $addFields: { convertedAmount: conversionExpr } },
       {
-        $lookup: {
-          from: "categories",
-          localField: "category",
-          foreignField: "_id",
-          as: "catDoc",
-          pipeline: [{ $project: { name: 1 } }],
-        },
-      },
-      {
         $group: {
-          _id: "$category",
-          name: { $first: { $ifNull: [{ $arrayElemAt: ["$catDoc.name", 0] }, "Uncategorized"] } },
+          _id: "$categorySnapshot._id",
+          name: { $first: { $ifNull: ["$categorySnapshot.name", "Uncategorized"] } },
           count: { $sum: 1 },
           totalAmount: { $sum: "$convertedAmount" },
         },
@@ -483,23 +475,15 @@ export async function refreshOrgAnalytics(
     ]),
 
     // Pipeline 5: Merchant breakdown (approved, top 10 by converted amount)
+    // Uses embedded merchantSnapshot — no $lookup needed.
     Ticket.aggregate([
       { $match: { orgId: oid, status: TICKET_STATUS.APPROVED } },
       exchangeLookupStage,
       { $addFields: { convertedAmount: conversionExpr } },
       {
-        $lookup: {
-          from: "merchants",
-          localField: "merchant",
-          foreignField: "_id",
-          as: "merchantDoc",
-          pipeline: [{ $project: { name: 1 } }],
-        },
-      },
-      {
         $group: {
-          _id: "$merchant",
-          name: { $first: { $ifNull: [{ $arrayElemAt: ["$merchantDoc.name", 0] }, "Unknown Merchant"] } },
+          _id: "$merchantSnapshot._id",
+          name: { $first: { $ifNull: ["$merchantSnapshot.name", "Unknown Merchant"] } },
           count: { $sum: 1 },
           totalAmount: { $sum: "$convertedAmount" },
         },

@@ -103,7 +103,7 @@ export async function setOrgRates(
           rates: new Map(Object.entries(rates)),
           baseCurrency: org.baseCurrency,
           source,
-          createdBy: user._id,
+          creator: { _id: user._id, name: user.name },
         },
       ],
       { session },

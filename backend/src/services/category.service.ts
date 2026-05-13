@@ -2,6 +2,8 @@ import { Types } from "mongoose";
 import { Category } from "../models/Category.model.js";
 import { createError } from "../utils/error.js";
 import { ICategoryData } from "../types/category.types.js";
+import { propagateCategoryRename } from "./propagation.service.js";
+import { logError } from "../utils/logger.js";
 
 export interface CreateCategoryInput {
   orgId: string;
@@ -74,12 +76,8 @@ export const updateCategory = async (
     update["name"] = input.name.trim();
     update["normalizedName"] = input.name.trim().toLowerCase();
   }
-  if (input.description !== undefined) {
-    update["description"] = input.description.trim();
-  }
-  if (input.isActive !== undefined) {
-    update["isActive"] = input.isActive;
-  }
+  if (input.description !== undefined) update["description"] = input.description.trim();
+  if (input.isActive !== undefined) update["isActive"] = input.isActive;
 
   const doc = await Category.findOneAndUpdate(
     { _id: new Types.ObjectId(categoryId), orgId: new Types.ObjectId(orgId) },
@@ -87,6 +85,11 @@ export const updateCategory = async (
     { new: true },
   );
   if (!doc) throw createError("Category not found", 404, "NOT_FOUND");
+
+  if (input.name !== undefined) {
+    propagateCategoryRename(doc._id.toString(), doc.name)
+      .catch((err) => logError(err, { message: "propagateCategoryRename failed", code: "PROPAGATION_ERROR" }));
+  }
 
   return doc.toData();
 };

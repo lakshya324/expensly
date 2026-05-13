@@ -4,6 +4,7 @@ import { Ticket } from "../models/Ticket.model.js";
 import { Department } from "../models/Department.model.js";
 import { Organization } from "../models/Organization.model.js";
 import { ExchangeRateSnapshot } from "../models/ExchangeRateSnapshot.model.js";
+import { User } from "../models/User.model.js";
 import { createError } from "../utils/error.js";
 import {
   BUNDLE_STATUS,
@@ -124,6 +125,9 @@ const recalcBundleTotal = async (
 export const createBundle = async (input: CreateBundleInput): Promise<IBundleData> => {
   const { orgId, name, ticketIds = [], description = "", tags = [], submittedBy } = input;
 
+  const submitterUser = await User.findById(submittedBy).select("_id name email").lean();
+  if (!submitterUser) throw createError("Submitter user not found", 400, "INVALID_USER");
+
   // Validate that ticketIds belong to org and are eligible (not already approved)
   const validatedTicketIds: Types.ObjectId[] = [];
   if (ticketIds.length > 0) {
@@ -155,7 +159,7 @@ export const createBundle = async (input: CreateBundleInput): Promise<IBundleDat
     orgId: new Types.ObjectId(orgId),
     title: name,
     description,
-    submittedBy: new Types.ObjectId(submittedBy),
+    submitter: { _id: submitterUser._id, name: submitterUser.name, email: submitterUser.email },
     status: BUNDLE_STATUS.DRAFT,
     ticketCount: 0,
     tags,
@@ -168,7 +172,7 @@ export const createBundle = async (input: CreateBundleInput): Promise<IBundleDat
   if (validatedTicketIds.length > 0) {
     await Ticket.updateMany(
       { _id: { $in: validatedTicketIds } },
-      { $set: { bundleId: bundle._id } },
+      { $set: { bundleId: bundle._id, bundleSnapshot: { _id: bundle._id, name: bundle.title } } },
     );
     bundle.ticketCount = validatedTicketIds.length;
     const { total, baseCurrency: bc } = await recalcBundleTotal(orgId, bundle._id);
@@ -191,7 +195,7 @@ export const listBundles = async (
   status?: string | string[],
 ): Promise<{ data: IBundleData[]; total: number }> => {
   const filter: Record<string, unknown> = { orgId: new Types.ObjectId(orgId) };
-  if (submittedBy) filter["submittedBy"] = new Types.ObjectId(submittedBy);
+  if (submittedBy) filter["submitter._id"] = new Types.ObjectId(submittedBy);
   if (status) {
     const statuses = Array.isArray(status)
       ? status
@@ -208,7 +212,7 @@ export const listBundles = async (
     Bundle.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
     Bundle.countDocuments(filter),
   ]);
-  const data = await Promise.all(bundles.map((b) => b.toData()));
+  const data = bundles.map((b) => b.toData());
   return { data, total };
 };
 
@@ -240,14 +244,24 @@ export const updateBundle = async (
   if (!bundle) throw createError("Bundle not found", 404, "NOT_FOUND");
   if (bundle.status !== BUNDLE_STATUS.DRAFT)
     throw createError("Only DRAFT bundles can be edited", 400, "INVALID_STATE");
-  if (bundle.submittedBy.toString() !== submittedBy)
+  if (bundle.submitter._id.toString() !== submittedBy)
     throw createError("You can only edit your own bundles", 403, "FORBIDDEN");
 
+  const titleChanged = input.name !== undefined && input.name !== bundle.title;
   if (input.name !== undefined) bundle.title = input.name;
   if (input.description !== undefined) bundle.description = input.description;
   if (input.tags !== undefined) bundle.tags = input.tags;
 
   await bundle.save();
+
+  // Propagate title change to all tickets in this bundle
+  if (titleChanged) {
+    await Ticket.updateMany(
+      { bundleId: bundle._id },
+      { $set: { "bundleSnapshot.name": bundle.title } },
+    );
+  }
+
   return bundle.toData();
 };
 
@@ -267,7 +281,7 @@ export const addTicketsToBundle = async (
   if (!bundle) throw createError("Bundle not found", 404, "NOT_FOUND");
   if (bundle.status !== BUNDLE_STATUS.DRAFT)
     throw createError("Only DRAFT bundles can be modified", 400, "INVALID_STATE");
-  if (bundle.submittedBy.toString() !== submittedBy)
+  if (bundle.submitter._id.toString() !== submittedBy)
     throw createError("You can only modify your own bundles", 403, "FORBIDDEN");
 
   const tickets = await Ticket.find({
@@ -298,7 +312,7 @@ export const addTicketsToBundle = async (
   if (toAdd.length > 0) {
     await Ticket.updateMany(
       { _id: { $in: toAdd } },
-      { $set: { bundleId: bundle._id } },
+      { $set: { bundleId: bundle._id, bundleSnapshot: { _id: bundle._id, name: bundle.title } } },
     );
     bundle.ticketCount = (bundle.ticketCount ?? 0) + toAdd.length;
     const { total, baseCurrency } = await recalcBundleTotal(orgId, bundle._id);
@@ -326,7 +340,7 @@ export const removeTicketFromBundle = async (
   if (!bundle) throw createError("Bundle not found", 404, "NOT_FOUND");
   if (bundle.status !== BUNDLE_STATUS.DRAFT)
     throw createError("Only DRAFT bundles can be modified", 400, "INVALID_STATE");
-  if (bundle.submittedBy.toString() !== submittedBy)
+  if (bundle.submitter._id.toString() !== submittedBy)
     throw createError("You can only modify your own bundles", 403, "FORBIDDEN");
 
   const ticket = await Ticket.findOne({
@@ -336,7 +350,10 @@ export const removeTicketFromBundle = async (
   });
   if (!ticket) throw createError("Ticket not found in this bundle", 404, "NOT_FOUND");
 
-  await Ticket.updateOne({ _id: ticket._id }, { $set: { bundleId: null } });
+  await Ticket.updateOne(
+    { _id: ticket._id },
+    { $set: { bundleId: null, bundleSnapshot: null } },
+  );
 
   const newCount = Math.max(0, (bundle.ticketCount ?? 0) - 1);
   bundle.ticketCount = newCount;
@@ -367,7 +384,7 @@ export const submitBundle = async (
   if (!bundle) throw createError("Bundle not found", 404, "NOT_FOUND");
   if (bundle.status !== BUNDLE_STATUS.DRAFT)
     throw createError("Only DRAFT bundles can be submitted", 400, "INVALID_STATE");
-  if (bundle.submittedBy.toString() !== submittedBy)
+  if (bundle.submitter._id.toString() !== submittedBy)
     throw createError("You can only submit your own bundles", 403, "FORBIDDEN");
   if ((bundle.ticketCount ?? 0) === 0)
     throw createError("A bundle must contain at least one ticket before submitting", 400, "EMPTY_BUNDLE");
@@ -380,6 +397,7 @@ export const submitBundle = async (
     required: true,
     approved: null,
     reviewedBy: null,
+    reviewerSnapshot: null,
     reviewedAt: null,
     comments: null,
   };
@@ -395,6 +413,8 @@ export const approveBundleStatus = async (
   orgId: string,
   bundleId: string,
   reviewerId: string,
+  reviewerName: string,
+  reviewerEmail: string,
   reviewerRole: string,
   reviewerHasApproveFinance: boolean,
   input: ApproveBundleInput,
@@ -411,6 +431,7 @@ export const approveBundleStatus = async (
 
   const { approved, comments } = input;
   const step = input.step ?? "finance";
+  const reviewerSnapshot = { _id: new Types.ObjectId(reviewerId), name: reviewerName, email: reviewerEmail };
   let approvedTicketCount = 0;
   let skippedTicketCount = 0;
 
@@ -421,10 +442,10 @@ export const approveBundleStatus = async (
       required: true,
       approved,
       reviewedBy: new Types.ObjectId(reviewerId),
+      reviewerSnapshot,
       reviewedAt: new Date(),
       comments: comments ?? null,
     };
-    // Rejection at manager step terminates the bundle
     if (!approved) bundle.status = BUNDLE_STATUS.REJECTED;
   } else {
     // finance step
@@ -434,6 +455,7 @@ export const approveBundleStatus = async (
       required: true,
       approved,
       reviewedBy: new Types.ObjectId(reviewerId),
+      reviewerSnapshot,
       reviewedAt: new Date(),
       comments: comments ?? null,
     };
@@ -441,7 +463,6 @@ export const approveBundleStatus = async (
     if (!approved) {
       bundle.status = BUNDLE_STATUS.REJECTED;
     } else {
-      // Finance approved → cascade to only eligible constituent tickets
       bundle.status = BUNDLE_STATUS.APPROVED;
 
       const org = await Organization.findById(orgId);
@@ -454,52 +475,57 @@ export const approveBundleStatus = async (
         orgId: new Types.ObjectId(orgId),
       }).select("_id status amount currency department exchangeRateSnapshotId");
 
-      // Group tickets by department for spent bookkeeping
-      const deptSpent = new Map<string, { currency: string; amount: number }[]>();
+      // Collect bulk operations for tickets and dept spent in one pass
+      const ticketBulkOps: Parameters<typeof Ticket.bulkWrite>[0] = [];
+      const deptSpent = new Map<string, number>();
 
       for (const t of tickets) {
         if (!APPROVABLE_BUNDLE_TICKET_STATUSES.includes(t.status)) {
           skippedTicketCount += 1;
           continue;
         }
-        // Lock the exchange rate snapshot at approval time
-        if (currentSnapshotId) {
-          t.exchangeRateSnapshotId = currentSnapshotId as Types.ObjectId;
-        }
-        t.status = TICKET_STATUS.APPROVED;
-        await t.save();
+        ticketBulkOps.push({
+          updateOne: {
+            filter: { _id: t._id },
+            update: {
+              $set: {
+                status: TICKET_STATUS.APPROVED,
+                ...(currentSnapshotId ? { exchangeRateSnapshotId: currentSnapshotId } : {}),
+              },
+            },
+          },
+        });
         approvedTicketCount += 1;
 
         if (t.department && t.amount != null && t.currency) {
           const deptId = t.department.toString();
-          if (!deptSpent.has(deptId)) deptSpent.set(deptId, []);
-          deptSpent.get(deptId)!.push({ currency: t.currency, amount: t.amount });
+          const converted = rates
+            ? convertAmount(t.amount, t.currency, baseCurrency, rates.rates)
+            : t.currency === baseCurrency
+              ? t.amount
+              : 0;
+          deptSpent.set(deptId, (deptSpent.get(deptId) ?? 0) + converted);
         }
       }
 
-      // Increment dept.spent for each department
-      for (const [deptId, entries] of deptSpent) {
-        const dept = await Department.findOne({
-          _id: new Types.ObjectId(deptId),
-          orgId: new Types.ObjectId(orgId),
-        });
-        if (!dept) continue;
-        for (const entry of entries) {
-          const converted = rates
-            ? convertAmount(entry.amount, entry.currency, baseCurrency, rates.rates)
-            : entry.currency === baseCurrency
-              ? entry.amount
-              : 0;
-          dept.spent = (dept.spent ?? 0) + converted;
-        }
-        await dept.save();
+      if (ticketBulkOps.length > 0) await Ticket.bulkWrite(ticketBulkOps);
+
+      if (deptSpent.size > 0) {
+        await Department.bulkWrite(
+          [...deptSpent.entries()].map(([deptId, amount]) => ({
+            updateOne: {
+              filter: { _id: new Types.ObjectId(deptId), orgId: new Types.ObjectId(orgId) },
+              update: { $inc: { spent: amount } },
+            },
+          })),
+        );
       }
     }
   }
 
   await bundle.save();
   return {
-    bundle: await bundle.toData(),
+    bundle: bundle.toData(),
     approvedTicketCount,
     skippedTicketCount,
   };
@@ -548,13 +574,13 @@ export const deleteBundle = async (
   if (!bundle) throw createError("Bundle not found", 404, "NOT_FOUND");
   if (bundle.status !== BUNDLE_STATUS.DRAFT && callerRole !== ROLES.ADMIN)
     throw createError("Only DRAFT bundles can be deleted", 400, "INVALID_STATE");
-  if (bundle.submittedBy.toString() !== submittedBy && callerRole !== ROLES.ADMIN)
+  if (bundle.submitter._id.toString() !== submittedBy && callerRole !== ROLES.ADMIN)
     throw createError("You can only delete your own bundles", 403, "FORBIDDEN");
 
-  // Clear bundleId from all tickets in this bundle
+  // Clear bundleId and bundleSnapshot from all tickets in this bundle
   await Ticket.updateMany(
     { bundleId: bundle._id, orgId: new Types.ObjectId(orgId) },
-    { $set: { bundleId: null } },
+    { $set: { bundleId: null, bundleSnapshot: null } },
   );
 
   await bundle.deleteOne();

@@ -2,6 +2,8 @@ import { Types } from "mongoose";
 import { Merchant } from "../models/Merchant.model.js";
 import { createError } from "../utils/error.js";
 import { IMerchantData } from "../types/merchant.types.js";
+import { propagateMerchantRename } from "./propagation.service.js";
+import { logError } from "../utils/logger.js";
 
 export interface CreateMerchantInput {
   orgId: string;
@@ -65,9 +67,7 @@ export const updateMerchant = async (
     update["name"] = input.name.trim();
     update["normalizedName"] = input.name.trim().toLowerCase();
   }
-  if (input.isActive !== undefined) {
-    update["isActive"] = input.isActive;
-  }
+  if (input.isActive !== undefined) update["isActive"] = input.isActive;
 
   const doc = await Merchant.findOneAndUpdate(
     { _id: new Types.ObjectId(merchantId), orgId: new Types.ObjectId(orgId) },
@@ -75,6 +75,11 @@ export const updateMerchant = async (
     { new: true },
   );
   if (!doc) throw createError("Merchant not found", 404, "NOT_FOUND");
+
+  if (input.name !== undefined) {
+    propagateMerchantRename(doc._id.toString(), doc.name)
+      .catch((err) => logError(err, { message: "propagateMerchantRename failed", code: "PROPAGATION_ERROR" }));
+  }
 
   return await doc.toData();
 };
