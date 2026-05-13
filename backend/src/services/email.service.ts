@@ -76,6 +76,10 @@ async function send(
   html: string,
   attachments?: MailAttachment[],
 ): Promise<void> {
+  if (config.nodeEnv === "development") {
+    logInfo(`[dev] Email suppressed → ${to}: ${subject}`);
+    return;
+  }
   try {
     await transport.sendMail({ from: FROM, to, subject, html, attachments });
     logInfo(`Email sent to ${to}: ${subject}`);
