@@ -54,10 +54,17 @@ export default class DiscussionController {
       const user = req.user!;
       const ticketId = req.params["ticketId"] as string;
       const { text } = req.body as { text?: string };
+      const dept = req.userDepartment;
       const msg = await postMessage({
         ticketId,
         orgId: org._id.toString(),
-        authorId: user._id.toString(),
+        author: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          departmentSnapshot: dept ? { _id: dept._id, name: dept.name } : null,
+        },
         text: text ?? "",
       });
       emitDiscussionMessage(org._id.toString(), ticketId, msg, user._id.toString());

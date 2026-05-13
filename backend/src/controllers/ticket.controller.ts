@@ -67,22 +67,23 @@ import { Merchant } from "../models/Merchant.model.js";
 import { Category } from "../models/Category.model.js";
 import { Receipt } from "../models/Receipt.model.js";
 import { QueueJobType } from "../types/queue.types.js";
+import { buildTicketData } from "../utils/ticket.utils.js";
 
-async function resolveScopedEntityId(
+async function resolveScopedEntity(
   rawId: string | undefined,
   orgId: Types.ObjectId,
   model: { findOne: (filter: Record<string, unknown>) => any },
   entityLabel: string,
   errorCode: string,
-): Promise<Types.ObjectId | null | undefined> {
+): Promise<{ _id: Types.ObjectId; name: string } | null | undefined> {
   if (rawId === undefined) return undefined;
   if (!rawId) return null;
   if (!Types.ObjectId.isValid(rawId))
     throw createError(`${entityLabel} must be a valid MongoDB ObjectId`, 400, "VALIDATION_ERROR");
 
-  const entity = await model.findOne({ _id: rawId, orgId }).select("_id");
+  const entity = await model.findOne({ _id: rawId, orgId }).select("_id name").lean();
   if (!entity) throw createError(`${entityLabel} not found`, 400, errorCode);
-  return entity._id;
+  return { _id: entity._id, name: entity.name };
 }
 
 async function findAccessibleTicket(
@@ -244,22 +245,12 @@ export default class TicketController {
           "INVALID_DEPARTMENT",
         );
 
-      const [merchantRef, categoryRef] = await Promise.all([
-        resolveScopedEntityId(
-          merchantId,
-          org._id,
-          Merchant,
-          "Merchant",
-          "INVALID_MERCHANT",
-        ),
-        resolveScopedEntityId(
-          categoryId,
-          org._id,
-          Category,
-          "Category",
-          "INVALID_CATEGORY",
-        ),
+      const [merchantEntity, categoryEntity] = await Promise.all([
+        resolveScopedEntity(merchantId, org._id, Merchant, "Merchant", "INVALID_MERCHANT"),
+        resolveScopedEntity(categoryId, org._id, Category, "Category", "INVALID_CATEGORY"),
       ]);
+      const merchantRef = merchantEntity !== undefined ? (merchantEntity?._id ?? null) : undefined;
+      const categoryRef = categoryEntity !== undefined ? (categoryEntity?._id ?? null) : undefined;
 
       // Manager approval required only when the user has a manager AND the ticket
       // amount meets or exceeds the department threshold for that currency.
@@ -317,12 +308,19 @@ export default class TicketController {
         status: ticketStatus,
         merchant: merchantRef ?? null,
         category: categoryRef ?? null,
+        // Denormalized display snapshots — embedded at creation
+        submitterSnapshot: { _id: user._id, name: user.name, email: user.email },
+        departmentSnapshot: dept ? { _id: dept._id, name: dept.name } : null,
+        merchantSnapshot: merchantEntity ? { _id: merchantEntity._id, name: merchantEntity.name } : null,
+        categorySnapshot: categoryEntity ? { _id: categoryEntity._id, name: categoryEntity.name } : null,
+        bundleSnapshot: null,
         managerApproval:
           ticketStatus === TICKET_STATUS.PENDING && needsManagerApproval
           ? {
               required: true,
               approved: null,
               reviewedBy: null,
+              reviewerSnapshot: null,
               reviewedAt: null,
               comments: null,
             }
@@ -332,6 +330,7 @@ export default class TicketController {
             ? {
                 approved: null,
                 reviewedBy: null,
+                reviewerSnapshot: null,
                 reviewedAt: null,
                 comments: null,
               }
@@ -381,10 +380,11 @@ export default class TicketController {
         }
       }
 
-      const ticketData = await ticket.data(org);
+      const ticketData = await buildTicketData(ticket, org);
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
+        performerName: user.name,
         action: AUDIT_ACTION.CREATED,
         entityType: ENTITY_TYPE.TICKET,
         entityId: ticket._id.toString(),
@@ -478,7 +478,7 @@ export default class TicketController {
       const payload: ResponsePayload<ITicketData> = {
         success: true,
         message: "Ticket retrieved successfully",
-        data: await ticket.data(org),
+        data: await buildTicketData(ticket, org),
         timestamp: new Date().toISOString(),
       };
 
@@ -554,31 +554,26 @@ export default class TicketController {
               "INVALID_DEPARTMENT",
             );
           ticket.department = deptDoc._id;
+          ticket.departmentSnapshot = { _id: deptDoc._id, name: deptDoc.name };
         }
       }
       // Allow merchant / category link update on draft tickets
-      const [merchantRef, categoryRef] = await Promise.all([
-        resolveScopedEntityId(
-          merchantId,
-          org._id,
-          Merchant,
-          "Merchant",
-          "INVALID_MERCHANT",
-        ),
-        resolveScopedEntityId(
-          categoryId,
-          org._id,
-          Category,
-          "Category",
-          "INVALID_CATEGORY",
-        ),
+      const [merchantEntity, categoryEntity] = await Promise.all([
+        resolveScopedEntity(merchantId, org._id, Merchant, "Merchant", "INVALID_MERCHANT"),
+        resolveScopedEntity(categoryId, org._id, Category, "Category", "INVALID_CATEGORY"),
       ]);
-      if (merchantRef !== undefined) ticket.merchant = merchantRef;
-      if (categoryRef !== undefined) ticket.category = categoryRef;
+      if (merchantEntity !== undefined) {
+        ticket.merchant = merchantEntity?._id ?? null;
+        ticket.merchantSnapshot = merchantEntity ? { _id: merchantEntity._id, name: merchantEntity.name } : null;
+      }
+      if (categoryEntity !== undefined) {
+        ticket.category = categoryEntity?._id ?? null;
+        ticket.categorySnapshot = categoryEntity ? { _id: categoryEntity._id, name: categoryEntity.name } : null;
+      }
 
       await ticket.save();
 
-      const ticketData = await ticket.data(org);
+      const ticketData = await buildTicketData(ticket, org);
       emitTicketUpdate(org._id.toString(), ticketData, user._id.toString());
 
       const payload: ResponsePayload<ITicketData> = {
@@ -637,6 +632,7 @@ export default class TicketController {
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
+        performerName: user.name,
         action: AUDIT_ACTION.DELETED,
         entityType: ENTITY_TYPE.TICKET,
         entityId: ticket._id.toString(),
@@ -679,12 +675,13 @@ export default class TicketController {
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
+        performerName: user.name,
         action: newFlagged ? AUDIT_ACTION.FLAGGED : AUDIT_ACTION.UNFLAGGED,
         entityType: ENTITY_TYPE.TICKET,
         entityId: ticket._id.toString(),
       }).catch(() => {});
 
-      const ticketData = await ticket.data(org);
+      const ticketData = await buildTicketData(ticket, org);
       emitTicketFlag(org._id.toString(), ticketData, user._id.toString());
 
       const payload: ResponsePayload<ITicketData> = {
@@ -755,6 +752,7 @@ export default class TicketController {
           ticket.managerApproval.approved =
             status === TICKET_STATUS.AWAITING_FINANCE;
           ticket.managerApproval.reviewedBy = user._id;
+          ticket.managerApproval.reviewerSnapshot = { _id: user._id, name: user.name, email: user.email };
           ticket.managerApproval.reviewedAt = now;
           ticket.managerApproval.comments = comments ?? null;
         }
@@ -786,6 +784,7 @@ export default class TicketController {
         ) {
           ticket.managerApproval.approved = true;
           ticket.managerApproval.reviewedBy = user._id;
+          ticket.managerApproval.reviewerSnapshot = { _id: user._id, name: user.name, email: user.email };
           ticket.managerApproval.reviewedAt = now;
           ticket.managerApproval.comments = "Auto-approved by finance";
         }
@@ -793,6 +792,7 @@ export default class TicketController {
         ticket.financeApproval = {
           approved: status === TICKET_STATUS.APPROVED,
           reviewedBy: user._id,
+          reviewerSnapshot: { _id: user._id, name: user.name, email: user.email },
           reviewedAt: now,
           comments: comments ?? null,
         };
@@ -841,13 +841,14 @@ export default class TicketController {
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
+        performerName: user.name,
         action: AUDIT_ACTION.STATUS_CHANGED,
         entityType: ENTITY_TYPE.TICKET,
         entityId: ticket._id.toString(),
         metadata: { status },
       }).catch(() => {});
 
-      const ticketData = await ticket.data(org);
+      const ticketData = await buildTicketData(ticket, org);
       emitTicketStatusChange(
         org._id.toString(),
         ticket.submittedBy.toString(),
@@ -970,10 +971,16 @@ export default class TicketController {
         department: user.department ?? null,
         receiptIds: [receiptId],
         status: TICKET_STATUS.SCANNING,
+        submitterSnapshot: { _id: user._id, name: user.name, email: user.email },
+        departmentSnapshot: null,
+        merchantSnapshot: null,
+        categorySnapshot: null,
+        bundleSnapshot: null,
         managerApproval: null,
         financeApproval: {
           approved: null,
           reviewedBy: null,
+          reviewerSnapshot: null,
           reviewedAt: null,
           comments: null,
         },
@@ -1010,6 +1017,7 @@ export default class TicketController {
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
+        performerName: user.name,
         action: AUDIT_ACTION.CREATED,
         entityType: ENTITY_TYPE.TICKET,
         entityId: ticket._id.toString(),
@@ -1030,7 +1038,7 @@ export default class TicketController {
         }
       }
 
-      const ticketData = await ticket.data(org);
+      const ticketData = await buildTicketData(ticket, org);
       emitNewTicket(org._id.toString(), ticketData, user._id.toString());
 
       const payload: ResponsePayload<ITicketData> = {
@@ -1098,24 +1106,18 @@ export default class TicketController {
       if (currency !== undefined)
         ticket.currency = currency as ITicket["currency"];
       if (description !== undefined) ticket.description = description;
-      const [merchantRef, categoryRef] = await Promise.all([
-        resolveScopedEntityId(
-          merchantId,
-          org._id,
-          Merchant,
-          "Merchant",
-          "INVALID_MERCHANT",
-        ),
-        resolveScopedEntityId(
-          categoryId,
-          org._id,
-          Category,
-          "Category",
-          "INVALID_CATEGORY",
-        ),
+      const [merchantEntity, categoryEntity] = await Promise.all([
+        resolveScopedEntity(merchantId, org._id, Merchant, "Merchant", "INVALID_MERCHANT"),
+        resolveScopedEntity(categoryId, org._id, Category, "Category", "INVALID_CATEGORY"),
       ]);
-      if (merchantRef !== undefined) ticket.merchant = merchantRef;
-      if (categoryRef !== undefined) ticket.category = categoryRef;
+      if (merchantEntity !== undefined) {
+        ticket.merchant = merchantEntity?._id ?? null;
+        ticket.merchantSnapshot = merchantEntity ? { _id: merchantEntity._id, name: merchantEntity.name } : null;
+      }
+      if (categoryEntity !== undefined) {
+        ticket.category = categoryEntity?._id ?? null;
+        ticket.categorySnapshot = categoryEntity ? { _id: categoryEntity._id, name: categoryEntity.name } : null;
+      }
 
       if (!ticket.department)
         throw createError(
@@ -1136,6 +1138,9 @@ export default class TicketController {
           "INVALID_DEPARTMENT",
         );
 
+      // Update department snapshot (dept may have been set after creation)
+      ticket.departmentSnapshot = { _id: dept._id, name: dept.name };
+
       // Compute manager approval requirement (same logic as create)
       const currencyThreshold = ticket.currency
         ? (dept.approvalThresholds.get(ticket.currency) ?? null)
@@ -1152,6 +1157,7 @@ export default class TicketController {
             required: true,
             approved: null,
             reviewedBy: null,
+            reviewerSnapshot: null,
             reviewedAt: null,
             comments: null,
           }
@@ -1160,6 +1166,7 @@ export default class TicketController {
         ticket.financeApproval = {
           approved: null,
           reviewedBy: null,
+          reviewerSnapshot: null,
           reviewedAt: null,
           comments: null,
         };
@@ -1168,11 +1175,12 @@ export default class TicketController {
       // pre-validate hook enforces required fields if any are still null
       await ticket.save();
 
-      const ticketData = await ticket.data(org);
+      const ticketData = await buildTicketData(ticket, org);
 
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
+        performerName: user.name,
         action: AUDIT_ACTION.STATUS_CHANGED,
         entityType: ENTITY_TYPE.TICKET,
         entityId: ticket._id.toString(),

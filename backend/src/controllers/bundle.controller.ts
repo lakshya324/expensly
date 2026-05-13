@@ -13,6 +13,7 @@ import {
   removeTicketFromBundle,
 } from "../services/bundle.service.js";
 import { Ticket } from "../models/Ticket.model.js";
+import { buildTicketData } from "../utils/ticket.utils.js";
 import { ResponsePayload, ResponsePaginationPayload } from "../types/payloads.types.js";
 import { IBundleData } from "../types/bundle.types.js";
 import { ITicketData } from "../types/ticket.types.js";
@@ -73,7 +74,7 @@ export default class BundleController {
         .map((id) => docs.find((d) => d._id.equals(id)))
         .filter(Boolean) as (typeof docs[number])[];
 
-      const data: ITicketData[] = await Promise.all(orderedDocs.map((t) => t.data(org)));
+      const data: ITicketData[] = await Promise.all(orderedDocs.map((t) => buildTicketData(t, org)));
 
       const payload: ResponsePaginationPayload<ITicketData> = {
         success: true,
@@ -135,6 +136,7 @@ export default class BundleController {
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
+        performerName: user.name,
         action: AUDIT_ACTION.CREATED,
         entityType: ENTITY_TYPE.BUNDLE,
         entityId: data._id,
@@ -170,6 +172,7 @@ export default class BundleController {
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
+        performerName: user.name,
         action: AUDIT_ACTION.UPDATED,
         entityType: ENTITY_TYPE.BUNDLE,
         entityId: bundleId,
@@ -196,6 +199,7 @@ export default class BundleController {
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
+        performerName: user.name,
         action: AUDIT_ACTION.STATUS_CHANGED,
         entityType: ENTITY_TYPE.BUNDLE,
         entityId: bundleId,
@@ -251,6 +255,8 @@ export default class BundleController {
         org._id.toString(),
         bundleId,
         user._id.toString(),
+        user.name,
+        user.email,
         user.role,
         hasApproveFinance,
         { step: step ?? "finance", approved: resolvedApproved, comments },
@@ -259,6 +265,7 @@ export default class BundleController {
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
+        performerName: user.name,
         action: resolvedApproved ? AUDIT_ACTION.APPROVED : AUDIT_ACTION.REJECTED,
         entityType: ENTITY_TYPE.BUNDLE,
         entityId: bundleId,
@@ -298,6 +305,7 @@ export default class BundleController {
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
+        performerName: user.name,
         action: AUDIT_ACTION.DELETED,
         entityType: ENTITY_TYPE.BUNDLE,
         entityId: bundleId,
@@ -329,6 +337,7 @@ export default class BundleController {
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
+        performerName: user.name,
         action: AUDIT_ACTION.UPDATED,
         entityType: ENTITY_TYPE.BUNDLE,
         entityId: bundleId,
@@ -362,6 +371,7 @@ export default class BundleController {
       logAction({
         orgId: org._id.toString(),
         performedBy: user._id.toString(),
+        performerName: user.name,
         action: AUDIT_ACTION.UPDATED,
         entityType: ENTITY_TYPE.BUNDLE,
         entityId: bundleId,

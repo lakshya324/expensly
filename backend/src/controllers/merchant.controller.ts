@@ -64,6 +64,7 @@ export default class MerchantController {
         entityId: merchant._id,
         action: AUDIT_ACTION.CREATED,
         performedBy: user._id,
+        performerName: user.name,
         ip: req.ip ?? null,
       });
 
@@ -101,6 +102,7 @@ export default class MerchantController {
         entityId: merchantId,
         action: AUDIT_ACTION.UPDATED,
         performedBy: user._id,
+        performerName: user.name,
         ip: req.ip ?? null,
         metadata: { name, isActive },
       });
@@ -132,6 +134,7 @@ export default class MerchantController {
         entityId: merchantId,
         action: AUDIT_ACTION.DELETED,
         performedBy: user._id,
+        performerName: user.name,
         ip: req.ip ?? null,
       });
 
@@ -163,8 +166,8 @@ export default class MerchantController {
       if (!merchant) throw createError("Merchant not found", 404, "NOT_FOUND");
 
       // Remove old logo Receipt if present
-      if (merchant.logoId) {
-        await deleteReceiptAndFile(merchant.logoId.toString());
+      if (merchant.logo) {
+        await deleteReceiptAndFile(merchant.logo.id.toString());
       }
 
       // Create new Receipt document for the logo
@@ -178,7 +181,7 @@ export default class MerchantController {
         uploadedBy: user._id,
       });
 
-      merchant.logoId = receiptData._id;
+      merchant.logo = { id: receiptData._id, s3Key: s3File.key };
       await merchant.save();
 
       logAction({
@@ -187,8 +190,9 @@ export default class MerchantController {
         entityId: merchantId,
         action: AUDIT_ACTION.UPDATED,
         performedBy: user._id,
+        performerName: user.name,
         ip: req.ip ?? null,
-        metadata: { field: "logoId" },
+        metadata: { field: "logo" },
       }).catch(() => {});
 
       const payload: ResponsePayload<IMerchantData> = {

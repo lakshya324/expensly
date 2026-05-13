@@ -29,6 +29,8 @@ import { sendWelcomeEmail } from "../services/email.service.js";
 import { getAuditLog, logAction } from "../services/auditLog.service.js";
 import { IAuditLogData } from "../types/auditLog.types.js";
 import { AUDIT_ACTION, ENTITY_TYPE, EntityType } from "../config/constants.js";
+import { propagateUserRename, propagatePolicyUpdate, propagatePolicyDeletion } from "../services/propagation.service.js";
+import { logError } from "../utils/logger.js";
 
 export default class AdminController {
   //! Users
@@ -125,7 +127,11 @@ export default class AdminController {
           throw createError("Manager not found", 400, "INVALID_MANAGER");
       }
 
-      const passwordHash = await hashPassword(password);
+      const [deptDoc, mgrDoc, passwordHash] = await Promise.all([
+        Department.findById(deptObjectId).select("_id name").lean(),
+        managerObjectId ? User.findById(managerObjectId).select("_id name").lean() : null,
+        hashPassword(password),
+      ]);
 
       let newUser: IUser;
 
@@ -137,7 +143,9 @@ export default class AdminController {
           role: ROLES.USER,
           orgId: org._id,
           department: deptObjectId,
+          departmentSnapshot: deptDoc ? { _id: deptDoc._id, name: deptDoc.name } : null,
           managerId: managerId ? managerObjectId : null,
+          managerSnapshot: mgrDoc ? { _id: mgrDoc._id, name: mgrDoc.name } : null,
         });
       } catch (err: any) {
         if (err.code === 11000) {
@@ -150,7 +158,8 @@ export default class AdminController {
       emitUserUpdate(org._id.toString(), userData, org._id.toString());
       logAction({
         orgId: org._id.toString(),
-        performedBy: org._id.toString(),
+        performedBy: req.user!._id.toString(),
+        performerName: req.user!.name,
         action: AUDIT_ACTION.USER_CREATED,
         entityType: ENTITY_TYPE.USER,
         entityId: newUser._id.toString(),
@@ -188,42 +197,53 @@ export default class AdminController {
       const managerObjectId = managerId ? new Types.ObjectId(managerId) : null;
       const deptObjectId = department ? new Types.ObjectId(department) : null;
 
+      const prevName = editUser.name;
       if (name !== undefined) editUser.name = name;
       if (department !== undefined) {
-        const dept = await Department.exists({
+        const deptDoc = await Department.findOne({
           _id: deptObjectId,
           orgId: org._id,
           isActive: true,
-        });
-        if (!dept)
+        }).select("_id name").lean();
+        if (!deptDoc)
           throw createError(
             "Department not found or inactive",
             400,
             "INVALID_DEPARTMENT",
           );
         editUser.department = deptObjectId;
+        editUser.departmentSnapshot = { _id: deptDoc._id, name: deptDoc.name };
       }
       if (managerId !== undefined) {
-        const exist = await User.exists({
-          _id: managerObjectId,
-          orgId: org._id,
-          department: deptObjectId,
-          isDisabled: false,
-        });
-        if (!exist)
-          throw createError("Manager not found", 400, "INVALID_MANAGER");
-
-        editUser.managerId =
-          managerId === null ? null : new Types.ObjectId(managerId);
+        if (managerId === null) {
+          editUser.managerId = null;
+          editUser.managerSnapshot = null;
+        } else {
+          const mgrDoc = await User.findOne({
+            _id: managerObjectId,
+            orgId: org._id,
+            isDisabled: false,
+          }).select("_id name").lean();
+          if (!mgrDoc)
+            throw createError("Manager not found", 400, "INVALID_MANAGER");
+          editUser.managerId = new Types.ObjectId(managerId);
+          editUser.managerSnapshot = { _id: mgrDoc._id, name: mgrDoc.name };
+        }
       }
 
       await editUser.save();
+
+      if (name !== undefined && name !== prevName) {
+        propagateUserRename(editUser._id.toString(), name, editUser.email)
+          .catch((err) => logError(err, { message: "propagateUserRename failed", code: "PROPAGATION_ERROR" }));
+      }
 
       const userData = await editUser.data(org);
       emitUserUpdate(org._id.toString(), userData, org._id.toString());
       logAction({
         orgId: org._id.toString(),
-        performedBy: org._id.toString(),
+        performedBy: req.user!._id.toString(),
+        performerName: req.user!.name,
         action: AUDIT_ACTION.USER_UPDATED,
         entityType: ENTITY_TYPE.USER,
         entityId: editUser._id.toString(),
@@ -270,7 +290,8 @@ export default class AdminController {
       );
       logAction({
         orgId: org._id.toString(),
-        performedBy: org._id.toString(),
+        performedBy: req.user!._id.toString(),
+        performerName: req.user!.name,
         action: isDisabled ? AUDIT_ACTION.USER_DISABLED : AUDIT_ACTION.USER_ENABLED,
         entityType: ENTITY_TYPE.USER,
         entityId: user._id.toString(),
@@ -319,12 +340,21 @@ export default class AdminController {
 
       if (policyId !== undefined) {
         user.policyId = policyId ? new Types.ObjectId(policyId) : null;
+        if (policyId) {
+          const policyDoc = await Policy.findById(policyId).select("_id name grants").lean<{ _id: any; name: string; grants: string[] }>();
+          user.policySnapshot = policyDoc
+            ? { _id: policyDoc._id, name: policyDoc.name, grants: policyDoc.grants }
+            : null;
+        } else {
+          user.policySnapshot = null;
+        }
       }
 
       await user.save();
       logAction({
         orgId: org._id.toString(),
-        performedBy: org._id.toString(),
+        performedBy: req.user!._id.toString(),
+        performerName: req.user!.name,
         action: AUDIT_ACTION.PERMISSIONS_UPDATED,
         entityType: ENTITY_TYPE.USER,
         entityId: user._id.toString(),
@@ -449,6 +479,9 @@ export default class AdminController {
 
       await policy.save();
 
+      propagatePolicyUpdate(policy._id.toString(), policy.name, policy.grants as string[])
+        .catch((err) => logError(err, { message: "propagatePolicyUpdate failed", code: "PROPAGATION_ERROR" }));
+
       const data: IPolicyData = {
         _id: policy._id.toString(),
         orgId: policy.orgId.toString(),
@@ -482,6 +515,9 @@ export default class AdminController {
 
       policy.isActive = false;
       await policy.save();
+
+      propagatePolicyDeletion(policy._id.toString())
+        .catch((err) => logError(err, { message: "propagatePolicyDeletion failed", code: "PROPAGATION_ERROR" }));
 
       const payload: ResponsePayload<null> = {
         success: true,

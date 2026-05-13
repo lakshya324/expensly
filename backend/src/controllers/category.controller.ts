@@ -61,6 +61,7 @@ export default class CategoryController {
         entityId: category._id,
         action: AUDIT_ACTION.CREATED,
         performedBy: user._id,
+        performerName: user.name,
         ip: req.ip ?? null,
       });
 
@@ -100,6 +101,7 @@ export default class CategoryController {
         entityId: categoryId,
         action: AUDIT_ACTION.UPDATED,
         performedBy: user._id,
+        performerName: user.name,
         ip: req.ip ?? null,
         metadata: { name, description, isActive },
       });
@@ -131,6 +133,7 @@ export default class CategoryController {
         entityId: categoryId,
         action: AUDIT_ACTION.DELETED,
         performedBy: user._id,
+        performerName: user.name,
         ip: req.ip ?? null,
       });
 

@@ -2,7 +2,9 @@ import { Response, NextFunction } from "express";
 import { Types } from "mongoose";
 import { AuthRequest } from "../types/types.js";
 import { Department } from "../models/Department.model.js";
+import { Policy } from "../models/Policy.model.js";
 import { Ticket } from "../models/Ticket.model.js";
+import { logInfo } from "../utils/logger.js";
 import {
   BUDGET_RESET_PERIODS,
   DEFAULT_PAGE,
@@ -20,6 +22,8 @@ import {
 import { IDepartmentData } from "../types/department.types.js";
 import { emitDeptCreated, emitDeptUpdate } from "../websocket/handlers/dept.handler.js";
 import { initNextResetDate } from "../services/budget.service.js";
+import { propagateDepartmentRename } from "../services/propagation.service.js";
+import { logError } from "../utils/logger.js";
 
 export default class DepartmentController {
   /** GET /api/admin/departments */
@@ -132,6 +136,10 @@ export default class DepartmentController {
       //   }
       // }
 
+      const policyDoc = policyId
+        ? await Policy.findById(policyId).select("_id name").lean<{ _id: any; name: string }>()
+        : null;
+
       const dept = await Department.create({
         orgId: org._id,
         name: name.trim(),
@@ -145,6 +153,7 @@ export default class DepartmentController {
         // ...(Object.keys(safePerms).length > 0 ? { permissions: safePerms } : {}),
         permissions: permissions && typeof permissions === "object" ? permissions : {},
         policyId: policyId ? new Types.ObjectId(policyId) : null,
+        policySnapshot: policyDoc ? { _id: policyDoc._id, name: policyDoc.name } : null,
       });
 
       emitDeptCreated(org._id.toString(), dept.toData(), user._id.toString());
@@ -180,6 +189,7 @@ export default class DepartmentController {
           approvalThresholds?: Record<string, number>;
         };
 
+      const prevName = dept.name;
       if (name !== undefined) dept.name = name.trim();
       if (budget !== undefined) dept.budget = parseFloat(String(budget));
       if (budgetResetPeriod !== undefined) {
@@ -196,6 +206,11 @@ export default class DepartmentController {
       }
 
       await dept.save();
+
+      if (name !== undefined && dept.name !== prevName) {
+        propagateDepartmentRename(dept._id.toString(), dept.name)
+          .catch((err) => logError(err, { message: "propagateDepartmentRename failed", code: "PROPAGATION_ERROR" }));
+      }
 
       emitDeptUpdate(org._id.toString(), dept.toData(), user._id.toString());
 
@@ -231,7 +246,7 @@ export default class DepartmentController {
         policyId?: string | null;
       };
 
-      console.log("Updating permissions for dept", dept._id, "with", permissions, "and policyId", policyId);
+      logInfo(`Updating permissions for dept ${dept._id.toString()}`);
 
       if (permissions && typeof permissions === "object") {
         const validKeys = Object.values(PERMISSION_KEY) as string[];
@@ -245,6 +260,12 @@ export default class DepartmentController {
 
       if (policyId !== undefined) {
         dept.policyId = policyId ? new Types.ObjectId(policyId) : null;
+        if (policyId) {
+          const policyDoc = await Policy.findById(policyId).select("_id name").lean<{ _id: any; name: string }>();
+          dept.policySnapshot = policyDoc ? { _id: policyDoc._id, name: policyDoc.name } : null;
+        } else {
+          dept.policySnapshot = null;
+        }
       }
 
       await dept.save();
