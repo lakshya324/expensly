@@ -72,7 +72,7 @@ export const updateMerchant = async (
   const doc = await Merchant.findOneAndUpdate(
     { _id: new Types.ObjectId(merchantId), orgId: new Types.ObjectId(orgId) },
     { $set: update },
-    { new: true },
+    { returnDocument: "after" },
   );
   if (!doc) throw createError("Merchant not found", 404, "NOT_FOUND");
 

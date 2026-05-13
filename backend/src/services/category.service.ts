@@ -82,7 +82,7 @@ export const updateCategory = async (
   const doc = await Category.findOneAndUpdate(
     { _id: new Types.ObjectId(categoryId), orgId: new Types.ObjectId(orgId) },
     { $set: update },
-    { new: true },
+    { returnDocument: "after" },
   );
   if (!doc) throw createError("Category not found", 404, "NOT_FOUND");
 

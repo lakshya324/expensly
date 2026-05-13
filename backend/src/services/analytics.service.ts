@@ -640,7 +640,7 @@ export async function refreshOrgAnalytics(
         generatedAt: new Date(),
       },
     },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: "after" },
   );
 
   logInfo(`Analytics refreshed for org ${oid.toString()}`);

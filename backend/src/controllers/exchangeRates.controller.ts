@@ -212,7 +212,7 @@ export default class ExchangeRatesController {
       const updatedOrg = await Organization.findByIdAndUpdate(
         org._id,
         { $set: { activeCurrencies } },
-        { new: true },
+        { returnDocument: "after" },
       );
 
       const payload: ResponsePayload<string[]> = {

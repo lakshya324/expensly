@@ -388,7 +388,7 @@ export default class DepartmentController {
       const dept = await Department.findOneAndUpdate(
         { _id: id, orgId: org._id },
         { $pull: { tags: decodeURIComponent(tag) } },
-        { new: true },
+        { returnDocument: "after" },
       );
       if (!dept) throw createError("Department not found", 404, "NOT_FOUND");
 
