@@ -1,6 +1,14 @@
 import mongoose, { Schema } from "mongoose";
 import { IMerchant, IMerchantData } from "../types/merchant.types.js";
-import { getReceiptUrl } from "../services/receipt.service.js";
+import { getReceiptSignedUrl } from "../services/s3.service.js";
+
+const LogoSchema = new Schema(
+  {
+    id: { type: Schema.Types.ObjectId, ref: "Receipt", required: true },
+    s3Key: { type: String, required: true },
+  },
+  { _id: false },
+);
 
 const MerchantSchema = new Schema<IMerchant>(
   {
@@ -11,8 +19,8 @@ const MerchantSchema = new Schema<IMerchant>(
     normalizedName: { type: String, required: true, lowercase: true },
     isActive: { type: Boolean, default: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    /** Reference to a Receipt document for the merchant logo (null = no logo) */
-    logoId: { type: Schema.Types.ObjectId, ref: "Receipt", default: null },
+    /** Embedded logo — id for deletion, s3Key for presigned URL generation (null = no logo) */
+    logo: { type: LogoSchema, default: null },
   },
   { timestamps: true },
 );
@@ -25,8 +33,8 @@ MerchantSchema.index(
 MerchantSchema.index({ orgId: 1, isActive: 1 });
 
 MerchantSchema.methods.toData = async function (this: IMerchant): Promise<IMerchantData> {
-  const logoUrl = this.logoId
-    ? await getReceiptUrl(this.logoId.toString()).catch(() => null)
+  const logoUrl = this.logo
+    ? await getReceiptSignedUrl(this.logo.s3Key).catch(() => null)
     : null;
   return {
     _id: this._id.toString(),

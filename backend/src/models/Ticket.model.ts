@@ -1,23 +1,30 @@
 import mongoose, { Schema } from "mongoose";
 import { TICKET_STATUS, CURRENCIES, EXPENSE_TYPE, OCR_STATUS, AI_VALIDATION_STATUS } from "../config/constants.js";
-import {
-  IApproval,
-  IApprovalData,
-  ITicket,
-  ITicketData,
-} from "../types/ticket.types.js";
-import { User } from "./User.model.js";
-import { IOrganization } from "../types/organization.types.js";
-import { Department } from "./Department.model.js";
-import { createError } from "../utils/error.js";
-import { getReceiptRefsById } from "../services/receipt.service.js";
-import { IReceiptRef } from "../types/receipt.types.js";
+import { IApproval, ITicket } from "../types/ticket.types.js";
+
+const UserSnapshotSchema = new Schema(
+  {
+    _id: { type: Schema.Types.ObjectId, required: true },
+    name: { type: String, required: true },
+    email: { type: String, required: true },
+  },
+  { _id: false },
+);
+
+const EntitySnapshotSchema = new Schema(
+  {
+    _id: { type: Schema.Types.ObjectId, required: true },
+    name: { type: String, required: true },
+  },
+  { _id: false },
+);
 
 const ApprovalSchema = new Schema<IApproval>(
   {
     required: { type: Boolean, default: false },
     approved: { type: Boolean, default: null },
     reviewedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    reviewerSnapshot: { type: UserSnapshotSchema, default: null },
     reviewedAt: { type: Date, default: null },
     comments: { type: String, trim: true, default: null },
   },
@@ -120,20 +127,35 @@ const TicketSchema = new Schema<ITicket>(
       ),
       default: null,
     },
+    // ─── Denormalized display snapshots ───────────────────────────────────
+    /** Submitter display info — embedded at creation, propagated on rename. */
+    submitterSnapshot: { type: UserSnapshotSchema, default: null },
+    /** Department display info — embedded at creation, propagated on rename. */
+    departmentSnapshot: { type: EntitySnapshotSchema, default: null },
+    /** Merchant display info — embedded when linked, propagated on rename. */
+    merchantSnapshot: { type: EntitySnapshotSchema, default: null },
+    /** Category display info — embedded when linked, propagated on rename. */
+    categorySnapshot: { type: EntitySnapshotSchema, default: null },
+    /** Bundle display info — embedded when grouped, propagated on title change. */
+    bundleSnapshot: { type: EntitySnapshotSchema, default: null },
   },
   { timestamps: true },
 );
 
-// TicketSchema.index({ orgId: 1 });
-// TicketSchema.index({ submitterManagerId: 1 });
-// TicketSchema.index({ orgId: 1, status: 1 }); // kept for aggregation $match (no sort needed there)
-// TicketSchema.index({ orgId: 1, department: 1 }); // kept for aggregation $match (no sort needed there)
 TicketSchema.index({ orgId: 1, createdAt: -1 }); // all ticket list & CSV export queries
 TicketSchema.index({ orgId: 1, status: 1, createdAt: -1 }); // status-filtered lists + analytics approved query
 TicketSchema.index({ orgId: 1, department: 1, createdAt: -1 }); // dept-filtered lists & CSV exports
 TicketSchema.index({ submittedBy: 1, createdAt: -1 }); // user-scope $or branch (most common regular user path)
 TicketSchema.index({ submitterManagerId: 1, createdAt: -1 }); // manager-scope $or branch
 TicketSchema.index({ "managerApproval.reviewedBy": 1 }); // restricted user $or branch (finance/manager role)
+TicketSchema.index({ bundleId: 1 }); // bundle membership lookup
+TicketSchema.index({ orgId: 1, category: 1 }); // category-filtered analytics
+TicketSchema.index({ orgId: 1, merchant: 1 }); // merchant-filtered analytics
+// Snapshot-path indexes for admin search and propagation targeting
+TicketSchema.index({ "submitterSnapshot._id": 1, createdAt: -1 });
+TicketSchema.index({ "departmentSnapshot._id": 1, createdAt: -1 });
+TicketSchema.index({ "merchantSnapshot._id": 1 });
+TicketSchema.index({ "categorySnapshot._id": 1 });
 
 // Enforce required fields when a ticket enters the approval flow.
 // draft/scanning tickets are allowed to have null title/amount/currency/department.
@@ -151,179 +173,5 @@ TicketSchema.pre("save", function () {
     if (!this.department) this.invalidate("department", "Department is required for submitted tickets");
   }
 });
-// ─── Extensibility indexes ─────────────────────────────────────────────────
-TicketSchema.index({ bundleId: 1 }); // bundle membership lookup
-TicketSchema.index({ orgId: 1, category: 1 }); // category-filtered analytics
-TicketSchema.index({ orgId: 1, merchant: 1 }); // merchant-filtered analytics
-
-TicketSchema.methods.data = async function (
-  this: ITicket,
-  org: IOrganization,
-): Promise<ITicketData> {
-  const fetchUsers = [this.submittedBy];
-  if (this.managerApproval?.reviewedBy)
-    fetchUsers.push(this.managerApproval.reviewedBy);
-  if (this.financeApproval?.reviewedBy)
-    fetchUsers.push(this.financeApproval.reviewedBy);
-
-  // Fetch ticket dept and all involved users in parallel — independent queries.
-  const [dept, users] = await Promise.all([
-    this.department ? Department.findById(this.department) : Promise.resolve(null),
-    User.find({ _id: { $in: fetchUsers } }).select("_id name email role department"),
-  ]);
-
-  const submittedBy = users.find((u) => u._id.equals(this.submittedBy));
-  if (!submittedBy)
-    createError("Submitted by user not found", 500, "DATA_ERROR");
-
-  const managerReviewer = this.managerApproval?.reviewedBy
-    ? users.find((u) => u._id.equals(this.managerApproval!.reviewedBy!))
-    : null;
-  const financeReviewer = this.financeApproval?.reviewedBy
-    ? users.find((u) => u._id.equals(this.financeApproval!.reviewedBy!))
-    : null;
-
-  // Collect all unique reviewer department IDs and fetch them in one query
-  // instead of up to 3 individual Department.findById calls.
-  const reviewerDeptIds = [
-    managerReviewer?.department,
-    financeReviewer?.department,
-    submittedBy?.department,
-  ].filter(Boolean) as mongoose.Types.ObjectId[];
-
-  const uniqueReviewerDeptIds = [
-    ...new Map(reviewerDeptIds.map((id) => [id.toString(), id])).values(),
-  ];
-
-  const reviewerDepts =
-    uniqueReviewerDeptIds.length > 0
-      ? await Department.find({ _id: { $in: uniqueReviewerDeptIds } })
-      : [];
-  const reviewerDeptMap = new Map(
-    reviewerDepts.map((d) => [d._id.toString(), d]),
-  );
-
-  const resolveDept = (deptId: mongoose.Types.ObjectId | null | undefined) => {
-    if (!deptId) return null;
-    const d = reviewerDeptMap.get(deptId.toString());
-    return d ? d.toData() : null;
-  };
-
-  const managerReviewerDept = resolveDept(
-    managerReviewer?.department as mongoose.Types.ObjectId | null | undefined,
-  );
-  const financeReviewerDept = resolveDept(
-    financeReviewer?.department as mongoose.Types.ObjectId | null | undefined,
-  );
-  const submittedByDept = resolveDept(
-    submittedBy?.department as mongoose.Types.ObjectId | null | undefined,
-  );
-
-  const managerApproval: IApprovalData | null = this.managerApproval
-    ? {
-        required: this.managerApproval.required,
-        approved: this.managerApproval.approved,
-        reviewedBy: managerReviewer
-          ? {
-              _id: managerReviewer._id.toString(),
-              name: managerReviewer.name,
-              email: managerReviewer.email,
-              role: managerReviewer.role,
-              department: managerReviewerDept,
-            }
-          : null,
-        reviewedAt: this.managerApproval.reviewedAt,
-        comments: this.managerApproval.comments,
-      }
-    : null;
-
-  const financeApproval: IApprovalData | null = this.financeApproval
-    ? {
-        required: this.financeApproval.required,
-        approved: this.financeApproval.approved,
-        reviewedBy: financeReviewer
-          ? {
-              _id: financeReviewer._id.toString(),
-              name: financeReviewer.name,
-              email: financeReviewer.email,
-              role: financeReviewer.role,
-              department: financeReviewerDept,
-            }
-          : null,
-        reviewedAt: this.financeApproval.reviewedAt,
-        comments: this.financeApproval.comments,
-      }
-    : null;
-
-  // Determine if rates changed since approval
-  const ratesChangedSinceApproval =
-    this.exchangeRateSnapshotId != null &&
-    org.currentRateSnapshotId != null &&
-    this.exchangeRateSnapshotId.toString() !==
-      org.currentRateSnapshotId.toString();
-
-  // Resolve optional merchant, category, bundle, and receipt references — fully parallel.
-  // Dynamic imports are chained without intermediate awaits so all four branches
-  // start concurrently (including the S3 presign calls inside toData()).
-  const [merchant, category, bundleDoc, receipts] = await Promise.all([
-    this.merchant
-      ? import("./Merchant.model.js").then(({ Merchant }) =>
-          Merchant.findOne({ _id: this.merchant, orgId: this.orgId }).then((d) =>
-            d ? d.toData() : null,
-          ),
-        )
-      : Promise.resolve(null),
-    this.category
-      ? import("./Category.model.js").then(({ Category }) =>
-          Category.findOne({ _id: this.category, orgId: this.orgId }).then((d) =>
-            d ? d.toData() : null,
-          ),
-        )
-      : Promise.resolve(null),
-    this.bundleId
-      ? import("./Bundle.model.js").then(({ Bundle }) =>
-          Bundle.findOne({ _id: this.bundleId, orgId: this.orgId }).select("title description"),
-        )
-      : Promise.resolve(null),
-    this.receiptIds.length > 0
-      ? getReceiptRefsById(this.receiptIds)
-      : Promise.resolve([] as IReceiptRef[]),
-  ]);
-
-  return {
-    _id: this._id.toString(),
-    title: this.title,
-    submittedBy: {
-      _id: submittedBy._id.toString(),
-      name: submittedBy.name,
-      email: submittedBy.email,
-      role: submittedBy.role,
-      department: submittedByDept,
-    },
-    submitterManagerId: this.submitterManagerId ? this.submitterManagerId.toString() : null,
-    orgId: this.orgId.toString(),
-    amount: this.amount,
-    currency: this.currency,
-    department: dept ? dept.toData() : null,
-    description: this.description,
-    tags: this.tags,
-    receipts,
-    status: this.status,
-    flagged: this.flagged,
-    managerApproval,
-    financeApproval,
-    exchangeRateSnapshotId: this.exchangeRateSnapshotId
-      ? this.exchangeRateSnapshotId.toString()
-      : null,
-    ratesChangedSinceApproval,
-    merchant: merchant ?? null,
-    category: category ?? null,
-    bundle: bundleDoc ? bundleDoc.toSummaryData() : null,
-    expenseType: this.expenseType,
-    ocrData: this.ocrData ?? null,
-    aiValidation: this.aiValidation ?? null,
-    createdAt: this.createdAt,
-  };
-};
 
 export const Ticket = mongoose.model<ITicket>("Ticket", TicketSchema);

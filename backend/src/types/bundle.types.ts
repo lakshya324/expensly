@@ -9,7 +9,8 @@ export interface IBundle extends Document {
   orgId: Types.ObjectId;
   title: string;
   description: string;
-  submittedBy: Types.ObjectId;
+  /** Denormalized submitter info — embedded at creation, propagated on rename. */
+  submitter: { _id: Types.ObjectId; name: string; email: string };
   status: BundleStatus;
   /** Pre-computed sum in org base currency, recalculated on add/remove and submit */
   totalAmountBase: number | null;
@@ -23,7 +24,7 @@ export interface IBundle extends Document {
   createdAt: Date;
   updatedAt: Date;
 
-  toData(): Promise<IBundleData>;
+  toData(): IBundleData;
   toSummaryData(): IBundleSummaryData;
 }
 

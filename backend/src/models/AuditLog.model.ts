@@ -16,7 +16,17 @@ const AuditLogSchema = new Schema<IAuditLog>(
       enum: Object.values(AUDIT_ACTION),
       required: true,
     },
-    performedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    /** Performer info embedded at creation — intentionally frozen for immutable audit trail. */
+    performer: {
+      type: new Schema(
+        {
+          _id: { type: Schema.Types.ObjectId, ref: "User", required: true },
+          name: { type: String, required: true },
+        },
+        { _id: false },
+      ),
+      required: true,
+    },
     /** IP address of the requesting client, if available */
     ip: { type: String, default: null },
     /**

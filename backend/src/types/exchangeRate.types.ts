@@ -15,7 +15,7 @@ export interface IExchangeRateSnapshot extends Document {
   // activeCurrencies: Currency[];
   /** 'manual' = admin typed values, 'fetched' = pulled from external API */
   source: "manual" | "fetched";
-  createdBy: Types.ObjectId;
+  creator: { _id: Types.ObjectId; name: string };
   createdAt: Date;
   toData(): IExchangeRateSnapshotData;
 }
@@ -27,6 +27,6 @@ export interface IExchangeRateSnapshotData {
   baseCurrency: string;
   // activeCurrencies: string[];
   source: "manual" | "fetched";
-  createdBy: string;
+  creator: { _id: string; name: string };
   createdAt: Date;
 }

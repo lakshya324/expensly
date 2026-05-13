@@ -4,7 +4,10 @@ export interface IDiscussionMessage extends Document {
   _id: Types.ObjectId;
   ticketId: Types.ObjectId;
   orgId: Types.ObjectId;
-  authorId: Types.ObjectId;
+  /** Author info embedded at creation — no lookup needed on read. */
+  author: { _id: Types.ObjectId; name: string; email: string; role: string };
+  /** Author's department at creation time, for display in thread. */
+  authorDeptSnapshot: { _id: Types.ObjectId; name: string } | null;
   text: string;
   /** Set when the message body is edited */
   editedAt: Date | null;

@@ -13,6 +13,7 @@ export interface IDepartment extends Document {
   approvalThresholds: Map<string, number>;
   permissions: IDepartmentPermissions;
   policyId: Types.ObjectId | null;
+  policySnapshot: { _id: Types.ObjectId; name: string } | null;
   /** Tag pool — union of all tags used by this dept's tickets */
   tags: string[];
   budgetResetPeriod: BudgetResetPeriod;
@@ -32,6 +33,7 @@ export interface IDepartmentData {
   approvalThresholds: Record<string, number>;
   permissions: IDepartmentPermissions;
   policyId: string | null;
+  policySnapshot: { _id: string; name: string } | null;
   tags: string[];
   budgetResetPeriod: BudgetResetPeriod;
   nextResetDate: Date | null;

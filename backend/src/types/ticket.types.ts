@@ -1,19 +1,33 @@
 import { Document, Types } from "mongoose";
 import { Currency, ExpenseType, TicketStatus } from "../config/constants.js";
-import { IUserData, IUserMinimalData } from "./user.types.js";
+import { IUserMinimalData } from "./user.types.js";
 import { IDepartmentData } from "./department.types.js";
-import { IOrganization } from "./organization.types.js";
 import { IOcrData } from "./ocr.types.js";
 import { IAiValidationResult } from "./aiValidation.types.js";
 import { IMerchantData } from "./merchant.types.js";
 import { ICategoryData } from "./category.types.js";
-import { IBundleData, IBundleSummaryData } from "./bundle.types.js";
+import { IBundleSummaryData } from "./bundle.types.js";
 import { IReceiptRef } from "./receipt.types.js";
+
+/** Snapshot of a user's display fields, embedded at write time. */
+export interface IUserSnapshot {
+  _id: Types.ObjectId;
+  name: string;
+  email: string;
+}
+
+/** Snapshot of a named entity's display fields, embedded at write time. */
+export interface IEntitySnapshot {
+  _id: Types.ObjectId;
+  name: string;
+}
 
 export interface IApproval {
   required?: boolean;
   approved: boolean | null;
   reviewedBy: Types.ObjectId | null;
+  /** Reviewer display name embedded at review time — no lookup needed. */
+  reviewerSnapshot: IUserSnapshot | null;
   reviewedAt: Date | null;
   comments: string | null;
 }
@@ -55,11 +69,14 @@ export interface ITicket extends Document {
   ocrData: IOcrData | null;
   /** AI validation summary; populated after async validation run */
   aiValidation: IAiValidationResult | null;
+  // ─── Denormalized display snapshots — written at mutation time ────────────
+  submitterSnapshot: IUserSnapshot | null;
+  departmentSnapshot: IEntitySnapshot | null;
+  merchantSnapshot: IEntitySnapshot | null;
+  categorySnapshot: IEntitySnapshot | null;
+  bundleSnapshot: IEntitySnapshot | null;
   createdAt: Date;
   updatedAt: Date;
-
-  //! Methods
-  data: (this: ITicket, org: IOrganization) => Promise<ITicketData>;
 }
 
 export interface IApprovalData {
@@ -103,12 +120,14 @@ export interface ITicketData {
 
 /**
  * Lightweight ticket shape for paginated list responses.
- * Merchant and category are name-only summaries (no S3 URL resolution).
+ * Department, merchant, and category are name-only summaries (no full docs).
  * Receipts contain IDs only (no pre-signed URLs — use the dedicated receipt endpoint).
  */
-export type ITicketSummaryData = Omit<ITicketData, "receipts" | "merchant" | "category"> & {
+export type ITicketSummaryData = Omit<ITicketData, "receipts" | "department" | "merchant" | "category" | "bundle"> & {
   /** Receipt IDs only — no pre-signed URLs in list context */
   receipts: { _id: string }[];
+  department: { _id: string; name: string } | null;
   merchant: { _id: string; name: string } | null;
   category: { _id: string; name: string } | null;
+  bundle: { _id: string; title: string; description: string } | null;
 };

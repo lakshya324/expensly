@@ -31,9 +31,11 @@ const ExchangeRateSnapshotSchema = new Schema<IExchangeRateSnapshot>(
       enum: ["manual", "fetched"],
       required: true,
     },
-    createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
+    creator: {
+      type: new Schema(
+        { _id: { type: Schema.Types.ObjectId, required: true }, name: { type: String, required: true } },
+        { _id: false },
+      ),
       required: true,
     },
   },
@@ -51,7 +53,7 @@ ExchangeRateSnapshotSchema.methods.toData =
       baseCurrency: this.baseCurrency,
       // activeCurrencies: this.activeCurrencies,
       source: this.source,
-      createdBy: this.createdBy.toString(),
+      creator: { _id: this.creator._id.toString(), name: this.creator.name },
       createdAt: this.createdAt,
     };
   };

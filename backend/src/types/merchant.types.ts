@@ -9,8 +9,8 @@ export interface IMerchant extends Document {
   normalizedName: string;
   isActive: boolean;
   createdBy: Types.ObjectId;
-  /** Reference to Receipt document for merchant logo (null = no logo) */
-  logoId: Types.ObjectId | null;
+  /** Embedded logo — id for deletion, s3Key for presigned URL generation */
+  logo: { id: Types.ObjectId; s3Key: string } | null;
   createdAt: Date;
   updatedAt: Date;
 

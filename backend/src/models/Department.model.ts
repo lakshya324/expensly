@@ -5,6 +5,11 @@ import {
 } from "../config/constants.js";
 import { IDepartment, IDepartmentData } from "../types/department.types.js";
 
+const EntitySnapshotSchema = new Schema(
+  { _id: { type: Schema.Types.ObjectId, required: true }, name: { type: String, required: true } },
+  { _id: false },
+);
+
 const DepartmentSchema = new Schema<IDepartment>(
   {
     orgId: {
@@ -31,6 +36,7 @@ const DepartmentSchema = new Schema<IDepartment>(
       ref: "Policy",
       default: null,
     },
+    policySnapshot: { type: EntitySnapshotSchema, default: null },
     /**
      * @deprecated Free-form department tags — replaced by Merchant & Category models.
      * Kept for backward-compat; do not add new logic that writes to this field.
@@ -62,6 +68,9 @@ DepartmentSchema.methods.toData = function (this: IDepartment): IDepartmentData 
     approvalThresholds: Object.fromEntries(this.approvalThresholds),
     permissions: this.permissions,
     policyId: this.policyId?.toString() ?? null,
+    policySnapshot: this.policySnapshot
+      ? { _id: this.policySnapshot._id.toString(), name: this.policySnapshot.name }
+      : null,
     tags: this.tags,
     budgetResetPeriod: this.budgetResetPeriod,
     nextResetDate: this.nextResetDate,
