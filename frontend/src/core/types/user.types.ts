@@ -1,5 +1,5 @@
 import type { Role, Currency } from './api.types';
-import type { IDepartmentData, PermissionKey } from './ticket.types';
+import type { PermissionKey } from './ticket.types';
 
 export interface UserPermissions {
   view_all_tickets: boolean | null;
@@ -27,8 +27,8 @@ export interface IUserData {
   role: Role;
   orgId: string | null;
   org: IOrganizationData | null;
-  department: IDepartmentData | null;
-  manager: { _id: string; name: string; email: string; role: Role; isDisabled: boolean; createdAt: string; updatedAt: string } | null;
+  department: { _id: string; name: string } | null;
+  manager: { _id: string; name: string } | null;
   permissions: UserPermissions;
   policyId: string | null;
   effectivePermissions: Record<PermissionKey, boolean>;

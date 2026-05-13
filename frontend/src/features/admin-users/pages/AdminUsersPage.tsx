@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { MoreHorizontal, Plus, UserCheck, UserX, Shield, Pencil, Info, Building2 } from 'lucide-react';
+import { MoreHorizontal, Plus, UserCheck, UserX, Shield, Pencil, Info, Building2, User } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { DataTable, type Column } from '@/shared/components/data-display/DataTable';
 import { Button } from '@/shared/components/ui/Button';
@@ -35,6 +35,7 @@ import {
   type CreateUserFormValues,
   type UpdateUserFormValues,
 } from '../validators';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/Select';
 import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
 import { formatDate } from '@/core/utils/formatters';
@@ -245,7 +246,7 @@ export function AdminUsersPage() {
       header: 'Role',
       width: '100px',
       render: (row) => (
-        <Badge variant={row.role === 'admin' ? 'default' : 'muted'}>
+        <Badge variant={row.role === 'admin' ? 'default' : 'muted'} className="capitalize">
           {row.role}
         </Badge>
       ),
@@ -253,22 +254,29 @@ export function AdminUsersPage() {
     {
       key: 'department',
       header: 'Department',
-      width: '140px',
-      render: (row) => (
-        <span className="text-sm text-[var(--muted-foreground)]">
-          {row.department?.name ?? '—'}
-        </span>
-      ),
+      width: '150px',
+      render: (row) =>
+        row.department ? (
+          <Badge variant="muted" className="font-normal">
+            {row.department.name}
+          </Badge>
+        ) : (
+          <span className="text-sm text-(--muted-foreground)">—</span>
+        ),
     },
     {
       key: 'manager',
       header: 'Manager',
-      width: '140px',
-      render: (row) => (
-        <span className="text-sm text-[var(--muted-foreground)]">
-          {row.manager?.name ?? '—'}
-        </span>
-      ),
+      width: '150px',
+      render: (row) =>
+        row.manager ? (
+          <span className="flex items-center gap-1.5 text-sm text-(--foreground)">
+            <User className="w-3.5 h-3.5 text-(--muted-foreground) shrink-0" />
+            {row.manager.name}
+          </span>
+        ) : (
+          <span className="text-sm text-(--muted-foreground)">—</span>
+        ),
     },
     {
       key: 'status',
@@ -328,8 +336,11 @@ export function AdminUsersPage() {
     },
   ];
 
-  const deptPolicy = permTarget?.department?.policyId
-    ? (policies.find((p) => p._id === permTarget.department?.policyId) ?? null)
+  const permTargetFullDept = permTarget?.department
+    ? (departments.find((d) => d._id === permTarget.department!._id) ?? null)
+    : null;
+  const deptPolicy = permTargetFullDept?.policyId
+    ? (policies.find((p) => p._id === permTargetFullDept.policyId) ?? null)
     : null;
 
   return (
@@ -351,27 +362,35 @@ export function AdminUsersPage() {
 
         {/* Dept filter */}
         <div className="flex items-center gap-2">
-          <select
-            value={deptFilter}
-            onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+          <Select
+            value={deptFilter || 'all'}
+            onValueChange={(v) => { setDeptFilter(v === 'all' ? '' : v); setPage(1); }}
           >
-            <option value="">All Departments</option>
-            {departments.map((d) => (
-              <option key={d._id} value={d._id}>{d.name}</option>
-            ))}
-          </select>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="All Departments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Departments</SelectItem>
+              {departments.map((d) => (
+                <SelectItem key={d._id} value={d._id}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={data}
-          loading={loading}
-          pagination={pagination ?? undefined}
-          onPageChange={setPage}
-          emptyTitle="No users found"
-          emptyDescription="Add your first team member to get started."
-        />
+        <Card>
+          <CardContent className="p-0">
+            <DataTable
+              columns={columns}
+              data={data}
+              loading={loading}
+              pagination={pagination ?? undefined}
+              onPageChange={setPage}
+              emptyTitle="No users found"
+              emptyDescription="Add your first team member to get started."
+            />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Create User Dialog */}
@@ -573,12 +592,12 @@ export function AdminUsersPage() {
           </DialogHeader>
           <div className="space-y-5 mt-2">
             {/* Department Defaults */}
-            {permTarget?.department && (
+            {permTargetFullDept && (
               <div className="space-y-2.5">
                 <div className="flex items-center gap-1.5">
-                  <Building2 className="w-4 h-4 text-[var(--muted-foreground)]" />
-                  <p className="text-sm font-medium text-[var(--foreground)]">
-                    {permTarget.department.name} Defaults
+                  <Building2 className="w-4 h-4 text-(--muted-foreground)" />
+                  <p className="text-sm font-medium text-(--foreground)">
+                    {permTargetFullDept.name} Defaults
                   </p>
                 </div>
                 {deptPolicy && (
@@ -595,7 +614,7 @@ export function AdminUsersPage() {
                 )}
                 <div className="flex flex-wrap gap-1.5">
                   {PERM_LABELS.map(({ key, label }) => {
-                    const fromDeptDirect = permTarget.department!.permissions[key];
+                    const fromDeptDirect = permTargetFullDept?.permissions?.[key];
                     const fromDeptPolicy = deptPolicy?.grants.includes(key) ?? false;
                     const effective = fromDeptDirect || fromDeptPolicy;
                     return (
@@ -670,7 +689,7 @@ export function AdminUsersPage() {
               const userPolicyGrants = perms.policyId
                 ? (policies.find(p => p._id === perms.policyId)?.grants ?? [])
                 : [];
-              const deptDirectPerms = permTarget?.department?.permissions;
+              const deptDirectPerms = permTargetFullDept?.permissions;
               const deptPolicyGrants = deptPolicy?.grants ?? [];
               return (
                 <div className="space-y-2 pt-1 border-t border-[var(--border)]">

@@ -123,11 +123,11 @@ export function AdminAuditLogPage() {
       ),
     },
     {
-      key: 'performedBy',
+      key: 'performer',
       header: 'Performed By',
       render: (row) => (
         <span className="text-sm text-(--foreground)">
-          {typeof row.performedBy === 'object' ? row.performedBy.name : row.performedBy.slice(0, 8) + '…'}
+          {row.performer.name}
         </span>
       ),
     },

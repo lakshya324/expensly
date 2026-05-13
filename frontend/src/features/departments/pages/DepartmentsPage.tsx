@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, RotateCcw, Trash2, Pencil, Tag, Building2 } from 'lucide-react';
+import { Plus, RotateCcw, Trash2, Pencil, Tag, Building2, Shield } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -564,12 +564,18 @@ function DepartmentCard({
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="font-semibold text-[var(--foreground)]">{dept.name}</p>
-            <div className="flex items-center gap-1.5 mt-1">
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               <Badge variant={dept.isActive ? 'success' : 'muted'}>
                 {dept.isActive ? 'Active' : 'Inactive'}
               </Badge>
               {dept.budgetResetPeriod !== 'none' && (
                 <Badge variant="info">{RESET_PERIOD_LABELS[dept.budgetResetPeriod]}</Badge>
+              )}
+              {dept.policySnapshot && (
+                <span className="flex items-center gap-1 text-xs text-(--muted-foreground)">
+                  <Shield className="w-3 h-3 shrink-0" />
+                  {dept.policySnapshot.name}
+                </span>
               )}
             </div>
           </div>

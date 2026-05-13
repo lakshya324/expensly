@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RefreshCw, Pencil, BarChart2 } from 'lucide-react';
+import { RefreshCw, Pencil, BarChart2, User } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -146,6 +146,16 @@ export function ExchangeRatesPage() {
         ) : (
           <Badge variant="muted">Past</Badge>
         ),
+    },
+    {
+      key: 'creator',
+      header: 'Added By',
+      render: (row) => (
+        <span className="flex items-center gap-1.5 text-sm text-(--foreground)">
+          <User className="w-3.5 h-3.5 text-(--muted-foreground) shrink-0" />
+          {row.creator.name}
+        </span>
+      ),
     },
     {
       key: 'rates',

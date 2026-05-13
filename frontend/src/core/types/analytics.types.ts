@@ -74,6 +74,6 @@ export interface IExchangeRateSnapshot {
   rates: Record<Currency, number>;
   baseCurrency: Currency;
   source: 'manual' | 'fetched';
-  createdBy: { _id: string; name: string } | null;
+  creator: { _id: string; name: string };
   createdAt: string;
 }

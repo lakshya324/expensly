@@ -16,6 +16,7 @@ export interface IDepartmentData {
   approvalThresholds: Record<Currency, number>;
   permissions: DepartmentPermissions;
   policyId: string | null;
+  policySnapshot: { _id: string; name: string } | null;
   tags: string[];
   budgetResetPeriod: BudgetResetPeriod;
   nextResetDate: string | null;
@@ -127,7 +128,7 @@ export interface IMerchantData {
   normalizedName: string;
   isActive: boolean;
   createdBy: string;
-  logoKey: string | null;
+  logoUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -176,7 +177,7 @@ export interface IAuditLogData {
   entityType: EntityType;
   entityId: string;
   action: AuditAction;
-  performedBy: { _id: string; name: string; email: string } | string;
+  performer: { _id: string; name: string };
   ip: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
