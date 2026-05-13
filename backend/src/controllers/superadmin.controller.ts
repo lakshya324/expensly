@@ -30,6 +30,7 @@ import {
 } from "../services/email.service.js";
 import { seedSystemPolicies } from "../services/policy.service.js";
 import { seedSystemCategories } from "../services/category.service.js";
+import { fetchAndSaveOrgRates } from "../services/exchangeRates.service.js";
 import { hashPassword } from "../services/auth.service.js";
 import { listUsersPaginated } from "../services/user.service.js";
 
@@ -158,6 +159,8 @@ export default class SuperAdminController {
       seedSystemPolicies(org._id.toString(), req.user!._id.toString()).catch(() => {});
       // Seed sample categories (non-blocking)
       seedSystemCategories(org._id.toString(), req.user!._id.toString()).catch(() => {});
+      // Seed exchange rates from live API (non-blocking)
+      fetchAndSaveOrgRates(org, req.user!).catch(() => {});
 
       const payload: ResponsePayload<IOrganizationData> = {
         success: true,
