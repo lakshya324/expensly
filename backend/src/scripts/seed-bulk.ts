@@ -83,6 +83,30 @@ const TICKET_TITLES = [
 ];
 
 const CURRENCIES = ["USD", "EUR", "GBP", "INR", "AUD", "CAD", "SGD"] as const;
+
+// Fallback rates used when the live API is unreachable
+const FALLBACK_RATES: Record<string, number> = {
+  USD: 1,     EUR: 0.92,  GBP: 0.79,  INR: 83.15, JPY: 149.5,
+  CAD: 1.36,  AUD: 1.52,  CHF: 0.89,  CNY: 7.24,  SGD: 1.35,
+  AED: 3.67,  HKD: 7.83,  MXN: 17.15, BRL: 4.97,  KRW: 1325,
+  SEK: 10.42, NOK: 10.55, DKK: 6.89,  NZD: 1.63,  ZAR: 18.63,
+  THB: 35.1,  MYR: 4.72,  IDR: 15750, PHP: 56.3,  PKR: 278,
+  BDT: 110,   EGP: 30.9,  SAR: 3.75,  QAR: 3.64,  TRY: 32.1,
+};
+
+async function fetchLiveRates(): Promise<Record<string, number>> {
+  try {
+    const res = await fetch("https://open.er-api.com/v6/latest/USD");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json() as { result?: string; rates?: Record<string, number> };
+    if (json.result !== "success" || !json.rates) throw new Error("Unexpected payload");
+    console.log("  ✓ Live exchange rates fetched from open.er-api.com");
+    return json.rates;
+  } catch (err) {
+    console.warn(`  ⚠ Could not fetch live rates (${(err as Error).message}) — using fallback rates`);
+    return FALLBACK_RATES;
+  }
+}
 const EXPENSE_TYPES = ["regular", "per_diem", "mileage"] as const;
 const TAGS_POOL = [
   "q1-2025", "q2-2025", "q3-2025", "q4-2025", "q1-2026",
@@ -214,6 +238,7 @@ async function main() {
     bundles:  db.collection("bundles"),
     auditlogs: db.collection("auditlogs"),
     messages: db.collection("discussionmessages"),
+    rates:    db.collection("exchangeratesnapshots"),
   };
 
   if (fresh) {
@@ -223,6 +248,9 @@ async function main() {
     }
     console.log("Collections cleared.\n");
   }
+
+  console.log("Fetching live exchange rates…");
+  const liveRates = await fetchLiveRates();
 
   console.log("Pre-hashing seed password (bcrypt 12)…");
   const passwordHash = await bcrypt.hash(SEED_PASSWORD, 12);
@@ -242,6 +270,8 @@ async function main() {
 
     // ── Organization ──────────────────────────────────────────────────────────
     const orgId = new mongoose.Types.ObjectId();
+    // Pre-generate first admin _id so categories/merchants can reference it as createdBy
+    const firstAdminId = new mongoose.Types.ObjectId();
     await col.orgs.insertOne({
       _id: orgId,
       name: orgDef.name,
@@ -254,6 +284,20 @@ async function main() {
       updatedAt: new Date(),
     });
     console.log(`  ✓ Organization (${orgId})`);
+
+    // ── Exchange Rate Snapshot ─────────────────────────────────────────────────
+    const rateSnapshotId = new mongoose.Types.ObjectId();
+    await col.rates.insertOne({
+      _id: rateSnapshotId,
+      orgId,
+      rates: liveRates,
+      baseCurrency: "USD",
+      source: "manual",
+      creator: { _id: orgId, name: "System (seeded)" },
+      createdAt: new Date(),
+    });
+    await col.orgs.updateOne({ _id: orgId }, { $set: { currentRateSnapshotId: rateSnapshotId } });
+    console.log(`  ✓ Exchange rate snapshot (${rateSnapshotId})`);
 
     // ── Departments ───────────────────────────────────────────────────────────
     const depts = DEPT_NAMES.map(name => ({
@@ -289,7 +333,7 @@ async function main() {
       description: `Expenses related to ${name.toLowerCase()}`,
       isActive: true,
       isSystem: false,
-      createdBy: null,
+      createdBy: firstAdminId,
       iconId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -304,7 +348,7 @@ async function main() {
       name,
       normalizedName: name.toLowerCase(),
       isActive: true,
-      createdBy: null,
+      createdBy: firstAdminId,
       logo: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -322,7 +366,7 @@ async function main() {
 
     for (let i = 1; i <= 3; i++) {
       adminUsers.push({
-        _id: new mongoose.Types.ObjectId(),
+        _id: i === 1 ? firstAdminId : new mongoose.Types.ObjectId(),
         name: `Admin ${i}`,
         email: `admin${i}@${short}.dev`,
         passwordHash,
@@ -330,6 +374,9 @@ async function main() {
         orgId,
         department: null,
         managerId: null,
+        departmentSnapshot: null,
+        managerSnapshot: null,
+        policySnapshot: null,
         permissions: {
           view_all_tickets: true,
           approve_finance: null,
@@ -353,6 +400,9 @@ async function main() {
         orgId,
         department: null,
         managerId: null,
+        departmentSnapshot: null,
+        managerSnapshot: null,
+        policySnapshot: null,
         permissions: {
           view_all_tickets: true,
           approve_finance: true,
@@ -377,6 +427,9 @@ async function main() {
         orgId,
         department: dept._id,
         managerId: null,
+        departmentSnapshot: { _id: dept._id, name: dept.name },
+        managerSnapshot: null,
+        policySnapshot: null,
         permissions: {
           view_all_tickets: null,
           approve_finance: null,
@@ -400,6 +453,9 @@ async function main() {
           orgId,
           department: dept._id,
           managerId: mgr._id,
+          departmentSnapshot: { _id: dept._id, name: dept.name },
+          managerSnapshot: { _id: mgr._id, name: mgr.name },
+          policySnapshot: null,
           permissions: {
             view_all_tickets: null,
             approve_finance: null,
@@ -543,7 +599,7 @@ async function main() {
         flagged: Math.random() < 0.05,
         managerApproval,
         financeApproval,
-        exchangeRateSnapshotId: null,
+        exchangeRateSnapshotId: status === "approved" ? rateSnapshotId : null,
         merchant: merchant._id,
         category: category._id,
         bundleId: null,
@@ -763,7 +819,9 @@ async function main() {
     const msgDocs: Record<string, unknown>[] = [];
     for (let i = 0; i < DISCUSSION_MSGS_PER_ORG; i++) {
       const author   = rand([...adminUsers, ...financeUsers, ...regularUsers.slice(0, 20)]);
-      const dept     = depts.find(d => d._id.equals(author.department)) ?? rand(depts);
+      const dept     = author.department
+        ? (depts.find(d => d._id.equals(author.department)) ?? null)
+        : null;
       const createdAt = randomPastDate();
 
       msgDocs.push({
@@ -771,7 +829,7 @@ async function main() {
         ticketId: sampleTicketIds.length > 0 ? rand(sampleTicketIds) : new mongoose.Types.ObjectId(),
         orgId,
         author: { _id: author._id, name: author.name, email: author.email, role: author.role },
-        authorDeptSnapshot: { _id: dept._id, name: dept.name },
+        authorDeptSnapshot: dept ? { _id: dept._id, name: dept.name } : null,
         text: rand(DISCUSSION_MESSAGES),
         editedAt: null,
         deletedAt: null,
