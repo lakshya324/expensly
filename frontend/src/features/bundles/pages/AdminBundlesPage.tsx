@@ -75,15 +75,6 @@ export function AdminBundlesPage() {
       ),
     },
     {
-      key: 'submittedByDepartment',
-      header: 'Department',
-      render: (row) => (
-        <span className="text-sm text-(--foreground)">
-          {row.submittedByDepartment?.name ?? '-'}
-        </span>
-      ),
-    },
-    {
       key: 'status',
       header: 'Status',
       render: (row) => (
