@@ -232,7 +232,7 @@ export function useExpenseStats() {
       const res = await apiClient.get<ApiResponse<ExpenseStats>>(EP.EXPENSE_STATS);
       setData(res.data.data);
     } catch {
-      // silently fail — stats will remain null
+      // silently fail - stats will remain null
     } finally {
       setLoading(false);
     }
@@ -336,7 +336,7 @@ export function useDiscussion(ticketId: string) {
       setTotalMessages(total);
       setCurrentPage(page);
     } catch {
-      // silently fail — discussion is non-critical
+      // silently fail - discussion is non-critical
     } finally {
       setLoading(false);
     }

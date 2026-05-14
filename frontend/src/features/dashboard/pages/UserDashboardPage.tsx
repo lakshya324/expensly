@@ -75,10 +75,10 @@ export function UserDashboardPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Total Submitted" value={statsLoading ? '—' : stats.total} icon={Receipt} color="brand" />
-          <StatCard title="Pending Review" value={statsLoading ? '—' : stats.pending} icon={Clock} color="warning" />
-          <StatCard title="Approved" value={statsLoading ? '—' : stats.approved} icon={CheckCircle2} color="success" />
-          <StatCard title="Rejected" value={statsLoading ? '—' : stats.rejected} icon={XCircle} color="danger" />
+          <StatCard title="Total Submitted" value={statsLoading ? '-' : stats.total} icon={Receipt} color="brand" />
+          <StatCard title="Pending Review" value={statsLoading ? '-' : stats.pending} icon={Clock} color="warning" />
+          <StatCard title="Approved" value={statsLoading ? '-' : stats.approved} icon={CheckCircle2} color="success" />
+          <StatCard title="Rejected" value={statsLoading ? '-' : stats.rejected} icon={XCircle} color="danger" />
         </div>
 
         {/* Recent Expenses */}

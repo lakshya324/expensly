@@ -142,7 +142,7 @@ function AuditDetailPanel({ entry, onClose }: { entry: IAuditLogData; onClose: (
             </div>
             <div>
               <p className="text-xs text-[var(--muted-foreground)] mb-1">IP Address</p>
-              <p className="text-sm font-mono text-[var(--foreground)]">{entry.ip ?? '—'}</p>
+              <p className="text-sm font-mono text-[var(--foreground)]">{entry.ip ?? '-'}</p>
             </div>
           </section>
 

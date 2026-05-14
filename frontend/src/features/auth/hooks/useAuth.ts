@@ -150,7 +150,7 @@ export function useLogout() {
     try {
       await apiClient.post(EP.AUTH_LOGOUT);
     } catch {
-      // ignore — clear client-side regardless
+      // ignore - clear client-side regardless
     } finally {
       clearAuth();
       navigate(ROUTES.LOGIN);

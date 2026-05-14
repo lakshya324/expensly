@@ -84,7 +84,7 @@ export function ExpenseDetailPage() {
 
   if (!ticket) return null;
 
-  // Check if user can do manager approval (only the actual assigned manager — not admin)
+  // Check if user can do manager approval (only the actual assigned manager - not admin)
   const canApproveAsManager =
     ticket.managerApproval !== null &&
     ticket.managerApproval.approved === null &&
@@ -227,7 +227,7 @@ export function ExpenseDetailPage() {
                 <div>
                   <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">Department</dt>
                   <dd className="mt-1 text-sm font-semibold text-[var(--foreground)]">
-                    {ticket.department?.name ?? '—'}
+                    {ticket.department?.name ?? '-'}
                   </dd>
                 </div>
                 <div>

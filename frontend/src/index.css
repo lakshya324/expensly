@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  /* Brand — Indigo/Violet */
+  /* Brand - Indigo/Violet */
   --color-brand-50: oklch(97% 0.016 286);
   --color-brand-100: oklch(94% 0.032 286);
   --color-brand-200: oklch(88% 0.064 286);
@@ -17,7 +17,7 @@
   --color-brand-900: oklch(28% 0.12 286);
   --color-brand-950: oklch(18% 0.08 286);
 
-  /* Surface — Slate */
+  /* Surface - Slate */
   --color-surface-0: oklch(100% 0 0);
   --color-surface-50: oklch(98% 0.004 286);
   --color-surface-100: oklch(96% 0.008 286);

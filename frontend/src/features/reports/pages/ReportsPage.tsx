@@ -129,7 +129,7 @@ export function ReportsPage() {
       const items = await listReports();
       setReportHistory(items);
     } catch {
-      // silently ignore — history is a nice-to-have
+      // silently ignore - history is a nice-to-have
     } finally {
       setHistoryLoading(false);
     }
@@ -293,7 +293,7 @@ export function ReportsPage() {
                     </div>
                   </div>
 
-                  {/* From / To — editable only when Custom */}
+                  {/* From / To - editable only when Custom */}
                   <Input
                     label="From Date"
                     type="date"
@@ -367,7 +367,7 @@ export function ReportsPage() {
                             <span>{report.ticketCount} ticket{report.ticketCount !== 1 ? 's' : ''}</span>
                             {report.filters.status && <span className="capitalize">{report.filters.status.replace('_', ' ')}</span>}
                             {(report.filters.from || report.filters.to) && (
-                              <span>{report.filters.from ?? '—'} → {report.filters.to ?? '—'}</span>
+                              <span>{report.filters.from ?? '-'} → {report.filters.to ?? '-'}</span>
                             )}
                           </div>
                         </div>
@@ -477,7 +477,7 @@ export function ReportsPage() {
                 {!previewLoading && previewTotal !== null && previewTotal > 5 && (
                   <div className="px-4 py-2.5 border-t border-[var(--border)] bg-[var(--muted)]/30">
                     <p className="text-xs text-center text-[var(--muted-foreground)]">
-                      Showing 5 of {previewTotal} — export CSV to see all
+                      Showing 5 of {previewTotal} - export CSV to see all
                     </p>
                   </div>
                 )}

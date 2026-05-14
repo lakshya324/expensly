@@ -20,7 +20,7 @@ export function useExchangeRates() {
       const res = await apiClient.get<ApiResponse<IExchangeRateSnapshot>>(EP.EXCHANGE_RATES);
       setData(res.data.data);
     } catch {
-      // current rates may not exist yet — silent
+      // current rates may not exist yet - silent
     } finally {
       setLoading(false);
     }

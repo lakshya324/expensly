@@ -158,7 +158,7 @@ export function AddExpenseDialog({ open, onOpenChange, bundleId, onAdded }: Prop
                         )}
                       </div>
                       <p className="text-xs text-(--muted-foreground) mt-0.5">
-                        {exp.amount != null ? `${sym}${exp.amount.toLocaleString()}` : '—'}
+                        {exp.amount != null ? `${sym}${exp.amount.toLocaleString()}` : '-'}
                         {exp.merchant ? ` · ${exp.merchant.name}` : ''}
                         {' · '}{formatDate(exp.createdAt)}
                       </p>

@@ -62,7 +62,7 @@ export const ROUTES = {
   EXPENSE_NEW: '/expenses/new',
   EXPENSE_DETAIL: (id: string) => `/expenses/${id}`,
 
-  // User — Bundles
+  // User - Bundles
   BUNDLES: '/bundles',
   BUNDLE_DETAIL: (id: string) => `/bundles/${id}`,
 

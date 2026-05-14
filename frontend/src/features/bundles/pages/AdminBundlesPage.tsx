@@ -79,7 +79,7 @@ export function AdminBundlesPage() {
       header: 'Department',
       render: (row) => (
         <span className="text-sm text-(--foreground)">
-          {row.submittedByDepartment?.name ?? '—'}
+          {row.submittedByDepartment?.name ?? '-'}
         </span>
       ),
     },
@@ -106,7 +106,7 @@ export function AdminBundlesPage() {
         <span className="text-sm text-(--foreground)">
           {row.totalAmountBase !== null
             ? `${row.baseCurrency ?? ''}\u00a0${row.totalAmountBase.toFixed(2)}`
-            : '—'}
+            : '-'}
         </span>
       ),
     },

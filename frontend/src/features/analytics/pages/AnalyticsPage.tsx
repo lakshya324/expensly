@@ -83,14 +83,14 @@ export function AnalyticsPage() {
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <StatCard
             title="Total Expenses"
-            value={loading ? '—' : (data?.org.totalTickets ?? 0)}
+            value={loading ? '-' : (data?.org.totalTickets ?? 0)}
             icon={Receipt}
             color="brand"
             loading={loading}
           />
           <StatCard
             title="Approved"
-            value={loading ? '—' : (data?.org.totalApproved ?? 0)}
+            value={loading ? '-' : (data?.org.totalApproved ?? 0)}
             subtitle={data ? `${formatCurrency(data.org.totalAmountApproved, baseCurrency, true)} total` : undefined}
             icon={CheckCircle2}
             color="success"
@@ -98,21 +98,21 @@ export function AnalyticsPage() {
           />
           <StatCard
             title="Pending"
-            value={loading ? '—' : ((data?.org.totalPending ?? 0) + (data?.org.totalAwaitingFinance ?? 0))}
+            value={loading ? '-' : ((data?.org.totalPending ?? 0) + (data?.org.totalAwaitingFinance ?? 0))}
             icon={Clock}
             color="warning"
             loading={loading}
           />
           <StatCard
             title="Rejected"
-            value={loading ? '—' : (data?.org.totalRejected ?? 0)}
+            value={loading ? '-' : (data?.org.totalRejected ?? 0)}
             icon={XCircle}
             color="danger"
             loading={loading}
           />
           <StatCard
             title="Flagged"
-            value={loading ? '—' : (data?.org.totalFlagged ?? 0)}
+            value={loading ? '-' : (data?.org.totalFlagged ?? 0)}
             subtitle={data?.org.flaggedRate != null ? `${data.org.flaggedRate.toFixed(1)}% of total` : undefined}
             icon={AlertTriangle}
             color="warning"

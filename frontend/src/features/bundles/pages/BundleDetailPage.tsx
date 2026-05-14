@@ -458,7 +458,7 @@ export function BundleDetailPage() {
                               {ticket.title ?? <span className="italic text-(--muted-foreground)">Untitled</span>}
                             </p>
                             <p className="text-xs text-(--muted-foreground) mt-0.5">
-                              {ticket.amount != null ? `${sym}${ticket.amount.toLocaleString()}` : '—'}
+                              {ticket.amount != null ? `${sym}${ticket.amount.toLocaleString()}` : '-'}
                               {ticket.merchant ? ` · ${ticket.merchant.name}` : ''}
                               {' · '}{formatDate(ticket.createdAt)}
                             </p>

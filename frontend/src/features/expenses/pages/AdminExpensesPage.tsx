@@ -38,7 +38,7 @@ const COLUMNS: Column<ITicketSummaryData>[] = [
     header: 'Submitted By',
     render: (row) => (
       <div>
-        <p className="text-sm font-medium">{(row as unknown as { submittedBy?: { name?: string } }).submittedBy?.name ?? '—'}</p>
+        <p className="text-sm font-medium">{(row as unknown as { submittedBy?: { name?: string } }).submittedBy?.name ?? '-'}</p>
         <p className="text-xs text-muted-foreground">{(row as unknown as { submittedBy?: { email?: string } }).submittedBy?.email ?? ''}</p>
       </div>
     ),
@@ -46,7 +46,7 @@ const COLUMNS: Column<ITicketSummaryData>[] = [
   {
     key: 'department',
     header: 'Department',
-    render: (row) => <span className="text-sm">{row.department?.name ?? '—'}</span>,
+    render: (row) => <span className="text-sm">{row.department?.name ?? '-'}</span>,
   },
   {
     key: 'amount',

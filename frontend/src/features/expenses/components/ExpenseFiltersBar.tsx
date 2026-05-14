@@ -194,7 +194,7 @@ export function ExpenseFiltersBar({
           </button>
         )}
 
-        {/* Clear — right-aligned */}
+        {/* Clear - right-aligned */}
         {hasActiveFilters && (
           <Button
             variant="ghost"
@@ -226,7 +226,7 @@ export function ExpenseFiltersBar({
             />
           )}
 
-          {/* User combobox — disabled until a dept is picked */}
+          {/* User combobox - disabled until a dept is picked */}
           {fetchUsers && onUserChange && (
             <SearchCombobox
               value={userId}

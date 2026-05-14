@@ -9,9 +9,9 @@ export interface ComboboxOption {
 }
 
 interface SearchComboboxProps {
-  /** Currently selected item id — empty string means nothing selected */
+  /** Currently selected item id - empty string means nothing selected */
   value: string;
-  /** Display label of the selected item — used when dropdown is closed */
+  /** Display label of the selected item - used when dropdown is closed */
   selectedLabel: string;
   placeholder: string;
   /** Message shown when search yields no results */
@@ -120,7 +120,7 @@ export function SearchCombobox({
           {loading && <Loader2 className="w-3.5 h-3.5 text-(--muted-foreground) animate-spin shrink-0" />}
         </div>
       ) : (
-        // Closed trigger — looks like a Select trigger
+        // Closed trigger - looks like a Select trigger
         <button
           type="button"
           disabled={disabled}

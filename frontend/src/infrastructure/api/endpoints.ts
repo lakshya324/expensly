@@ -80,12 +80,12 @@ export const EP = {
   REPORT_LIST: '/users/reports',
   REPORT_EMAIL: (id: string) => `/users/reports/${id}/email`,
 
-  // Superadmin — Organizations
+  // Superadmin - Organizations
   SA_ORGANIZATIONS: '/superadmin/organizations',
   SA_ORG: (id: string) => `/superadmin/organizations/${id}`,
   SA_ORG_DISABLE: (id: string) => `/superadmin/organizations/${id}/disable`,
 
-  // Superadmin — Users
+  // Superadmin - Users
   SA_USERS: '/superadmin/users',
   SA_USER: (id: string) => `/superadmin/users/${id}`,
   SA_USER_DISABLE: (id: string) => `/superadmin/users/${id}/disable`,

@@ -94,7 +94,7 @@ export function ExpensesPage() {
       width: '140px',
       render: (row) => (
         <span className="text-sm text-(--muted-foreground)">
-          {row.department?.name ?? '—'}
+          {row.department?.name ?? '-'}
         </span>
       ),
     },

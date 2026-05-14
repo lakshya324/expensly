@@ -277,7 +277,7 @@ export function DepartmentsPage() {
                     onChange={(e) => field.onChange(e.target.value || null)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
-                    <option value="">No policy — set manually</option>
+                    <option value="">No policy - set manually</option>
                     {policies.map((pol) => (
                       <option key={pol._id} value={pol._id}>
                         {pol.name}{pol.isSystem ? ' (system)' : ''}
@@ -298,7 +298,7 @@ export function DepartmentsPage() {
                         <button
                           type="button"
                           onClick={() => field.onChange(!field.value)}
-                          title={field.value ? 'Explicitly granted — click to remove' : fromPolicy ? 'Granted via policy — click to also set explicitly' : 'Not granted — click to enable'}
+                          title={field.value ? 'Explicitly granted - click to remove' : fromPolicy ? 'Granted via policy - click to also set explicitly' : 'Not granted - click to enable'}
                           className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                             field.value
                               ? 'bg-brand-600 text-white border-brand-600'
@@ -328,7 +328,7 @@ export function DepartmentsPage() {
                 </button>
               </div>
               {createThresholds.fields.length === 0 ? (
-                <p className="text-xs text-[var(--muted-foreground)]">No thresholds — approvals won't be gated by amount.</p>
+                <p className="text-xs text-[var(--muted-foreground)]">No thresholds - approvals won't be gated by amount.</p>
               ) : (
                 createThresholds.fields.map((field, idx) => (
                   <div key={field.id} className="flex items-center gap-2">
@@ -419,7 +419,7 @@ export function DepartmentsPage() {
                     onChange={(e) => field.onChange(e.target.value || null)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
-                    <option value="">No policy — set manually</option>
+                    <option value="">No policy - set manually</option>
                     {policies.map((pol) => (
                       <option key={pol._id} value={pol._id}>
                         {pol.name}{pol.isSystem ? ' (system)' : ''}
@@ -440,7 +440,7 @@ export function DepartmentsPage() {
                         <button
                           type="button"
                           onClick={() => field.onChange(!field.value)}
-                          title={field.value ? 'Explicitly granted — click to remove' : fromPolicy ? 'Granted via policy — click to also set explicitly' : 'Not granted — click to enable'}
+                          title={field.value ? 'Explicitly granted - click to remove' : fromPolicy ? 'Granted via policy - click to also set explicitly' : 'Not granted - click to enable'}
                           className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                             field.value
                               ? 'bg-brand-600 text-white border-brand-600'
@@ -470,7 +470,7 @@ export function DepartmentsPage() {
                 </button>
               </div>
               {editThresholds.fields.length === 0 ? (
-                <p className="text-xs text-[var(--muted-foreground)]">No thresholds — approvals won't be gated by amount.</p>
+                <p className="text-xs text-[var(--muted-foreground)]">No thresholds - approvals won't be gated by amount.</p>
               ) : (
                 editThresholds.fields.map((field, idx) => (
                   <div key={field.id} className="flex items-center gap-2">

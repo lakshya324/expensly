@@ -77,7 +77,7 @@ export function AdminUsersPage() {
     department: deptFilter || undefined,
   });
 
-  // Departments & policies for selects — fetched once on mount
+  // Departments & policies for selects - fetched once on mount
   const [departments, setDepartments] = useState<IDepartmentData[]>([]);
   const [policies, setPolicies] = useState<IPolicyData[]>([]);
   useEffect(() => {
@@ -261,7 +261,7 @@ export function AdminUsersPage() {
             {row.department.name}
           </Badge>
         ) : (
-          <span className="text-sm text-(--muted-foreground)">—</span>
+          <span className="text-sm text-(--muted-foreground)">-</span>
         ),
     },
     {
@@ -275,7 +275,7 @@ export function AdminUsersPage() {
             {row.manager.name}
           </span>
         ) : (
-          <span className="text-sm text-(--muted-foreground)">—</span>
+          <span className="text-sm text-(--muted-foreground)">-</span>
         ),
     },
     {
@@ -585,7 +585,7 @@ export function AdminUsersPage() {
       <Dialog open={!!permTarget} onOpenChange={(o) => !o && setPermTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Permissions — {permTarget?.name}</DialogTitle>
+            <DialogTitle>Permissions - {permTarget?.name}</DialogTitle>
             <DialogDescription>
               Users inherit permissions from their department. Use a policy override or individual toggles to customise.
             </DialogDescription>
@@ -684,7 +684,7 @@ export function AdminUsersPage() {
               ))}
             </div>
 
-            {/* Effective Permissions — live preview */}
+            {/* Effective Permissions - live preview */}
             {(() => {
               const userPolicyGrants = perms.policyId
                 ? (policies.find(p => p._id === perms.policyId)?.grants ?? [])

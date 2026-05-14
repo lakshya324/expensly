@@ -116,7 +116,7 @@ export function BundlesPage() {
       header: 'Total',
       render: (row) => (
         <span className="text-sm text-(--foreground)">
-          {row.totalAmountBase !== null ? `$${row.totalAmountBase.toFixed(2)}` : '—'}
+          {row.totalAmountBase !== null ? `$${row.totalAmountBase.toFixed(2)}` : '-'}
         </span>
       ),
     },

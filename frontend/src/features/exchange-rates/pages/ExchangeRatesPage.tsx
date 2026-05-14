@@ -97,7 +97,7 @@ export function ExchangeRatesPage() {
   };
 
   // ── Active currencies ──────────────────────────────────────────────────────
-  // null = not yet edited — falls back to org value from auth store
+  // null = not yet edited - falls back to org value from auth store
   const [localCurrencies, setLocalCurrencies] = useState<Set<string> | null>(null);
   const activeCurrencies = localCurrencies ?? new Set(orgActiveCurrencies);
 
@@ -233,7 +233,7 @@ export function ExchangeRatesPage() {
                       <tr key={c} className="hover:bg-[var(--muted)]/30 transition-colors">
                         <td className="py-2 font-medium text-[var(--foreground)]">{c}</td>
                         <td className="py-2 text-right text-[var(--muted-foreground)]">
-                          {current.rates[c as keyof typeof current.rates]?.toFixed(4) ?? '—'}
+                          {current.rates[c as keyof typeof current.rates]?.toFixed(4) ?? '-'}
                         </td>
                       </tr>
                     ))}

@@ -784,7 +784,7 @@ export function NewExpensePage() {
 
     const ticket = await scanReceipt(file);
     if (!ticket) {
-      // HTTP upload itself failed — back to upload screen
+      // HTTP upload itself failed - back to upload screen
       setMode('ai_upload');
       return;
     }
@@ -797,7 +797,7 @@ export function NewExpensePage() {
       return;
     }
 
-    // Polling fallback — runs alongside WS; first one wins
+    // Polling fallback - runs alongside WS; first one wins
     pollTimerRef.current = setInterval(async () => {
       if (resolvedRef.current || !pendingTicketId.current) return;
       try {
@@ -867,7 +867,7 @@ export function NewExpensePage() {
           />
         )}
 
-        {/* Scanning — always show the animated step; never replace with a plain spinner */}
+        {/* Scanning - always show the animated step; never replace with a plain spinner */}
         {mode === 'ai_scanning' && scanFile && (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">
             <AiScanningStep file={scanFile} />

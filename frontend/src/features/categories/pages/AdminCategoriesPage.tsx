@@ -153,7 +153,7 @@ export function AdminCategoriesPage() {
       header: 'Description',
       render: (row) => (
         <span className="text-sm text-(--muted-foreground) truncate max-w-xs block">
-          {row.description || '—'}
+          {row.description || '-'}
         </span>
       ),
     },
