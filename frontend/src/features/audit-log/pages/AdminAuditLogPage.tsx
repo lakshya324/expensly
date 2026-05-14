@@ -1,8 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { AppShell } from '@/shared/components/layout/AppShell';
-import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
-import { Skeleton } from '@/shared/components/ui/Skeleton';
 import { DataTable } from '@/shared/components/data-display/DataTable';
 import type { Column } from '@/shared/components/data-display/DataTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/Select';
@@ -12,6 +10,7 @@ import type { ApiResponse, PaginatedData } from '@/core/types/api.types';
 import type { IAuditLogData, EntityType, AuditAction } from '@/core/types/ticket.types';
 import { formatDateTime } from '@/core/utils/formatters';
 import { toast } from 'sonner';
+import { Info, X } from 'lucide-react';
 
 const ENTITY_TYPE_OPTIONS: { label: string; value: EntityType | 'all' }[] = [
   { label: 'All Types', value: 'all' },
@@ -85,10 +84,97 @@ function useAuditLog(filters: { entityType?: string; action?: string; page: numb
   return { data, total, loading };
 }
 
+function AuditDetailPanel({ entry, onClose }: { entry: IAuditLogData; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="fixed inset-0 bg-black/30" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md bg-[var(--card)] border-l border-[var(--border)] h-full overflow-y-auto shadow-xl flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
+          <h2 className="text-base font-semibold text-[var(--foreground)]">Audit Entry Details</h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-md text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-5 flex-1">
+          <section className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Event</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs text-[var(--muted-foreground)] mb-1">Entity Type</p>
+                <Badge variant="muted" className="capitalize">{entry.entityType}</Badge>
+              </div>
+              <div>
+                <p className="text-xs text-[var(--muted-foreground)] mb-1">Action</p>
+                <Badge variant={ACTION_BADGE_VARIANT[entry.action] ?? 'muted'} className="capitalize">
+                  {entry.action.replace(/_/g, ' ')}
+                </Badge>
+              </div>
+            </div>
+          </section>
+
+          <div className="h-px bg-[var(--border)]" />
+
+          <section className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Entity</h3>
+            <div>
+              <p className="text-xs text-[var(--muted-foreground)] mb-1">Entity ID</p>
+              <p className="text-sm font-mono text-[var(--foreground)] break-all">{entry.entityId}</p>
+            </div>
+          </section>
+
+          <div className="h-px bg-[var(--border)]" />
+
+          <section className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Performer</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs text-[var(--muted-foreground)] mb-1">Name</p>
+                <p className="text-sm text-[var(--foreground)]">{entry.performer.name}</p>
+              </div>
+              <div>
+                <p className="text-xs text-[var(--muted-foreground)] mb-1">User ID</p>
+                <p className="text-sm font-mono text-[var(--foreground)] break-all">{entry.performer._id}</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-[var(--muted-foreground)] mb-1">IP Address</p>
+              <p className="text-sm font-mono text-[var(--foreground)]">{entry.ip ?? '—'}</p>
+            </div>
+          </section>
+
+          <div className="h-px bg-[var(--border)]" />
+
+          <section className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Timestamp</h3>
+            <p className="text-sm text-[var(--foreground)]">{formatDateTime(entry.createdAt)}</p>
+          </section>
+
+          {entry.metadata && Object.keys(entry.metadata).length > 0 && (
+            <>
+              <div className="h-px bg-[var(--border)]" />
+              <section className="space-y-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Metadata</h3>
+                <pre className="text-xs bg-[var(--muted)] text-[var(--foreground)] rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
+                  {JSON.stringify(entry.metadata, null, 2)}
+                </pre>
+              </section>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AdminAuditLogPage() {
   const [entityTypeFilter, setEntityTypeFilter] = useState<EntityType | 'all'>('all');
   const [actionFilter, setActionFilter] = useState<AuditAction | 'all'>('all');
   const [page, setPage] = useState(1);
+  const [selectedEntry, setSelectedEntry] = useState<IAuditLogData | null>(null);
 
   const { data, total, loading } = useAuditLog({
     entityType: entityTypeFilter !== 'all' ? entityTypeFilter : undefined,
@@ -100,22 +186,15 @@ export function AdminAuditLogPage() {
     {
       key: 'entityType',
       header: 'Entity Type',
+      width: '160px',
       render: (row) => (
         <Badge variant="muted" className="capitalize">{row.entityType}</Badge>
       ),
     },
     {
-      key: 'entityId',
-      header: 'Entity ID',
-      render: (row) => (
-        <span className="text-xs font-mono text-(--muted-foreground)">
-          {row.entityId.slice(0, 8)}…
-        </span>
-      ),
-    },
-    {
       key: 'action',
       header: 'Action',
+      width: '200px',
       render: (row) => (
         <Badge variant={ACTION_BADGE_VARIANT[row.action] ?? 'muted'} className="capitalize">
           {row.action.replace(/_/g, ' ')}
@@ -126,23 +205,31 @@ export function AdminAuditLogPage() {
       key: 'performer',
       header: 'Performed By',
       render: (row) => (
-        <span className="text-sm text-(--foreground)">
-          {row.performer.name}
-        </span>
-      ),
-    },
-    {
-      key: 'ip',
-      header: 'IP',
-      render: (row) => (
-        <span className="text-xs font-mono text-(--muted-foreground)">{row.ip ?? '—'}</span>
+        <span className="text-sm font-medium text-(--foreground)">{row.performer.name}</span>
       ),
     },
     {
       key: 'createdAt',
       header: 'Time',
+      width: '200px',
       render: (row) => (
         <span className="text-sm text-(--muted-foreground)">{formatDateTime(row.createdAt)}</span>
+      ),
+    },
+    {
+      key: '_id',
+      header: '',
+      width: '56px',
+      render: (row) => (
+        <div className="flex justify-center">
+          <button
+            onClick={(e) => { e.stopPropagation(); setSelectedEntry(row); }}
+            className="p-1.5 rounded-lg border border-(--border) text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--muted) hover:border-(--foreground)/20 transition-colors"
+            title="View details"
+          >
+            <Info size={14} />
+          </button>
+        </div>
       ),
     },
   ];
@@ -152,8 +239,8 @@ export function AdminAuditLogPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-xl font-bold text-[var(--foreground)]">Audit Log</h1>
-            <p className="text-sm text-[var(--muted-foreground)]">Immutable record of all organisation actions</p>
+            <h1 className="text-xl font-bold text-(--foreground)">Audit Log</h1>
+            <p className="text-sm text-(--muted-foreground)">Immutable record of all organisation actions</p>
           </div>
           <div className="flex items-center gap-2">
             <Select
@@ -185,24 +272,18 @@ export function AdminAuditLogPage() {
           </div>
         </div>
 
-        <Card>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="p-6 space-y-3">
-                {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-              </div>
-            ) : (
-              <DataTable
-                columns={columns}
-                data={data}
-                loading={false}
-                pagination={{ page, pageSize: 25, totalItems: total, totalPages: Math.ceil(total / 25) }}
-                onPageChange={setPage}
-              />
-            )}
-          </CardContent>
-        </Card>
+        <DataTable
+          columns={columns}
+          data={data}
+          loading={loading}
+          pagination={{ page, pageSize: 25, totalItems: total, totalPages: Math.ceil(total / 25) }}
+          onPageChange={setPage}
+        />
       </div>
+
+      {selectedEntry && (
+        <AuditDetailPanel entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
+      )}
     </AppShell>
   );
 }
