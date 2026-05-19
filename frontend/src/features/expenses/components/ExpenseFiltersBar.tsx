@@ -15,7 +15,7 @@ const STATUS_OPTIONS: { label: string; value: TicketStatus | '' }[] = [
   { label: 'All statuses', value: '' },
   { label: 'Draft', value: 'draft' },
   { label: 'Scanning', value: 'scanning' },
-  { label: 'Scan Failed', value: 'ocr_failed' },
+  { label: 'Failed', value: 'failed' },
   { label: 'Pending', value: 'pending' },
   { label: 'Awaiting Finance', value: 'awaiting_finance' },
   { label: 'Approved', value: 'approved' },

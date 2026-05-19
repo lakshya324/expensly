@@ -43,8 +43,8 @@ export type SocketEvents = {
   rates_update: { snapshotId: string; rates: Record<Currency, number>; baseCurrency: Currency };
   // OCR & AI async results (enveloped like all other server events)
   'ticket:ocr_completed': SocketEnvelope<{ ticket: ITicketData }>;
-  'ticket:ocr_failed': SocketEnvelope<{ ticketId: string; error: string }>;
   'ticket:ai_validated': SocketEnvelope<{ ticket: ITicketData }>;
+  'ticket:failed': SocketEnvelope<{ ticket: ITicketData; reason: string }>;
   'discussion:message': SocketEnvelope<{ ticketId: string; message: IDiscussionMessageData }>;
   'discussion:edit': SocketEnvelope<{ ticketId: string; message: IDiscussionMessageData }>;
   'discussion:delete': SocketEnvelope<{ ticketId: string; messageId: string }>;

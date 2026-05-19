@@ -51,41 +51,6 @@ export function useExpenses(filters: TicketFilters = {}) {
     );
   }, []);
 
-  const markTicketOcrFailure = useCallback((ticketId: string, error: string) => {
-    setData((prev) =>
-      prev.map((row) => {
-        if (row._id !== ticketId) return row;
-        return {
-          ...row,
-          ocrData: {
-            ...(row.ocrData ?? {
-              rawText: null,
-              confidence: null,
-              processedAt: null,
-            }),
-            status: 'failed',
-            processedAt: new Date().toISOString(),
-          },
-          aiValidation: {
-            status: 'error',
-            checks: [],
-            summary: error || 'OCR extraction failed. AI validation could not be completed.',
-            validatedAt: new Date().toISOString(),
-            suggestedTitle: null,
-            suggestedAmount: null,
-            suggestedCurrency: null,
-            suggestedDate: null,
-            suggestedMerchantName: null,
-            suggestedCategoryName: null,
-            suggestedDescription: null,
-            unmatchedMerchantSuggestionText: null,
-            unmatchedCategorySuggestionText: null,
-          },
-        };
-      }),
-    );
-  }, []);
-
   const handleAiValidated = useCallback((payload: SocketEnvelope<{ ticket: ITicketData }>) => {
     const ticket = payload?.data?.ticket;
     if (!ticket) return;
@@ -98,15 +63,15 @@ export function useExpenses(filters: TicketFilters = {}) {
     mergeTicketIntoList(ticket);
   }, [mergeTicketIntoList]);
 
-  const handleOcrFailed = useCallback((payload: SocketEnvelope<{ ticketId: string; error: string }>) => {
-    const ticketId = payload?.data?.ticketId;
-    if (!ticketId) return;
-    markTicketOcrFailure(ticketId, payload?.data?.error ?? 'OCR extraction failed');
-  }, [markTicketOcrFailure]);
+  const handleTicketFailed = useCallback((payload: SocketEnvelope<{ ticket: ITicketData; reason: string }>) => {
+    const ticket = payload?.data?.ticket;
+    if (!ticket) return;
+    mergeTicketIntoList(ticket);
+  }, [mergeTicketIntoList]);
 
   useSocket('ticket:ai_validated', handleAiValidated);
   useSocket('ticket:ocr_completed', handleOcrCompleted);
-  useSocket('ticket:ocr_failed', handleOcrFailed);
+  useSocket('ticket:failed', handleTicketFailed);
 
   return { data, pagination, loading, error, refetch: fetch };
 }

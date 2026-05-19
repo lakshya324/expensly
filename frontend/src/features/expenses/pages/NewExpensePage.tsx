@@ -761,16 +761,16 @@ export function NewExpensePage() {
     [resolveWithTicket],
   );
 
-  const handleOcrFailed = useCallback(
-    (payload: SocketEnvelope<{ ticketId: string; error: string }>) => {
-      if (payload?.data?.ticketId !== pendingTicketId.current) return;
-      rejectScan(payload.data?.error ?? 'Receipt scanning failed. Please try again.');
+  const handleTicketFailed = useCallback(
+    (payload: SocketEnvelope<{ ticket: ITicketData; reason: string }>) => {
+      if (payload?.data?.ticket?._id !== pendingTicketId.current) return;
+      rejectScan(payload.data?.reason ?? 'Processing failed. Please try again.');
     },
     [rejectScan],
   );
 
   useSocket('ticket:ai_validated', handleAiValidated);
-  useSocket('ticket:ocr_failed', handleOcrFailed);
+  useSocket('ticket:failed', handleTicketFailed);
 
   // ── Start scan flow ───────────────────────────────────────────
 

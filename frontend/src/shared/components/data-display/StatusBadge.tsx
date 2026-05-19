@@ -9,7 +9,7 @@ interface StatusBadgeProps {
 const variantMap: Record<TicketStatus, 'warning' | 'info' | 'success' | 'danger' | 'muted'> = {
   draft: 'muted',
   scanning: 'info',
-  ocr_failed: 'danger',
+  failed: 'danger',
   pending: 'warning',
   awaiting_finance: 'info',
   approved: 'success',

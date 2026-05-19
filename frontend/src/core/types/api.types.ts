@@ -27,7 +27,7 @@ export type Role = 'user' | 'admin' | 'super_admin';
 export type TicketStatus =
   | 'draft'
   | 'scanning'
-  | 'ocr_failed'
+  | 'failed'
   | 'pending'
   | 'awaiting_finance'
   | 'approved'

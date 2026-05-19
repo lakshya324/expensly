@@ -47,6 +47,7 @@ export interface OcrData {
   rawText: string | null;
   confidence: number | null;
   processedAt: string | null;
+  failureReason: string | null;
 }
 
 export interface AiValidationCheck {
@@ -70,6 +71,7 @@ export interface AiValidation {
   suggestedDescription: string | null;
   unmatchedMerchantSuggestionText: string | null;
   unmatchedCategorySuggestionText: string | null;
+  failureReason: string | null;
 }
 
 export interface IReceiptRef {
