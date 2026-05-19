@@ -20,9 +20,9 @@
  * 3a: submission counts grouped by year/month
  * 3b: approved amounts grouped by financeApproval.reviewedAt year/month
  *
- * 4. Category breakdown — approved only, $lookup categories, group by category, top 10
+ * 4. Category breakdown - approved only, $lookup categories, group by category, top 10
  *
- * 5. Merchant breakdown — approved only, $lookup merchants, group by merchant, top 10
+ * 5. Merchant breakdown - approved only, $lookup merchants, group by merchant, top 10
  */
 import { Types } from "mongoose";
 import { Ticket } from "../models/Ticket.model.js";
@@ -361,7 +361,7 @@ export async function refreshOrgAnalytics(
   ]);
 
   //! Pipelines 3-5: Monthly trend, category breakdown, merchant breakdown
-  // Run all three in parallel — all are independent of Pipeline 1 & 2 results.
+  // Run all three in parallel - all are independent of Pipeline 1 & 2 results.
 
   const twelveMonthsAgo = new Date();
   twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
@@ -448,7 +448,7 @@ export async function refreshOrgAnalytics(
     ]),
 
     // Pipeline 4: Category breakdown (approved, top 10 by converted amount)
-    // Uses embedded categorySnapshot — no $lookup needed.
+    // Uses embedded categorySnapshot - no $lookup needed.
     Ticket.aggregate([
       { $match: { orgId: oid, status: TICKET_STATUS.APPROVED } },
       exchangeLookupStage,
@@ -475,7 +475,7 @@ export async function refreshOrgAnalytics(
     ]),
 
     // Pipeline 5: Merchant breakdown (approved, top 10 by converted amount)
-    // Uses embedded merchantSnapshot — no $lookup needed.
+    // Uses embedded merchantSnapshot - no $lookup needed.
     Ticket.aggregate([
       { $match: { orgId: oid, status: TICKET_STATUS.APPROVED } },
       exchangeLookupStage,
@@ -513,7 +513,7 @@ export async function refreshOrgAnalytics(
     ? parseFloat(((totalFlagged / totalTicketsCount) * 100).toFixed(2))
     : 0;
 
-  // Monthly trend — zero-fill all 12 months (oldest → newest)
+  // Monthly trend - zero-fill all 12 months (oldest → newest)
   const submittedMap = new Map<string, number>(
     trendSubmitted.map((p: any) => [`${p._id.year}-${p._id.month}`, p.submittedCount as number]),
   );
@@ -535,7 +535,7 @@ export async function refreshOrgAnalytics(
     });
   }
 
-  // Expense type breakdown — merge counts (Pipeline 1) with amounts (Pipeline 2)
+  // Expense type breakdown - merge counts (Pipeline 1) with amounts (Pipeline 2)
   const expenseTypeCountMap = new Map<string, number>(
     (overview?.expenseTypeCounts ?? []).map((e: any) => [e._id as string, e.count as number]),
   );

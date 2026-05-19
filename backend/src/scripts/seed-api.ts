@@ -1,5 +1,5 @@
 /**
- * API-based seed script — creates a complete org dataset by calling backend REST APIs.
+ * API-based seed script - creates a complete org dataset by calling backend REST APIs.
  * No direct DB access except reading login OTPs from Redis (necessary since OTP is sent
  * via email and cannot be intercepted programmatically otherwise).
  *
@@ -18,10 +18,10 @@
  *   DISABLE_RATE_LIMIT=true SUPER_ADMIN_EMAIL=you@example.com SUPER_ADMIN_PASSWORD=YourPassword npx tsx src/scripts/seed-api.ts
  *
  * Environment:
- *   DISABLE_RATE_LIMIT — set to "true" to bypass rate limiting (required for bulk seeding)
- *   SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD — super admin credentials (required if not via CLI)
- *   REDIS_URL          — defaults to redis://localhost:6379
- *   SEED_API_URL       — defaults to http://localhost:3000/api
+ *   DISABLE_RATE_LIMIT - set to "true" to bypass rate limiting (required for bulk seeding)
+ *   SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD - super admin credentials (required if not via CLI)
+ *   REDIS_URL          - defaults to redis://localhost:6379
+ *   SEED_API_URL       - defaults to http://localhost:3000/api
  */
 
 import "dotenv/config";
@@ -90,7 +90,7 @@ const REJECTION_COMMENTS = [
   "Insufficient business justification",
   "Missing original receipt",
   "Duplicate submission",
-  "Policy violation — personal expense",
+  "Policy violation - personal expense",
 ];
 const BUNDLE_PREFIXES = ["Q1", "Q2", "Q3", "Q4"] as const;
 const BUNDLE_TOPICS   = ["Travel", "Client", "Marketing", "Engineering", "Operations"] as const;
@@ -259,7 +259,7 @@ async function main() {
 
   if (process.env["NODE_ENV"] !== "development") {
     console.warn(
-      "⚠️   DISABLE RATE LIMIT is not set — the auth rate limiter (100 req/15 min) may\n" +
+      "⚠️   DISABLE RATE LIMIT is not set - the auth rate limiter (100 req/15 min) may\n" +
       "    block logins before all seeded users are created. Set NODE_ENV=development on\n" +
       "    the backend server (or restart it with that env var) before running this script.\n",
     );
@@ -272,18 +272,18 @@ async function main() {
   console.log("═══════════════════════════════════════════════════════════════\n");
 
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │  Phase 1 — Super admin login                                            │
+  // │  Phase 1 - Super admin login                                            │
   // └─────────────────────────────────────────────────────────────────────────┘
-  console.log("Phase 1 — Auth");
+  console.log("Phase 1 - Auth");
   const { token: superToken } = await track("Super admin login", async () => {
     const r = await login(superEmail, superPass, redis);
     return { data: r, count: 0 };
   });
 
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │  Phase 2 — Organization                                                 │
+  // │  Phase 2 - Organization                                                 │
   // └─────────────────────────────────────────────────────────────────────────┘
-  console.log("\nPhase 2 — Organization");
+  console.log("\nPhase 2 - Organization");
   const orgId = await track("Create organization", async () => {
     const r = await api("POST", "/superadmin/organizations", {
       name: ORG_NAME,
@@ -294,9 +294,9 @@ async function main() {
   });
 
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │  Phase 3 — Admin user                                                   │
+  // │  Phase 3 - Admin user                                                   │
   // └─────────────────────────────────────────────────────────────────────────┘
-  console.log("\nPhase 3 — Admin");
+  console.log("\nPhase 3 - Admin");
   await track("Create admin via super admin", async () => {
     await api("POST", "/superadmin/users", {
       name: ADMIN_NAME,
@@ -314,12 +314,12 @@ async function main() {
   });
 
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │  Phase 4 — Catalogue (categories, merchants, policy)                    │
+  // │  Phase 4 - Catalogue (categories, merchants, policy)                    │
   // └─────────────────────────────────────────────────────────────────────────┘
-  console.log("\nPhase 4 — Catalogue");
+  console.log("\nPhase 4 - Catalogue");
 
   const categoryIds = await track("Create categories", async () => {
-    // Org creation fires seedSystemCategories non-blocking — fetch to avoid duplicates
+    // Org creation fires seedSystemCategories non-blocking - fetch to avoid duplicates
     const existing = await api("GET", "/admin/categories", undefined, adminToken);
     const existingMap = new Map<string, string>(
       (existing.data as any[]).map((c: any) => [c.name.toLowerCase(), c._id as string]),
@@ -375,9 +375,9 @@ async function main() {
   void policyId; // available if needed for dept/user assignment later
 
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │  Phase 5 — Departments                                                  │
+  // │  Phase 5 - Departments                                                  │
   // └─────────────────────────────────────────────────────────────────────────┘
-  console.log("\nPhase 5 — Departments");
+  console.log("\nPhase 5 - Departments");
 
   const depts = await track("Create departments", async () => {
     const list: { id: string; name: string }[] = [];
@@ -394,9 +394,9 @@ async function main() {
   });
 
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │  Phase 6 — Managers                                                     │
+  // │  Phase 6 - Managers                                                     │
   // └─────────────────────────────────────────────────────────────────────────┘
-  console.log("\nPhase 6 — Managers");
+  console.log("\nPhase 6 - Managers");
 
   interface Manager { id: string; deptId: string; token: string; email: string }
 
@@ -423,9 +423,9 @@ async function main() {
   const mgrByDept = new Map(managers.map(m => [m.deptId, m]));
 
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │  Phase 7 — Regular users                                                │
+  // │  Phase 7 - Regular users                                                │
   // └─────────────────────────────────────────────────────────────────────────┘
-  console.log("\nPhase 7 — Regular users");
+  console.log("\nPhase 7 - Regular users");
 
   interface UserInfo { id: string; deptId: string; managerId: string; token: string }
 
@@ -454,9 +454,9 @@ async function main() {
   });
 
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │  Phase 8 — Tickets (100k)                                               │
+  // │  Phase 8 - Tickets (100k)                                               │
   // └─────────────────────────────────────────────────────────────────────────┘
-  console.log("\nPhase 8 — Tickets");
+  console.log("\nPhase 8 - Tickets");
 
   // Build a shuffled list of target statuses
   const targetStatuses: string[] = [];
@@ -488,7 +488,7 @@ async function main() {
       amount:       randAmount(),
       currency:     rand(CURRENCIES),
       department:   user.deptId,
-      description:  `Business expense — ${rand(TICKET_TITLES).toLowerCase()}`,
+      description:  `Business expense - ${rand(TICKET_TITLES).toLowerCase()}`,
       merchant:     rand(merchantIds),
       category:     rand(categoryIds),
       tags:         pickTags(),
@@ -511,9 +511,9 @@ async function main() {
   stats.push({ label: "Create tickets", count: TICKETS, ms: Date.now() - ticketStart });
 
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │  Phase 9 — Approvals                                                    │
+  // │  Phase 9 - Approvals                                                    │
   // └─────────────────────────────────────────────────────────────────────────┘
-  console.log("\nPhase 9 — Approvals");
+  console.log("\nPhase 9 - Approvals");
 
   const approvalStart = Date.now();
 
@@ -561,12 +561,12 @@ async function main() {
   });
 
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │  Phase 10 — Bundles                                                     │
+  // │  Phase 10 - Bundles                                                     │
   // └─────────────────────────────────────────────────────────────────────────┘
-  console.log("\nPhase 10 — Bundles");
+  console.log("\nPhase 10 - Bundles");
 
   await track(`Create, submit & approve ${BUNDLES} bundles`, async () => {
-    const bundlePool = [...toBundlePool]; // pending tickets — eligible to be bundled
+    const bundlePool = [...toBundlePool]; // pending tickets - eligible to be bundled
     let created = 0;
 
     for (let b = 0; b < BUNDLES && bundlePool.length >= 5; b++) {
@@ -600,7 +600,7 @@ async function main() {
 
         created++;
       } catch {
-        // Non-fatal — continue with next bundle
+        // Non-fatal - continue with next bundle
       }
     }
 

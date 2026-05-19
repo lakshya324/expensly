@@ -15,7 +15,7 @@ import {
 } from "../websocket/handlers/ticket.handler.js";
 
 /**
- * DiscussionController — all methods proxy to the discussion service which
+ * DiscussionController - all methods proxy to the discussion service which
  * currently returns 501 Not Implemented. Wire real logic in the service
  * when the Expense Discussion feature is built.
  */

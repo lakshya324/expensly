@@ -14,7 +14,7 @@ import { processAiJobQueue } from "./workers/aiJobs.worker.js";
 export function startCronJobs(): void {
   let aiQueueInProgress = false;
 
-  // Budget reset — every hour at minute 0
+  // Budget reset - every hour at minute 0
   cron.schedule("0 * * * *", async () => {
     try {
       const count = await processDueBudgetResets();
@@ -28,7 +28,7 @@ export function startCronJobs(): void {
     }
   });
 
-  // Analytics refresh — every day at midnight (00:00)
+  // Analytics refresh - every day at midnight (00:00)
   cron.schedule("0 0 * * *", async () => {
     try {
       const orgs = await Organization.find(
@@ -57,7 +57,7 @@ export function startCronJobs(): void {
 
   logInfo("[Cron] Budget reset (hourly) and analytics refresh (daily) scheduled");
 
-  // AI job queue consumer — poll SQS every second
+  // AI job queue consumer - poll SQS every second
   cron.schedule("*/1 * * * * *", async () => {
     if (aiQueueInProgress) return;
     aiQueueInProgress = true;

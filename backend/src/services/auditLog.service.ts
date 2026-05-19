@@ -10,7 +10,7 @@ export interface LogActionParams {
   entityId: Types.ObjectId | string;
   action: AuditAction;
   performedBy: Types.ObjectId | string;
-  /** Display name of the performer — embedded in the log entry. */
+  /** Display name of the performer - embedded in the log entry. */
   performerName: string;
   ip?: string | null;
   metadata?: Record<string, unknown> | null;
@@ -19,7 +19,7 @@ export interface LogActionParams {
 /**
  * Record an immutable audit log entry.
  *
- * Designed to be called fire-and-catch from controllers — errors are logged
+ * Designed to be called fire-and-catch from controllers - errors are logged
  * but never re-thrown so they cannot disrupt the primary request flow.
  */
 export const logAction = async (params: LogActionParams): Promise<void> => {

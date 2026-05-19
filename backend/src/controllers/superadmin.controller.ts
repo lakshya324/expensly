@@ -155,7 +155,7 @@ export default class SuperAdminController {
         throw err;
       }
 
-      // Seed system policies (non-blocking — failure must not break org creation)
+      // Seed system policies (non-blocking - failure must not break org creation)
       seedSystemPolicies(org._id.toString(), req.user!._id.toString()).catch(() => {});
       // Seed sample categories (non-blocking)
       seedSystemCategories(org._id.toString(), req.user!._id.toString()).catch(() => {});

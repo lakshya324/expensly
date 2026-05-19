@@ -85,7 +85,7 @@ export const updateMerchant = async (
 };
 
 /**
- * Delete a merchant (hard delete — use only when it has no associated tickets).
+ * Delete a merchant (hard delete - use only when it has no associated tickets).
  */
 export const deleteMerchant = async (
   orgId: string,

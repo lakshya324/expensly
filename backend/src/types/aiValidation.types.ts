@@ -15,7 +15,7 @@ export interface IValidationCheck {
 /**
  * Aggregated result of the AI validation pipeline for a ticket.
  *
- * NOTE: This is advisory — the AI never approves or rejects automatically.
+ * NOTE: This is advisory - the AI never approves or rejects automatically.
  * It produces a summary that helps human reviewers make faster decisions.
  */
 export interface IAiValidationResult {

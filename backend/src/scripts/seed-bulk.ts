@@ -1,5 +1,5 @@
 /**
- * Bulk seed script — loads the DB with ~1.2M+ realistic entries spread over the
+ * Bulk seed script - loads the DB with ~1.2M+ realistic entries spread over the
  * past 12 months and writes login credentials to backend/seed-credentials.json.
  *
  * Usage:
@@ -30,7 +30,7 @@ const SEED_PASSWORD = "Seed@1234";
 // const AUDIT_LOGS_PER_ORG = 100_000;
 // const DISCUSSION_MSGS_PER_ORG = 25_000;
 
-// Less batching — reduced totals so the overall generated dataset is much smaller
+// Less batching - reduced totals so the overall generated dataset is much smaller
 const BATCH_SIZE = 500;        // documents per insertMany call
 const TICKETS_PER_ORG = 50_000; // 2 orgs → ~100,000 tickets total
 const BUNDLES_PER_ORG = 200;
@@ -103,7 +103,7 @@ async function fetchLiveRates(): Promise<Record<string, number>> {
     console.log("  ✓ Live exchange rates fetched from open.er-api.com");
     return json.rates;
   } catch (err) {
-    console.warn(`  ⚠ Could not fetch live rates (${(err as Error).message}) — using fallback rates`);
+    console.warn(`  ⚠ Could not fetch live rates (${(err as Error).message}) - using fallback rates`);
     return FALLBACK_RATES;
   }
 }
@@ -120,7 +120,7 @@ const REJECTION_COMMENTS = [
   "Missing original receipt",
   "Duplicate submission",
   "Not a valid business expense",
-  "Policy violation — personal expense",
+  "Policy violation - personal expense",
   "Incorrect category selected",
   "Over the approval threshold",
 ];
@@ -129,18 +129,18 @@ const DISCUSSION_MESSAGES = [
   "Can you provide the original receipt for this expense?",
   "This has been approved. Well within budget.",
   "Please clarify the business purpose for this expense.",
-  "Rejected — missing documentation. Please resubmit with receipts.",
+  "Rejected - missing documentation. Please resubmit with receipts.",
   "Thank you for the quick turnaround on this.",
   "This expense looks unusual. Can you provide more context?",
   "Approved! The receipt matches the amount perfectly.",
   "This will be reimbursed in the next payroll cycle.",
   "This exceeds Q2 budget. Please check with your manager.",
-  "Looks good — forwarding to finance for final approval.",
+  "Looks good - forwarding to finance for final approval.",
   "Approved after verifying against the vendor invoice.",
   "Please split this into separate tickets for each line item.",
-  "Receipt uploaded — thank you for adding that.",
+  "Receipt uploaded - thank you for adding that.",
   "Note: per-diem limit for NYC is $75/day per policy.",
-  "Confirmed attendance at the conference — approved.",
+  "Confirmed attendance at the conference - approved.",
 ];
 
 // Status weights (must add to 100)
@@ -592,7 +592,7 @@ async function main() {
         amount,
         currency,
         department: dept._id,
-        description: `Business expense — ${rand(TICKET_TITLES).toLowerCase()}`,
+        description: `Business expense - ${rand(TICKET_TITLES).toLowerCase()}`,
         tags: pickTags(),
         receiptIds: [],
         status,
@@ -732,7 +732,7 @@ async function main() {
         _id: bundleId,
         orgId,
         title: bundleTitle,
-        description: `Bundled expense report — ${bundleTitle.toLowerCase()}`,
+        description: `Bundled expense report - ${bundleTitle.toLowerCase()}`,
         submitter: {
           _id: submitterSnap._id,
           name: submitterSnap.name,
@@ -855,13 +855,13 @@ async function main() {
         name: u.name,
         email: u.email,
         role: "user",
-        department: deptById.get(u.department.toString())?.name ?? "—",
+        department: deptById.get(u.department.toString())?.name ?? "-",
       })),
       sampleUsers: regularUsers.slice(0, 6).map(u => ({
         name: u.name,
         email: u.email,
         role: "user",
-        department: deptById.get(u.department.toString())?.name ?? "—",
+        department: deptById.get(u.department.toString())?.name ?? "-",
       })),
     });
 
@@ -888,7 +888,7 @@ main().catch(err => {
 });
 
 
-// Bulk Seed Script — seed-bulk.ts
+// Bulk Seed Script - seed-bulk.ts
 // What it creates (per org × 2 orgs)
 // Collection	Count
 // Organizations	2

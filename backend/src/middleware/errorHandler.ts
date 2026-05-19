@@ -38,7 +38,7 @@ export const errorHandler = (
 };
 
 /**
- * 404 handler — placed after all routes.
+ * 404 handler - placed after all routes.
  */
 export const notFoundHandler = (req: Request, res: Response): void => {
   const payload: ResponsePayload<IErrorResponseData> = {

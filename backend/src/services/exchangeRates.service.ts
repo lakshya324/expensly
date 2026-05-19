@@ -24,7 +24,7 @@ const RATE_CACHE_TTL = 3600;
 const RATE_CACHE_PREFIX = "cache:rates:";
 
 // ---------------------------------------------------------------------------
-// External rate fetch (open.er-api.com — free, no key required for base rates)
+// External rate fetch (open.er-api.com - free, no key required for base rates)
 // ---------------------------------------------------------------------------
 const EXTERNAL_RATE_API = "https://open.er-api.com/v6/latest";
 

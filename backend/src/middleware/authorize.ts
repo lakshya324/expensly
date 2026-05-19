@@ -4,7 +4,7 @@ import { AuthRequest } from "../types/types.js";
 import { createError } from "../utils/error.js";
 
 /**
- * authorize(...roles) — middleware factory.
+ * authorize(...roles) - middleware factory.
  * Must be used after authenticate.
  *
  * Usage: router.get('/route', authenticate, authorize('admin', 'super_admin'), handler)

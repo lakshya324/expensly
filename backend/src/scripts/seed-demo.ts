@@ -1,5 +1,5 @@
 /**
- * Demo seed script — creates a small, curated dataset for live product demos.
+ * Demo seed script - creates a small, curated dataset for live product demos.
  *
  * Covers every feature: all ticket statuses, bundles (approved/submitted/draft),
  * discussion threads, flagged tickets, audit trail, multi-currency, analytics.
@@ -9,7 +9,7 @@
  *   npx tsx src/scripts/seed-demo.ts
  *   npm run build && node dist/scripts/seed-demo.js
  *
- * Idempotent — drops the "expensly-demo" org before re-seeding.
+ * Idempotent - drops the "expensly-demo" org before re-seeding.
  * Credentials → backend/seed-demo-credentials.json
  * Password for all demo users: Demo@1234
  */
@@ -61,7 +61,7 @@ async function fetchDemoRates(): Promise<Record<string, number>> {
     console.log(`✓ Live rates fetched: ${JSON.stringify(filtered)}`);
     return filtered;
   } catch (err) {
-    console.warn(`⚠ Live rates unavailable (${(err as Error).message}) — using fallback`);
+    console.warn(`⚠ Live rates unavailable (${(err as Error).message}) - using fallback`);
     return { ...FALLBACK_RATES };
   }
 }
@@ -462,7 +462,7 @@ async function main() {
     amount: p.amount,
     currency: p.currency,
     department: p.dept,
-    description: p.description ?? `Business expense — ${p.title.toLowerCase()}`,
+    description: p.description ?? `Business expense - ${p.title.toLowerCase()}`,
     tags: p.tags ?? [],
     receiptIds: [],
     status: p.status,
@@ -542,9 +542,9 @@ async function main() {
       createdAt: daysAgo(4), updatedAt: daysAgo(4),
     }),
 
-    // ── Pending — awaiting manager approval (5) ────────────────────────────
+    // ── Pending - awaiting manager approval (5) ────────────────────────────
     buildTicket(t4, {
-      title: "AWS Summit Hotel — 3 Nights",
+      title: "AWS Summit Hotel - 3 Nights",
       submittedBy: priyaId, submitterManagerId: alexId,
       dept: engId, deptName: "Engineering",
       amount: 380, currency: "USD",
@@ -570,12 +570,12 @@ async function main() {
       aiValidation: aiFlagged(daysAgo(6), [
         { label: "Amount reasonableness", passed: true,  confidence: 0.89, detail: "$11.88 per person is within the meal policy limit" },
         { label: "Category match",        passed: true,  confidence: 0.95, detail: null },
-        { label: "Receipt attached",      passed: false, confidence: 0.97, detail: "No receipt uploaded for this expense — required for group meals" },
+        { label: "Receipt attached",      passed: false, confidence: 0.97, detail: "No receipt uploaded for this expense - required for group meals" },
         { label: "Group meal disclosure", passed: false, confidence: 0.83, detail: "Attendee names and business purpose not provided" },
       ], "Flagged: Group meal expense is missing receipt and attendee list. Upload itemized receipt to proceed."),
     }),
     buildTicket(t6, {
-      title: `MacBook Pro 16" — Engineering Workstation`,
+      title: `MacBook Pro 16" - Engineering Workstation`,
       submittedBy: tomId, submitterManagerId: alexId,
       dept: engId, deptName: "Engineering",
       amount: 2499, currency: "USD",
@@ -583,7 +583,7 @@ async function main() {
       category: catIds["Equipment"], categoryName: "Equipment",
       status: "pending", flagged: true,
       managerApproval: pendingApproval, financeApproval: pendingApproval,
-      description: "Replacement workstation — current machine is 4 years old, CTO pre-approved via email.",
+      description: "Replacement workstation - current machine is 4 years old, CTO pre-approved via email.",
       tags: ["equipment", "pre-approved"],
       createdAt: daysAgo(7), updatedAt: daysAgo(2),
       aiValidation: aiFlagged(daysAgo(7), [
@@ -608,7 +608,7 @@ async function main() {
       createdAt: daysAgo(4), updatedAt: daysAgo(4),
     }),
     buildTicket(t8, {
-      title: "LinkedIn Ads — Q2 Campaign",
+      title: "LinkedIn Ads - Q2 Campaign",
       submittedBy: lisaId, submitterManagerId: caseyId,
       dept: mktId, deptName: "Marketing",
       amount: 500, currency: "EUR",
@@ -620,7 +620,7 @@ async function main() {
       createdAt: daysAgo(3), updatedAt: daysAgo(3),
     }),
 
-    // ── Awaiting Finance — manager approved (4) ────────────────────────────
+    // ── Awaiting Finance - manager approved (4) ────────────────────────────
     buildTicket(t9, {
       title: "React Advanced Conference 2024",
       submittedBy: priyaId, submitterManagerId: alexId,
@@ -635,7 +635,7 @@ async function main() {
       createdAt: daysAgo(14), updatedAt: daysAgo(10),
     }),
     buildTicket(t10, {
-      title: "Ergonomic Office Chair — WFH Setup",
+      title: "Ergonomic Office Chair - WFH Setup",
       submittedBy: tomId, submitterManagerId: alexId,
       dept: engId, deptName: "Engineering",
       amount: 349, currency: "USD",
@@ -662,7 +662,7 @@ async function main() {
       createdAt: daysAgo(11), updatedAt: daysAgo(8),
     }),
     buildTicket(t12, {
-      title: "Client Dinner — Acme Corp Partnership",
+      title: "Client Dinner - Acme Corp Partnership",
       submittedBy: carlosId, submitterManagerId: jamieId,
       dept: salesId, deptName: "Sales",
       amount: 450, currency: "USD",
@@ -675,7 +675,7 @@ async function main() {
       createdAt: daysAgo(10), updatedAt: daysAgo(7),
     }),
 
-    // ── Approved (12) — spread across last 12 weeks for chart data ──────────
+    // ── Approved (12) - spread across last 12 weeks for chart data ──────────
     buildTicket(t13, {
       title: "Google Cloud Platform Credits",
       submittedBy: priyaId, submitterManagerId: alexId,
@@ -691,7 +691,7 @@ async function main() {
       createdAt: weeksAgo(10), updatedAt: hoursLater(weeksAgo(10), 36),
     }),
     buildTicket(t14, {
-      title: "Flight — NYC Client Visit",
+      title: "Flight - NYC Client Visit",
       submittedBy: priyaId, submitterManagerId: alexId,
       dept: engId, deptName: "Engineering",
       amount: 320, currency: "USD",
@@ -705,7 +705,7 @@ async function main() {
       createdAt: weeksAgo(7), updatedAt: hoursLater(weeksAgo(7), 24),
     }),
     buildTicket(t15, {
-      title: "NodeConf EU 2024 — Conference Ticket",
+      title: "NodeConf EU 2024 - Conference Ticket",
       submittedBy: tomId, submitterManagerId: alexId,
       dept: engId, deptName: "Engineering",
       amount: 799, currency: "USD",
@@ -732,7 +732,7 @@ async function main() {
       createdAt: weeksAgo(6), updatedAt: hoursLater(weeksAgo(6), 18),
     }),
     buildTicket(t17, {
-      title: "Engineering Team Lunch — Sprint Retro",
+      title: "Engineering Team Lunch - Sprint Retro",
       submittedBy: alexId, submitterManagerId: null,
       dept: engId, deptName: "Engineering",
       amount: 245, currency: "USD",
@@ -745,7 +745,7 @@ async function main() {
       createdAt: weeksAgo(5), updatedAt: hoursLater(weeksAgo(5), 12),
     }),
     buildTicket(t18, {
-      title: "Sales Summit Hotel — 4 Nights",
+      title: "Sales Summit Hotel - 4 Nights",
       submittedBy: emmaId, submitterManagerId: jamieId,
       dept: salesId, deptName: "Sales",
       amount: 680, currency: "USD",
@@ -797,7 +797,7 @@ async function main() {
       createdAt: weeksAgo(10), updatedAt: hoursLater(weeksAgo(10), 48),
     }),
     buildTicket(t22, {
-      title: "Q1 Sales Kickoff — Flight",
+      title: "Q1 Sales Kickoff - Flight",
       submittedBy: jamieId, submitterManagerId: null,
       dept: salesId, deptName: "Sales",
       amount: 450, currency: "USD",
@@ -810,7 +810,7 @@ async function main() {
       createdAt: weeksAgo(11), updatedAt: hoursLater(weeksAgo(11), 20),
     }),
     buildTicket(t23, {
-      title: "Adobe Creative Cloud — Annual License",
+      title: "Adobe Creative Cloud - Annual License",
       submittedBy: lisaId, submitterManagerId: caseyId,
       dept: mktId, deptName: "Marketing",
       amount: 599, currency: "USD",
@@ -823,7 +823,7 @@ async function main() {
       createdAt: weeksAgo(8), updatedAt: hoursLater(weeksAgo(8), 18),
     }),
     buildTicket(t24, {
-      title: "Marketing Summit India — Flight & Hotel",
+      title: "Marketing Summit India - Flight & Hotel",
       submittedBy: caseyId, submitterManagerId: null,
       dept: mktId, deptName: "Marketing",
       amount: 74500, currency: "INR",
@@ -845,7 +845,7 @@ async function main() {
       merchant: mIds["Amazon"], merchantName: "Amazon",
       category: catIds["Office Supplies"], categoryName: "Office Supplies",
       status: "rejected",
-      managerApproval: rejectedBy(alexId, daysAgo(20), "Personal item — gaming chairs are not eligible business expenses."),
+      managerApproval: rejectedBy(alexId, daysAgo(20), "Personal item - gaming chairs are not eligible business expenses."),
       financeApproval: pendingApproval,
       tags: ["equipment"],
       createdAt: daysAgo(22), updatedAt: daysAgo(20),
@@ -907,7 +907,7 @@ async function main() {
     {
       _id: bundle1Id, orgId,
       title: bundle1Name,
-      description: "Q1 approved expenses — GCP credits and client travel",
+      description: "Q1 approved expenses - GCP credits and client travel",
       submitter: userSnap(priyaId),
       status: "approved",
       totalAmountBase: bundle1Amount,
@@ -937,7 +937,7 @@ async function main() {
     {
       _id: bundle3Id, orgId,
       title: bundle3Name,
-      description: "Draft bundle — Emma's Q1 sales expenses pending submission",
+      description: "Draft bundle - Emma's Q1 sales expenses pending submission",
       submitter: userSnap(emmaId),
       status: "draft",
       totalAmountBase: bundle3Amount,
@@ -980,18 +980,18 @@ async function main() {
   const messageDocs = [
     // t5: Carlos flagged client lunch
     buildMsg(t5, adminId,   "This amount seems high for a client lunch. Please provide an itemized receipt.",                                    daysAgo(5)),
-    buildMsg(t5, carlosId,  "Hi! I've attached the itemized receipt — there were 8 clients present from Acme Corp.",                            hoursLater(daysAgo(5), 3)),
+    buildMsg(t5, carlosId,  "Hi! I've attached the itemized receipt - there were 8 clients present from Acme Corp.",                            hoursLater(daysAgo(5), 3)),
     buildMsg(t5, adminId,   "Receipt verified. Unflagging and forwarding to your manager for approval.",                                         hoursLater(daysAgo(5), 5)),
 
     // t6: Tom MacBook flagged
     buildMsg(t6, alexId,  "Tom, this exceeds the standard equipment budget. Can you confirm you have prior CTO approval?",                       daysAgo(6)),
-    buildMsg(t6, tomId,   "Hi Alex — yes, I have email confirmation from David (CTO) approving this as a replacement workstation.",             hoursLater(daysAgo(6), 2)),
+    buildMsg(t6, tomId,   "Hi Alex - yes, I have email confirmation from David (CTO) approving this as a replacement workstation.",             hoursLater(daysAgo(6), 2)),
     buildMsg(t6, alexId,  "Confirmed. Will review the CTO email and proceed with approval pending finance sign-off.",                            hoursLater(daysAgo(6), 4)),
 
     // t26: Carlos Vegas rejected
     buildMsg(t26, jamieId,  "Carlos, can you clarify the business purpose for this trip?",                                                       daysAgo(20)),
-    buildMsg(t26, carlosId, "This was for a networking event — I met several potential clients at the venue.",                                   hoursLater(daysAgo(20), 4)),
-    buildMsg(t26, jamieId,  "Networking trips to Las Vegas are not on the approved expense list. Rejecting — please refer to the T&E Policy.",  hoursLater(daysAgo(20), 8)),
+    buildMsg(t26, carlosId, "This was for a networking event - I met several potential clients at the venue.",                                   hoursLater(daysAgo(20), 4)),
+    buildMsg(t26, jamieId,  "Networking trips to Las Vegas are not on the approved expense list. Rejecting - please refer to the T&E Policy.",  hoursLater(daysAgo(20), 8)),
   ];
   await col.messages.insertMany(messageDocs);
   console.log(`✓ 9 discussion messages (3 threads)`);
@@ -1100,7 +1100,7 @@ async function main() {
       console.log("✓ Analytics snapshot computed");
     }
   } catch (err) {
-    console.warn(`⚠ Analytics refresh skipped (${(err as Error).message}) — the hourly cron will handle it`);
+    console.warn(`⚠ Analytics refresh skipped (${(err as Error).message}) - the hourly cron will handle it`);
   }
 
   // ── Write credentials ─────────────────────────────────────────────────────
@@ -1111,7 +1111,7 @@ async function main() {
     users: [
       { role: "admin",   email: "admin@demo.expensly.dev",         name: "Admin User",      note: "Full permissions incl. finance approval" },
       { role: "user",    email: "finance@demo.expensly.dev",       name: "Finance Officer", department: "Finance", note: "Finance dept user with explicit approve_finance + all finance permissions" },
-      { role: "manager", email: "alex.morgan@demo.expensly.dev",   name: "Alex Morgan",    department: "Engineering", note: "Engineering manager — approves team tickets" },
+      { role: "manager", email: "alex.morgan@demo.expensly.dev",   name: "Alex Morgan",    department: "Engineering", note: "Engineering manager - approves team tickets" },
       { role: "manager", email: "jamie.taylor@demo.expensly.dev",  name: "Jamie Taylor",   department: "Sales",       note: "Sales manager" },
       { role: "manager", email: "casey.lee@demo.expensly.dev",     name: "Casey Lee",      department: "Marketing",   note: "Marketing manager" },
       { role: "user",    email: "priya.sharma@demo.expensly.dev",  name: "Priya Sharma",   department: "Engineering", note: "Has approved bundle + awaiting_finance ticket" },
@@ -1153,7 +1153,7 @@ async function main() {
 `);
 
   // Disconnect Redis (opened by refreshOrgAnalytics → cache.service) and Mongoose
-  try { await getRedisClient().quit(); } catch { /* Redis wasn't used — no-op */ }
+  try { await getRedisClient().quit(); } catch { /* Redis wasn't used - no-op */ }
   await mongoose.disconnect();
 }
 

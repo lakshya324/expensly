@@ -308,7 +308,7 @@ export default class TicketController {
         status: ticketStatus,
         merchant: merchantRef ?? null,
         category: categoryRef ?? null,
-        // Denormalized display snapshots — embedded at creation
+        // Denormalized display snapshots - embedded at creation
         submitterSnapshot: { _id: user._id, name: user.name, email: user.email },
         departmentSnapshot: dept ? { _id: dept._id, name: dept.name } : null,
         merchantSnapshot: merchantEntity ? { _id: merchantEntity._id, name: merchantEntity.name } : null,
@@ -368,7 +368,7 @@ export default class TicketController {
         });
       }
 
-      // Link to bundle if bundleId was provided (non-fatal — silently ignored if bundle not found)
+      // Link to bundle if bundleId was provided (non-fatal - silently ignored if bundle not found)
       if (bundleId) {
         try {
           await Bundle.findOneAndUpdate(
@@ -419,7 +419,7 @@ export default class TicketController {
       if (ticketStatus === TICKET_STATUS.PENDING) {
         try {
           const notifyTargets: { email: string; name: string }[] = [];
-          // Fetch manager and org admins in parallel — both independent of each other.
+          // Fetch manager and org admins in parallel - both independent of each other.
           const [manager, admins] = await Promise.all([
             user.managerId
               ? User.findById(user.managerId).select("email name").lean()
@@ -823,7 +823,7 @@ export default class TicketController {
                 );
               }
             } catch {
-              // Non-fatal — leave convertedAmount unset if rates unavailable
+              // Non-fatal - leave convertedAmount unset if rates unavailable
             }
           }
 
@@ -1044,7 +1044,7 @@ export default class TicketController {
       const payload: ResponsePayload<ITicketData> = {
         success: true,
         message:
-          "Receipt uploaded — scanning in progress. Results will arrive via WebSocket.",
+          "Receipt uploaded - scanning in progress. Results will arrive via WebSocket.",
         data: ticketData,
         timestamp: new Date().toISOString(),
       };

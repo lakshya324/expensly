@@ -26,7 +26,7 @@ const SYSTEM_POLICY_DEFS: SystemPolicyDef[] = [
   },
   {
     name: "Org Contributor",
-    description: "Full access — view all tickets, approve finance, export reports, and view analytics.",
+    description: "Full access - view all tickets, approve finance, export reports, and view analytics.",
     grants: [
       PERMISSION_KEY.VIEW_ALL_TICKETS,
       PERMISSION_KEY.APPROVE_FINANCE,
@@ -38,7 +38,7 @@ const SYSTEM_POLICY_DEFS: SystemPolicyDef[] = [
 
 /**
  * Idempotently seeds the 4 system policies for a given org.
- * Safe to call multiple times — uses upsert on (orgId, name, isSystem).
+ * Safe to call multiple times - uses upsert on (orgId, name, isSystem).
  */
 export async function seedSystemPolicies(
   orgId: string,

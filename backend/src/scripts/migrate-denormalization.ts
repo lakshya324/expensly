@@ -51,7 +51,7 @@ async function migrateUsers(): Promise<void> {
     if (processed % 500 === 0) logInfo(`[migrate] Users: ${processed} processed`);
   }
 
-  logInfo(`[migrate] Users done — ${processed} total`);
+  logInfo(`[migrate] Users done - ${processed} total`);
 }
 
 const BATCH = 500;
@@ -109,14 +109,14 @@ async function migrateTickets(): Promise<void> {
     if (processed % 500 === 0) logInfo(`[migrate] Tickets: ${processed} processed`);
   }
 
-  logInfo(`[migrate] Tickets done — ${processed} total`);
+  logInfo(`[migrate] Tickets done - ${processed} total`);
 }
 
 async function migrateBundles(): Promise<void> {
   logInfo("[migrate] Starting Bundle submitter backfill…");
   let processed = 0;
 
-  // Bundles in the new schema don't have `submittedBy` anymore — if migrating
+  // Bundles in the new schema don't have `submittedBy` anymore - if migrating
   // from old schema, find docs that still have submittedBy and lack submitter.
   const rawCollection = mongoose.connection.collection("bundles");
   const cursor = rawCollection.find({ submitter: { $exists: false }, submittedBy: { $exists: true } });
@@ -148,7 +148,7 @@ async function migrateBundles(): Promise<void> {
     if (processed % 200 === 0) logInfo(`[migrate] Bundles: ${processed} processed`);
   }
 
-  logInfo(`[migrate] Bundles done — ${processed} total`);
+  logInfo(`[migrate] Bundles done - ${processed} total`);
 }
 
 async function migrateDiscussionMessages(): Promise<void> {
@@ -182,7 +182,7 @@ async function migrateDiscussionMessages(): Promise<void> {
     if (processed % 500 === 0) logInfo(`[migrate] DiscussionMessages: ${processed} processed`);
   }
 
-  logInfo(`[migrate] DiscussionMessages done — ${processed} total`);
+  logInfo(`[migrate] DiscussionMessages done - ${processed} total`);
 }
 
 async function migrateAuditLogs(): Promise<void> {
@@ -207,7 +207,7 @@ async function migrateAuditLogs(): Promise<void> {
     if (processed % 1000 === 0) logInfo(`[migrate] AuditLogs: ${processed} processed`);
   }
 
-  logInfo(`[migrate] AuditLogs done — ${processed} total`);
+  logInfo(`[migrate] AuditLogs done - ${processed} total`);
 }
 
 async function migrateMerchantLogoKeys(): Promise<void> {
@@ -232,7 +232,7 @@ async function migrateMerchantLogoKeys(): Promise<void> {
     if (processed % 100 === 0) logInfo(`[migrate] Merchants: ${processed} processed`);
   }
 
-  logInfo(`[migrate] Merchants done — ${processed} total`);
+  logInfo(`[migrate] Merchants done - ${processed} total`);
 }
 
 async function migrateDepartmentPolicySnapshots(): Promise<void> {
@@ -257,7 +257,7 @@ async function migrateDepartmentPolicySnapshots(): Promise<void> {
     if (processed % 100 === 0) logInfo(`[migrate] Departments: ${processed} processed`);
   }
 
-  logInfo(`[migrate] Departments done — ${processed} total`);
+  logInfo(`[migrate] Departments done - ${processed} total`);
 }
 
 async function migrateUserPolicySnapshots(): Promise<void> {
@@ -282,7 +282,7 @@ async function migrateUserPolicySnapshots(): Promise<void> {
     if (processed % 500 === 0) logInfo(`[migrate] Users (policy): ${processed} processed`);
   }
 
-  logInfo(`[migrate] Users (policy) done — ${processed} total`);
+  logInfo(`[migrate] Users (policy) done - ${processed} total`);
 }
 
 async function migrateExchangeRateCreators(): Promise<void> {
@@ -305,7 +305,7 @@ async function migrateExchangeRateCreators(): Promise<void> {
     if (processed % 500 === 0) logInfo(`[migrate] ExchangeRateSnapshots: ${processed} processed`);
   }
 
-  logInfo(`[migrate] ExchangeRateSnapshots done — ${processed} total`);
+  logInfo(`[migrate] ExchangeRateSnapshots done - ${processed} total`);
 }
 
 async function main() {

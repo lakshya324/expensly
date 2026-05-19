@@ -356,7 +356,7 @@ export default class DepartmentController {
   }
 
   /** GET /api/admin/departments/:id/tags  (admin view) */
-  /** GET /api/users/departments/:id/tags  (user view — same response) */
+  /** GET /api/users/departments/:id/tags  (user view - same response) */
   static async getTags(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const org = req.organization!;
@@ -404,7 +404,7 @@ export default class DepartmentController {
     }
   }
 
-  /** GET /api/users/departments — active depts in org (for dropdowns) */
+  /** GET /api/users/departments - active depts in org (for dropdowns) */
   static async listForUser(
     req: AuthRequest,
     res: Response,

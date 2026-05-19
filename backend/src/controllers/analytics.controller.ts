@@ -30,7 +30,7 @@ export default class AnalyticsController {
     }
   }
 
-  /** POST /api/admin/analytics/refresh — trigger manual refresh */
+  /** POST /api/admin/analytics/refresh - trigger manual refresh */
   static async refreshAnalytics(
     req: AuthRequest,
     res: Response,

@@ -2,9 +2,9 @@
  * Queue Service
  *
  * Thin wrapper around AWS SQS for the AI processing job queue.
- * - `enqueueJob`     — send a job message (producer)
- * - `receiveMessages` — poll up to N messages (consumer)
- * - `deleteMessage`  — acknowledge / remove a processed message
+ * - `enqueueJob`     - send a job message (producer)
+ * - `receiveMessages` - poll up to N messages (consumer)
+ * - `deleteMessage`  - acknowledge / remove a processed message
  */
 import {
   SendMessageCommand,

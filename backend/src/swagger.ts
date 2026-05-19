@@ -15,7 +15,7 @@ const options: swaggerJsdoc.Options = {
       title: "Expensly API",
       version: "2.2.0",
       description:
-        "REST API for Expensly — a multi-tenant expense management platform. " +
+        "REST API for Expensly - a multi-tenant expense management platform. " +
         "Supports multi-role authentication (super_admin, admin, user), " +
         "expense ticket lifecycle management, department budgets, exchange rates, real-time analytics, and file uploads.",
       contact: {
@@ -35,12 +35,12 @@ const options: swaggerJsdoc.Options = {
     ],
     tags: [
       { name: "Health", description: "Server health & status" },
-      { name: "Auth", description: "Authentication — signup, login (2-step OTP), token refresh, logout" },
-      { name: "Tickets", description: "Expense tickets — CRUD, status transitions, receipt uploads" },
-      { name: "Admin — Users", description: "Admin: user management within the organisation" },
-      { name: "Admin — Departments", description: "Admin: department management, budgets, tags" },
-      { name: "Admin — Exchange Rates", description: "Admin: exchange rate snapshots" },
-      { name: "Admin — Analytics", description: "Admin: org-level analytics" },
+      { name: "Auth", description: "Authentication - signup, login (2-step OTP), token refresh, logout" },
+      { name: "Tickets", description: "Expense tickets - CRUD, status transitions, receipt uploads" },
+      { name: "Admin - Users", description: "Admin: user management within the organisation" },
+      { name: "Admin - Departments", description: "Admin: department management, budgets, tags" },
+      { name: "Admin - Exchange Rates", description: "Admin: exchange rate snapshots" },
+      { name: "Admin - Analytics", description: "Admin: org-level analytics" },
       { name: "SuperAdmin", description: "Super-admin: organisation and cross-org user management" },
     ],
     components: {
@@ -195,7 +195,7 @@ const options: swaggerJsdoc.Options = {
               type: "string",
               enum: ["pending", "awaiting_finance", "approved", "rejected"],
             },
-            receiptKey: { type: "string", nullable: true, description: "S3 key — pass to GET /expenses/:id/receipt for a signed URL" },
+            receiptKey: { type: "string", nullable: true, description: "S3 key - pass to GET /expenses/:id/receipt for a signed URL" },
             submittedBy: { $ref: "#/components/schemas/User" },
             department: { type: "string", nullable: true },
             orgId: { type: "string" },
@@ -397,7 +397,7 @@ const options: swaggerJsdoc.Options = {
             content: { "application/json": { schema: { $ref: "#/components/schemas/SignupRequest" } } },
           },
           responses: {
-            201: { description: "Signup successful — awaiting super admin approval", content: { "application/json": { schema: { $ref: "#/components/schemas/SuccessResponse" } } } },
+            201: { description: "Signup successful - awaiting super admin approval", content: { "application/json": { schema: { $ref: "#/components/schemas/SuccessResponse" } } } },
             400: {
               description: "Slug or email already taken",
               content: {
@@ -417,7 +417,7 @@ const options: swaggerJsdoc.Options = {
       "/auth/login": {
         post: {
           tags: ["Auth"],
-          summary: "Login Step 1 — validate credentials, send OTP",
+          summary: "Login Step 1 - validate credentials, send OTP",
           description:
             "Validates email & password. On success, sends a 6-digit OTP to the user's email and returns an `otpSessionId`. " +
             "Pass the `otpSessionId` + OTP to `POST /auth/verify-otp` to receive tokens.",
@@ -442,7 +442,7 @@ const options: swaggerJsdoc.Options = {
       "/auth/verify-otp": {
         post: {
           tags: ["Auth"],
-          summary: "Login Step 2 — verify OTP, receive access token",
+          summary: "Login Step 2 - verify OTP, receive access token",
           description:
             "Verifies the OTP within its session. On success issues a JWT access token (in the response body) and a `httpOnly` refresh token (in a cookie). " +
             "Max 5 attempts per session before the session is invalidated.",
@@ -452,7 +452,7 @@ const options: swaggerJsdoc.Options = {
             content: { "application/json": { schema: { $ref: "#/components/schemas/VerifyOtpRequest" } } },
           },
           responses: {
-            200: { description: "Login successful — access token issued", content: { "application/json": { schema: { $ref: "#/components/schemas/TokenResponse" } } } },
+            200: { description: "Login successful - access token issued", content: { "application/json": { schema: { $ref: "#/components/schemas/TokenResponse" } } } },
             401: {
               description: "OTP invalid or session expired",
               content: {
@@ -500,7 +500,7 @@ const options: swaggerJsdoc.Options = {
       "/auth/logout": {
         post: {
           tags: ["Auth"],
-          summary: "Logout — revoke refresh token",
+          summary: "Logout - revoke refresh token",
           description: "Revokes the current refresh token and clears the cookie. Requires a valid access token.",
           responses: {
             200: { description: "Logged out successfully" },
@@ -647,7 +647,7 @@ const options: swaggerJsdoc.Options = {
             },
           },
           responses: {
-            200: { description: "Status updated — submitter receives email notification" },
+            200: { description: "Status updated - submitter receives email notification" },
             400: { description: "Manager approval required first", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" }, example: { code: "MANAGER_APPROVAL_REQUIRED" } } } },
             401: { $ref: "#/components/responses/Unauthorized" },
             404: { $ref: "#/components/responses/NotFound" },
@@ -670,10 +670,10 @@ const options: swaggerJsdoc.Options = {
         },
       },
 
-      // ── Admin — Users ─────────────────────────────────────────────────────
+      // ── Admin - Users ─────────────────────────────────────────────────────
       "/admin/users": {
         get: {
-          tags: ["Admin — Users"],
+          tags: ["Admin - Users"],
           summary: "List org users",
           parameters: [
             { name: "page", in: "query", schema: { type: "integer", default: 1 } },
@@ -683,7 +683,7 @@ const options: swaggerJsdoc.Options = {
           responses: { 200: { description: "User list" }, 401: { $ref: "#/components/responses/Unauthorized" }, 403: { $ref: "#/components/responses/Forbidden" } },
         },
         post: {
-          tags: ["Admin — Users"],
+          tags: ["Admin - Users"],
           summary: "Create org user",
           description: "Creates a new user within the admin's organisation. A welcome email is sent to the new user.",
           requestBody: {
@@ -705,7 +705,7 @@ const options: swaggerJsdoc.Options = {
             },
           },
           responses: {
-            201: { description: "User created — welcome email sent" },
+            201: { description: "User created - welcome email sent" },
             409: { description: "Email already exists", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" }, example: { code: "DUPLICATE_EMAIL" } } } },
             401: { $ref: "#/components/responses/Unauthorized" },
             403: { $ref: "#/components/responses/Forbidden" },
@@ -714,7 +714,7 @@ const options: swaggerJsdoc.Options = {
       },
       "/admin/users/{id}": {
         put: {
-          tags: ["Admin — Users"],
+          tags: ["Admin - Users"],
           summary: "Edit user",
           parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           requestBody: {
@@ -736,7 +736,7 @@ const options: swaggerJsdoc.Options = {
       },
       "/admin/users/{id}/disable": {
         patch: {
-          tags: ["Admin — Users"],
+          tags: ["Admin - Users"],
           summary: "Enable / disable user",
           parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           requestBody: {
@@ -748,7 +748,7 @@ const options: swaggerJsdoc.Options = {
       },
       "/admin/users/{id}/permissions": {
         patch: {
-          tags: ["Admin — Users"],
+          tags: ["Admin - Users"],
           summary: "Update user permissions",
           parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           requestBody: {
@@ -768,15 +768,15 @@ const options: swaggerJsdoc.Options = {
         },
       },
 
-      // ── Admin — Departments ───────────────────────────────────────────────
+      // ── Admin - Departments ───────────────────────────────────────────────
       "/admin/departments": {
         get: {
-          tags: ["Admin — Departments"],
+          tags: ["Admin - Departments"],
           summary: "List departments",
           responses: { 200: { description: "Department list" }, 401: { $ref: "#/components/responses/Unauthorized" } },
         },
         post: {
-          tags: ["Admin — Departments"],
+          tags: ["Admin - Departments"],
           summary: "Create department",
           requestBody: {
             required: true,
@@ -798,30 +798,30 @@ const options: swaggerJsdoc.Options = {
         },
       },
       "/admin/departments/{id}": {
-        get: { tags: ["Admin — Departments"], summary: "Get department", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { 200: { description: "Department" }, 404: { $ref: "#/components/responses/NotFound" } } },
-        patch: { tags: ["Admin — Departments"], summary: "Update department", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], requestBody: { content: { "application/json": { schema: { $ref: "#/components/schemas/Department" } } } }, responses: { 200: { description: "Updated" } } },
-        delete: { tags: ["Admin — Departments"], summary: "Deactivate department", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { 200: { description: "Deactivated" } } },
+        get: { tags: ["Admin - Departments"], summary: "Get department", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { 200: { description: "Department" }, 404: { $ref: "#/components/responses/NotFound" } } },
+        patch: { tags: ["Admin - Departments"], summary: "Update department", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], requestBody: { content: { "application/json": { schema: { $ref: "#/components/schemas/Department" } } } }, responses: { 200: { description: "Updated" } } },
+        delete: { tags: ["Admin - Departments"], summary: "Deactivate department", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { 200: { description: "Deactivated" } } },
       },
       "/admin/departments/{id}/reset-budget": {
-        post: { tags: ["Admin — Departments"], summary: "Reset department budget", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { 200: { description: "Budget reset" } } },
+        post: { tags: ["Admin - Departments"], summary: "Reset department budget", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { 200: { description: "Budget reset" } } },
       },
       "/admin/departments/{id}/tags": {
-        get: { tags: ["Admin — Departments"], summary: "Get department tags", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { 200: { description: "Tags" } } },
+        get: { tags: ["Admin - Departments"], summary: "Get department tags", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { 200: { description: "Tags" } } },
       },
       "/admin/departments/{id}/tags/{tag}": {
-        delete: { tags: ["Admin — Departments"], summary: "Remove department tag", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }, { name: "tag", in: "path", required: true, schema: { type: "string" } }], responses: { 200: { description: "Removed" } } },
+        delete: { tags: ["Admin - Departments"], summary: "Remove department tag", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }, { name: "tag", in: "path", required: true, schema: { type: "string" } }], responses: { 200: { description: "Removed" } } },
       },
 
-      // ── Admin — Exchange Rates ─────────────────────────────────────────────
+      // ── Admin - Exchange Rates ─────────────────────────────────────────────
       "/admin/exchange-rates": {
         get: {
-          tags: ["Admin — Exchange Rates"],
+          tags: ["Admin - Exchange Rates"],
           summary: "Get current exchange rate snapshot",
           description: "Returns the most recent exchange rate snapshot for the organisation.",
           responses: { 200: { description: "Current snapshot", content: { "application/json": { schema: { allOf: [{ $ref: "#/components/schemas/SuccessResponse" }, { type: "object", properties: { data: { $ref: "#/components/schemas/ExchangeRateSnapshot" } } }] } } } }, 401: { $ref: "#/components/responses/Unauthorized" } },
         },
         patch: {
-          tags: ["Admin — Exchange Rates"],
+          tags: ["Admin - Exchange Rates"],
           summary: "Manually set exchange rates",
           requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["rates"], properties: { rates: { type: "object", additionalProperties: { type: "number" } }, activeCurrencies: { type: "array", items: { type: "string" } } } } } } },
           responses: { 200: { description: "Rates saved" }, 401: { $ref: "#/components/responses/Unauthorized" } },
@@ -829,7 +829,7 @@ const options: swaggerJsdoc.Options = {
       },
       "/admin/exchange-rates/fetch-latest": {
         post: {
-          tags: ["Admin — Exchange Rates"],
+          tags: ["Admin - Exchange Rates"],
           summary: "Fetch & save latest rates from external API",
           description: "Fetches from `open.er-api.com` (result is cached in Redis for 1 hour per base currency).",
           responses: { 200: { description: "Rates fetched and saved" }, 502: { description: "External API unavailable", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" }, example: { code: "EXCHANGE_RATE_FETCH_ERROR" } } } } },
@@ -837,7 +837,7 @@ const options: swaggerJsdoc.Options = {
       },
       "/admin/exchange-rates/history": {
         get: {
-          tags: ["Admin — Exchange Rates"],
+          tags: ["Admin - Exchange Rates"],
           summary: "Rate snapshot history",
           parameters: [
             { name: "page", in: "query", schema: { type: "integer", default: 1 } },
@@ -848,17 +848,17 @@ const options: swaggerJsdoc.Options = {
       },
       "/admin/exchange-rates/active-currencies": {
         patch: {
-          tags: ["Admin — Exchange Rates"],
+          tags: ["Admin - Exchange Rates"],
           summary: "Update active currencies",
           requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["activeCurrencies"], properties: { activeCurrencies: { type: "array", items: { type: "string" } } } } } } },
           responses: { 200: { description: "Updated" } },
         },
       },
 
-      // ── Admin — Analytics ─────────────────────────────────────────────────
+      // ── Admin - Analytics ─────────────────────────────────────────────────
       "/admin/analytics": {
         get: {
-          tags: ["Admin — Analytics"],
+          tags: ["Admin - Analytics"],
           summary: "Get org analytics",
           description: "Returns the pre-computed analytics snapshot (served from Redis cache if fresh, otherwise from MongoDB).",
           responses: {
@@ -869,7 +869,7 @@ const options: swaggerJsdoc.Options = {
       },
       "/admin/analytics/refresh": {
         post: {
-          tags: ["Admin — Analytics"],
+          tags: ["Admin - Analytics"],
           summary: "Force refresh analytics",
           description: "Recomputes analytics from raw ticket data, updates MongoDB, and invalidates Redis cache.",
           responses: { 200: { description: "Analytics refreshed" }, 401: { $ref: "#/components/responses/Unauthorized" } },
@@ -904,7 +904,7 @@ const options: swaggerJsdoc.Options = {
             content: { "application/json": { schema: { type: "object", required: ["isDisabled"], properties: { isDisabled: { type: "boolean" } } } } },
           },
           responses: {
-            200: { description: "Status toggled — approval/rejection email sent to org admin" },
+            200: { description: "Status toggled - approval/rejection email sent to org admin" },
             400: { description: "Invalid ID", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" }, example: { code: "VALIDATION_ERROR" } } } },
             401: { $ref: "#/components/responses/Unauthorized" },
             403: { $ref: "#/components/responses/Forbidden" },

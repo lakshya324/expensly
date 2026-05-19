@@ -1,5 +1,5 @@
 /**
- * AI Validation Service — OpenAI GPT
+ * AI Validation Service - OpenAI GPT
  *
  * Runs 5 structured checks against a ticket and its OCR data using GPT-4o-mini.
  * - Receipt amount match
@@ -8,7 +8,7 @@
  * - Currency consistency
  * - Duplicate / anomaly flag
  *
- * This service is purely advisory — it NEVER auto-approves or auto-rejects.
+ * This service is purely advisory - it NEVER auto-approves or auto-rejects.
  * Results are stored on the ticket and surfaced to reviewers.
  */
 import { ITicket } from "../types/ticket.types.js";
@@ -50,7 +50,7 @@ function buildPrompt(ticket: ITicket, ocrData?: IOcrData | null): string {
   const hasRawText = !!ocrData?.rawText;
   const ticketContext = ticket.title
     ? `- Title: ${ticket.title}\n- Amount: ${ticket.amount} ${ticket.currency}`
-    : "(ticket fields not yet filled — extract from receipt text below)";
+    : "(ticket fields not yet filled - extract from receipt text below)";
 
   return `You are an expense validation assistant. Your job has two parts:
 1. Extract key expense fields from the raw receipt text.

@@ -24,7 +24,7 @@ import {
 } from "../config/constants.js";
 
 export default class ExchangeRatesController {
-  /** GET /api/admin/exchange-rates — current snapshot */
+  /** GET /api/admin/exchange-rates - current snapshot */
   static async getCurrent(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const org = req.organization!;
@@ -44,7 +44,7 @@ export default class ExchangeRatesController {
     }
   }
 
-  /** PATCH /api/admin/exchange-rates — manually set rates */
+  /** PATCH /api/admin/exchange-rates - manually set rates */
   static async setRates(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const org = req.organization!;
@@ -92,7 +92,7 @@ export default class ExchangeRatesController {
     }
   }
 
-  /** POST /api/admin/exchange-rates/fetch-latest — pull from external API */
+  /** POST /api/admin/exchange-rates/fetch-latest - pull from external API */
   static async fetchLatest(
     req: AuthRequest,
     res: Response,
@@ -124,7 +124,7 @@ export default class ExchangeRatesController {
     }
   }
 
-  /** GET /api/admin/exchange-rates/fetch-preview — preview external rates without saving */
+  /** GET /api/admin/exchange-rates/fetch-preview - preview external rates without saving */
   static async fetchPreview(
     req: AuthRequest,
     res: Response,
@@ -136,7 +136,7 @@ export default class ExchangeRatesController {
 
       const payload: ResponsePayload<Record<string, number>> = {
         success: true,
-        message: "External rates fetched (preview only — not saved)",
+        message: "External rates fetched (preview only - not saved)",
         timestamp: new Date().toISOString(),
         data: rates,
       };
@@ -146,7 +146,7 @@ export default class ExchangeRatesController {
     }
   }
 
-  /** GET /api/admin/exchange-rates/history — paginated snapshot history */
+  /** GET /api/admin/exchange-rates/history - paginated snapshot history */
   static async getHistory(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const org = req.organization!;

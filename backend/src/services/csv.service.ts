@@ -21,7 +21,7 @@ function fmtStatus(s: string): string {
 
 /**
  * Generate a clean, human-readable CSV from lean ticket documents.
- * Uses embedded snapshot fields for all display names — no populated refs needed.
+ * Uses embedded snapshot fields for all display names - no populated refs needed.
  */
 export const generateTicketsCsv = (tickets: LeanTicket[]): string => {
   const headers = [
@@ -49,7 +49,7 @@ export const generateTicketsCsv = (tickets: LeanTicket[]): string => {
       (t.tags ?? []).join(', '),
       Number(t.amount).toFixed(2),
       t.currency ?? '',
-      // All display names come from embedded snapshots — no DB lookup needed
+      // All display names come from embedded snapshots - no DB lookup needed
       t.submitterSnapshot?.name ?? '',
       t.submitterSnapshot?.email ?? '',
       t.departmentSnapshot?.name ?? '',

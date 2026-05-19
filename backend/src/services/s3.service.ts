@@ -55,7 +55,7 @@ export const deleteFile = async (key: string): Promise<void> => {
  *
  * When a ticket has multiple receipts, pass `index` (0-based) to differentiate
  * them: `expensly/<orgSlug>/<ticketId>-0.jpg`, `…-1.jpg`, etc.
- * Omit `index` (or pass `undefined`) for single-receipt tickets — produces the
+ * Omit `index` (or pass `undefined`) for single-receipt tickets - produces the
  * legacy `expensly/<orgSlug>/<ticketId>.<ext>` format.
  */
 export const buildReceiptKey = (

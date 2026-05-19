@@ -95,7 +95,7 @@ export const updateCategory = async (
 };
 
 /**
- * Delete a category (hard delete — use only when it has no associated tickets).
+ * Delete a category (hard delete - use only when it has no associated tickets).
  */
 export const deleteCategory = async (
   orgId: string,
@@ -124,7 +124,7 @@ const SYSTEM_CATEGORY_DEFS: SystemCategoryDef[] = [
 
 /**
  * Idempotently seeds the system (sample) categories for a given org.
- * Safe to call multiple times — uses upsert on (orgId, name, isSystem).
+ * Safe to call multiple times - uses upsert on (orgId, name, isSystem).
  */
 export const seedSystemCategories = async (
   orgId: string,

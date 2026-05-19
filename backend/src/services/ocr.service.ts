@@ -1,5 +1,5 @@
 /**
- * OCR Service — Tesseract.js + sharp (+ PDF text extraction)
+ * OCR Service - Tesseract.js + sharp (+ PDF text extraction)
  *
  * Downloads a receipt from S3. Image files are preprocessed with sharp and
  * passed to Tesseract OCR. PDF files are parsed directly for embedded text.

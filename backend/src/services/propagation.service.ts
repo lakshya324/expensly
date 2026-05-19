@@ -6,7 +6,7 @@ import { User } from "../models/User.model.js";
 import { Department } from "../models/Department.model.js";
 
 /**
- * Propagation helpers — called fire-and-catch from mutation endpoints.
+ * Propagation helpers - called fire-and-catch from mutation endpoints.
  *
  * When a display field changes (user name, dept name, merchant name, etc.) these
  * functions push the updated value into all documents that embedded a snapshot of
@@ -58,7 +58,7 @@ export async function propagateUserRename(
       { $set: { "managerSnapshot.name": newName } },
     ),
     // DiscussionMessage.authorDeptSnapshot is intentionally NOT updated here.
-    // It reflects the user's department at message-write time — immutable historical record,
+    // It reflects the user's department at message-write time - immutable historical record,
     // consistent with AuditLog.performer which is also never updated after write.
   ]);
 }

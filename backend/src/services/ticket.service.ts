@@ -6,7 +6,7 @@ import { ITicketSummaryData } from "../types/ticket.types.js";
  *
  * After denormalization, all display data (submitter name, department name,
  * merchant, category, bundle, reviewer names) is embedded directly in each
- * ticket document — no secondary queries are needed. The function performs
+ * ticket document - no secondary queries are needed. The function performs
  * exactly one round-trip: a parallel fetch + count.
  */
 export async function listTicketsPaginated(

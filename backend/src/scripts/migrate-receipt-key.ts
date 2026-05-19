@@ -33,7 +33,7 @@ async function run() {
 
   const collection = mongoose.connection.collection("tickets");
 
-  // Step 1 — Documents WITH a non-null receiptKey: wrap it in an array.
+  // Step 1 - Documents WITH a non-null receiptKey: wrap it in an array.
   const withKey = await collection.updateMany(
     { receiptKey: { $type: "string" } }, // matches non-null string values
     [
@@ -49,7 +49,7 @@ async function run() {
     `Migrated ${withKey.modifiedCount} ticket(s) with a receipt (receiptKey → receiptKeys[0]).`,
   );
 
-  // Step 2 — Documents WITHOUT a receiptKey (null or field absent): initialise to [].
+  // Step 2 - Documents WITHOUT a receiptKey (null or field absent): initialise to [].
   const withoutKey = await collection.updateMany(
     {
       $and: [
@@ -63,7 +63,7 @@ async function run() {
     `Initialised ${withoutKey.modifiedCount} ticket(s) without a receipt (receiptKeys = []).`,
   );
 
-  // Step 3 — Belt-and-suspenders: unset any remaining receiptKey fields
+  // Step 3 - Belt-and-suspenders: unset any remaining receiptKey fields
   // (handles documents already having receiptKeys from a partial prior run).
   const cleanup = await collection.updateMany(
     { receiptKey: { $exists: true } },
