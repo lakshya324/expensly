@@ -26,7 +26,7 @@ export async function buildTicketVisibilityFilter(
     $or: [
       {
         status: {
-          $nin: [TICKET_STATUS.DRAFT, TICKET_STATUS.SCANNING, TICKET_STATUS.OCR_FAILED],
+          $nin: [TICKET_STATUS.DRAFT, TICKET_STATUS.SCANNING, TICKET_STATUS.FAILED],
         },
       },
       { submittedBy: user._id },

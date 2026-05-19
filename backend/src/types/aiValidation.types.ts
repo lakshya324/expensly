@@ -44,4 +44,6 @@ export interface IAiValidationResult {
   unmatchedMerchantSuggestionText: string | null;
   /** Fallback category text when no structured category match is found */
   unmatchedCategorySuggestionText: string | null;
+  /** Human-readable reason when status is ERROR */
+  failureReason: string | null;
 }

@@ -55,8 +55,8 @@ export const WS_EVENTS = {
 
   // OCR & AI async results
   OCR_COMPLETED: "ticket:ocr_completed",
-  OCR_FAILED: "ticket:ocr_failed",
   AI_VALIDATED: "ticket:ai_validated",
+  TICKET_FAILED: "ticket:failed",
 
   // Discussion
   DISCUSSION_MESSAGE: "discussion:message",
@@ -102,8 +102,8 @@ export type RatesUpdatePayload = WSEnvelope<{
 }>;
 
 export type OcrCompletedPayload = WSEnvelope<{ ticket: ITicketData }>;
-export type OcrFailedPayload = WSEnvelope<{ ticketId: string; error: string }>;
 export type AiValidatedPayload = WSEnvelope<{ ticket: ITicketData }>;
+export type TicketFailedPayload = WSEnvelope<{ ticket: ITicketData; reason: string }>;
 
 export type DiscussionMessagePostedPayload = WSEnvelope<{ ticketId: string; message: IDiscussionMessageData }>;
 export type DiscussionMessageEditedPayload = WSEnvelope<{ ticketId: string; message: IDiscussionMessageData }>;

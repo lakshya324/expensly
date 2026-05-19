@@ -13,4 +13,6 @@ export interface IOcrData {
   confidence: number | null;
   /** ISO timestamp of when the extraction ran */
   processedAt: string | null;
+  /** Human-readable reason when status is FAILED */
+  failureReason: string | null;
 }

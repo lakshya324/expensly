@@ -124,7 +124,6 @@ export default class TicketController {
         total: counts.reduce((s, c) => s + c.count, 0),
         draft:
           (map[TICKET_STATUS.DRAFT] ?? 0) + (map[TICKET_STATUS.SCANNING] ?? 0),
-        // + (map[TICKET_STATUS.OCR_FAILED] ?? 0)
         // cando: draft can be used to show "tickets in progress" before submission or juct user side... idk will figure out in the frontend
         pending:
           (map[TICKET_STATUS.PENDING] ?? 0) +

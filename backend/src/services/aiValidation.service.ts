@@ -171,6 +171,7 @@ export const validateTicket = async (
       suggestedDescription: (typeof ext.description === "string" ? ext.description : null),
       unmatchedMerchantSuggestionText: null,
       unmatchedCategorySuggestionText: null,
+      failureReason: null,
     };
   } catch (err) {
     logError(err as Error, {
@@ -191,6 +192,7 @@ export const validateTicket = async (
       suggestedDescription: null,
       unmatchedMerchantSuggestionText: null,
       unmatchedCategorySuggestionText: null,
+      failureReason: null,
     };
   }
 };

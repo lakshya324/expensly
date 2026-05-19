@@ -10,8 +10,8 @@ import {
   TicketFlagPayload,
   TicketStatusChangePayload,
   OcrCompletedPayload,
-  OcrFailedPayload,
   AiValidatedPayload,
+  TicketFailedPayload,
   DiscussionMessagePostedPayload,
   DiscussionMessageEditedPayload,
   DiscussionMessageDeletedPayload,
@@ -101,17 +101,14 @@ export function emitOcrCompleted(orgId: string, ticket: ITicketData): void {
   getIO().to(orgId).emit(WS_EVENTS.OCR_COMPLETED, payload);
 }
 
-export function emitOcrFailed(
-  orgId: string,
-  ticketId: string,
-  error: string,
-): void {
-  const payload: OcrFailedPayload = {
-    event: WS_EVENTS.OCR_FAILED,
-    data: { ticketId, error },
+
+export function emitTicketFailed(orgId: string, ticket: ITicketData, reason: string): void {
+  const payload: TicketFailedPayload = {
+    event: WS_EVENTS.TICKET_FAILED,
+    data: { ticket, reason },
     meta: meta(orgId),
   };
-  getIO().to(orgId).emit(WS_EVENTS.OCR_FAILED, payload);
+  getIO().to(orgId).emit(WS_EVENTS.TICKET_FAILED, payload);
 }
 
 export function emitAiValidated(orgId: string, ticket: ITicketData): void {

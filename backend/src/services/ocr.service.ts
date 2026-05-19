@@ -63,6 +63,7 @@ export const extractReceiptData = async (
       rawText: text,
       confidence,
       processedAt: new Date().toISOString(),
+      failureReason: null,
     };
   } catch (err) {
     logError(err as Error, {
@@ -75,6 +76,7 @@ export const extractReceiptData = async (
       rawText: null,
       confidence: null,
       processedAt: new Date().toISOString(),
+      failureReason: null,
     };
   }
 };
