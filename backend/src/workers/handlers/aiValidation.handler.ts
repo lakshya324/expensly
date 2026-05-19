@@ -5,7 +5,7 @@
  * 1. Set ticket aiValidation.status = IN_PROGRESS
  * 2. Run OpenAI validation via aiValidation.service
  * 3. Save result to DB
- * 4. If ticket was in `scanning` state — auto-fill extracted fields and promote to `draft`
+ * 4. If ticket was in `scanning` state - auto-fill extracted fields and promote to `draft`
  * 5. Emit socket event to org room
  */
 import { Ticket } from "../../models/Ticket.model.js";
@@ -30,11 +30,11 @@ export async function processAiValidationJob(job: AiValidateJob): Promise<void> 
   ]);
 
   if (!ticket) {
-    logInfo(`[AI Validation Worker] Ticket ${ticketId} not found — skipping`);
+    logInfo(`[AI Validation Worker] Ticket ${ticketId} not found - skipping`);
     return;
   }
   if (!org) {
-    logInfo(`[AI Validation Worker] Org ${orgId} not found — skipping`);
+    logInfo(`[AI Validation Worker] Org ${orgId} not found - skipping`);
     return;
   }
 
@@ -90,7 +90,7 @@ export async function processAiValidationJob(job: AiValidateJob): Promise<void> 
         const m = await Merchant.findById(matchedEntities.merchantId).select("_id name").lean();
         ticket.merchantSnapshot = m ? { _id: m._id, name: m.name } : null;
       } catch {
-        // Non-fatal — snapshot will be null until propagation or next update
+        // Non-fatal - snapshot will be null until propagation or next update
       }
     }
     if (matchedEntities.categoryId) {

@@ -1,6 +1,11 @@
 import { Document, Types } from "mongoose";
 import { Role, PermissionKey } from "../config/constants.js";
 import { IOrganization, IOrganizationData } from "./organization.types.js";
+import {
+  IEntitySnapshot,
+  IEntitySnapshotData,
+  IPolicySnapshot,
+} from "./common.types.js";
 
 /** null = inherit from dept/policy chain; true/false = explicit override */
 export type IUserPermissions = { [K in PermissionKey]: boolean | null };
@@ -13,12 +18,12 @@ export interface IUser extends Document {
   role: Role;
   orgId: Types.ObjectId | null;
   department: Types.ObjectId | null;
-  departmentSnapshot: { _id: Types.ObjectId; name: string } | null;
+  departmentSnapshot: IEntitySnapshot | null;
   managerId: Types.ObjectId | null;
-  managerSnapshot: { _id: Types.ObjectId; name: string } | null;
+  managerSnapshot: IEntitySnapshot | null;
   permissions: IUserPermissions;
   policyId: Types.ObjectId | null;
-  policySnapshot: { _id: Types.ObjectId; name: string; grants: string[] } | null;
+  policySnapshot: IPolicySnapshot | null;
   isDisabled: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -33,11 +38,11 @@ export interface IUserData {
   email: string;
   role: Role;
   org: IOrganizationData | null;
-  department: { _id: string; name: string } | null;
+  department: IEntitySnapshotData | null;
   permissions: IUserPermissions;
   policyId: string | null;
   effectivePermissions: Record<PermissionKey, boolean>;
-  manager: { _id: string; name: string } | null;
+  manager: IEntitySnapshotData | null;
   isDisabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -48,5 +53,5 @@ export interface IUserMinimalData {
   name: string;
   email: string;
   role: Role;
-  department: { _id: string; name: string } | null;
+  department: IEntitySnapshotData | null;
 }

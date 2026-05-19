@@ -1,8 +1,9 @@
 import { Document, Types } from "mongoose";
 import { Currency } from "../config/constants.js";
+import { IEntitySnapshot, IEntitySnapshotData } from "./common.types.js";
 
 // ---------------------------------------------------------------------------
-// ExchangeRateSnapshot — one doc per manual/fetched update per org
+// ExchangeRateSnapshot - one doc per manual/fetched update per org
 // ---------------------------------------------------------------------------
 
 export interface IExchangeRateSnapshot extends Document {
@@ -15,7 +16,7 @@ export interface IExchangeRateSnapshot extends Document {
   // activeCurrencies: Currency[];
   /** 'manual' = admin typed values, 'fetched' = pulled from external API */
   source: "manual" | "fetched";
-  creator: { _id: Types.ObjectId; name: string };
+  creator: IEntitySnapshot;
   createdAt: Date;
   toData(): IExchangeRateSnapshotData;
 }
@@ -27,6 +28,6 @@ export interface IExchangeRateSnapshotData {
   baseCurrency: string;
   // activeCurrencies: string[];
   source: "manual" | "fetched";
-  creator: { _id: string; name: string };
+  creator: IEntitySnapshotData;
   createdAt: Date;
 }

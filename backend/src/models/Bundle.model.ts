@@ -1,19 +1,11 @@
 import mongoose, { Schema } from "mongoose";
 import { BUNDLE_STATUS, CURRENCIES } from "../config/constants.js";
-import { IBundle, IBundleData, IBundleSummaryData } from "../types/bundle.types.js";
-
-/**
- * ApprovalSchema is shared with Ticket.model — keep both in sync.
- * Defined locally here to avoid a circular import via Ticket.model.
- */
-const UserSnapshotSchema = new Schema(
-  {
-    _id: { type: Schema.Types.ObjectId, required: true },
-    name: { type: String, required: true },
-    email: { type: String, required: true },
-  },
-  { _id: false },
-);
+import {
+  IBundle,
+  IBundleData,
+  IBundleSummaryData,
+} from "../types/bundle.types.js";
+import { UserSnapshotSchema } from "./common.model.js";
 
 const ApprovalSchema = new Schema(
   {
@@ -32,18 +24,8 @@ const BundleSchema = new Schema<IBundle>(
     orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, trim: true, default: "" },
-    /** Denormalized submitter info — embedded at creation, propagated on rename. */
-    submitter: {
-      type: new Schema(
-        {
-          _id: { type: Schema.Types.ObjectId, required: true },
-          name: { type: String, required: true },
-          email: { type: String, required: true },
-        },
-        { _id: false },
-      ),
-      required: true,
-    },
+    /** Denormalized submitter info - embedded at creation, propagated on rename. */
+    submitter: { type: UserSnapshotSchema, required: true },
     status: {
       type: String,
       enum: Object.values(BUNDLE_STATUS),
@@ -56,7 +38,7 @@ const BundleSchema = new Schema<IBundle>(
     totalAmountBase: { type: Number, default: null },
     /** currency code of totalAmountBase (matches org baseCurrency at computation time) */
     baseCurrency: { type: String, enum: CURRENCIES, default: null },
-    /** Denormalized ticket count — kept in sync on add/remove */
+    /** Denormalized ticket count - kept in sync on add/remove */
     ticketCount: { type: Number, default: 0 },
     tags: { type: [String], default: [] },
     managerApproval: { type: ApprovalSchema, default: null },
@@ -122,7 +104,9 @@ BundleSchema.methods.toData = function (this: IBundle): IBundleData {
   };
 };
 
-BundleSchema.methods.toSummaryData = function (this: IBundle): IBundleSummaryData {
+BundleSchema.methods.toSummaryData = function (
+  this: IBundle,
+): IBundleSummaryData {
   return {
     _id: this._id.toString(),
     title: this.title,

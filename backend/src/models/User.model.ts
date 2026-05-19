@@ -7,20 +7,7 @@ import { Department } from "./Department.model.js";
 import { Policy } from "./Policy.model.js";
 import { IOrganization } from "../types/organization.types.js";
 import { computeEffectivePermissions } from "../utils/permissions.js";
-
-const EntitySnapshotSchema = new Schema(
-  { _id: { type: Schema.Types.ObjectId, required: true }, name: { type: String, required: true } },
-  { _id: false },
-);
-
-const PolicySnapshotSchema = new Schema(
-  {
-    _id: { type: Schema.Types.ObjectId, required: true },
-    name: { type: String, required: true },
-    grants: [{ type: String }],
-  },
-  { _id: false },
-);
+import { EntitySnapshotSchema, PolicySnapshotSchema } from "./common.model.js";
 
 const UserSchema = new Schema<IUser>(
   {
@@ -110,19 +97,24 @@ UserSchema.methods.data = async function (
   // Fetch manager, department, and user policy concurrently...
   const [manager, dept, userPolicyDoc] = await Promise.all([
     this.managerId
-      ? User.findById(this.managerId)
-          .select("_id name email role isDisabled createdAt updatedAt")
+      ? User.findById(this.managerId).select(
+          "_id name email role isDisabled createdAt updatedAt",
+        )
       : Promise.resolve(null),
     this.department
       ? Department.findById(this.department)
       : Promise.resolve(null),
     this.policyId
-      ? Policy.findById(this.policyId).select("grants").lean<{ grants: string[] }>()
+      ? Policy.findById(this.policyId)
+          .select("grants")
+          .lean<{ grants: string[] }>()
       : Promise.resolve(null),
   ]);
 
   const deptPolicyDoc = dept?.policyId
-    ? await Policy.findById(dept.policyId).select("grants").lean<{ grants: string[] }>()
+    ? await Policy.findById(dept.policyId)
+        .select("grants")
+        .lean<{ grants: string[] }>()
     : null;
 
   return {
@@ -150,7 +142,9 @@ UserSchema.methods.data = async function (
       dept ? { ...dept.permissions } : null,
       deptPolicyDoc?.grants ?? [],
     ),
-    manager: manager ? { _id: manager._id.toString(), name: manager.name } : null,
+    manager: manager
+      ? { _id: manager._id.toString(), name: manager.name }
+      : null,
     isDisabled: this.isDisabled,
     createdAt: this.createdAt.toISOString(),
     updatedAt: this.updatedAt.toISOString(),

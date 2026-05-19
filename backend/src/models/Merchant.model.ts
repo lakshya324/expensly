@@ -19,7 +19,7 @@ const MerchantSchema = new Schema<IMerchant>(
     normalizedName: { type: String, required: true, lowercase: true },
     isActive: { type: Boolean, default: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    /** Embedded logo — id for deletion, s3Key for presigned URL generation (null = no logo) */
+    /** Embedded logo - id for deletion, s3Key for presigned URL generation (null = no logo) */
     logo: { type: LogoSchema, default: null },
   },
   { timestamps: true },
@@ -32,7 +32,9 @@ MerchantSchema.index(
 );
 MerchantSchema.index({ orgId: 1, isActive: 1 });
 
-MerchantSchema.methods.toData = async function (this: IMerchant): Promise<IMerchantData> {
+MerchantSchema.methods.toData = async function (
+  this: IMerchant,
+): Promise<IMerchantData> {
   const logoUrl = this.logo
     ? await getReceiptSignedUrl(this.logo.s3Key).catch(() => null)
     : null;

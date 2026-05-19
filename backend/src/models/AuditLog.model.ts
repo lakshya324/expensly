@@ -1,6 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 import { AUDIT_ACTION, ENTITY_TYPE } from "../config/constants.js";
 import { IAuditLog } from "../types/auditLog.types.js";
+import { EntitySnapshotSchema } from "./common.model.js";
 
 const AuditLogSchema = new Schema<IAuditLog>(
   {
@@ -16,21 +17,12 @@ const AuditLogSchema = new Schema<IAuditLog>(
       enum: Object.values(AUDIT_ACTION),
       required: true,
     },
-    /** Performer info embedded at creation — intentionally frozen for immutable audit trail. */
-    performer: {
-      type: new Schema(
-        {
-          _id: { type: Schema.Types.ObjectId, ref: "User", required: true },
-          name: { type: String, required: true },
-        },
-        { _id: false },
-      ),
-      required: true,
-    },
+    /** Performer info embedded at creation - intentionally frozen for immutable audit trail. */
+    performer: { type: EntitySnapshotSchema, required: true },
     /** IP address of the requesting client, if available */
     ip: { type: String, default: null },
     /**
-     * Freeform context bag — store diffs, old values, extra labels.
+     * Freeform context bag - store diffs, old values, extra labels.
      * Keep fields small; avoid storing PII beyond what's already in parent docs.
      */
     metadata: { type: Schema.Types.Mixed, default: null },

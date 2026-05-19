@@ -3,20 +3,16 @@ import { DiscussionMessage } from "../models/DiscussionMessage.model.js";
 import { Ticket } from "../models/Ticket.model.js";
 import { ROLES } from "../config/constants.js";
 import { createError } from "../utils/error.js";
-import { IDiscussionMessageData } from "../types/discussion.types.js";
-
-export interface PostMessageAuthor {
-  _id: Types.ObjectId;
-  name: string;
-  email: string;
-  role: string;
-  departmentSnapshot: { _id: Types.ObjectId; name: string } | null;
-}
+import {
+  IDiscussionAuthor,
+  IDiscussionMessage,
+  IDiscussionMessageData,
+} from "../types/discussion.types.js";
 
 export interface PostMessageInput {
   ticketId: string;
   orgId: string;
-  author: PostMessageAuthor;
+  author: IDiscussionAuthor;
   text: string;
 }
 
@@ -36,18 +32,7 @@ const PAGE_SIZE = 20;
 // ---------------------------------------------------------------------------
 // Build IDiscussionMessageData from an embedded-author lean message doc
 // ---------------------------------------------------------------------------
-function mapMessage(msg: {
-  _id: Types.ObjectId;
-  ticketId: Types.ObjectId;
-  orgId: Types.ObjectId;
-  author: { _id: Types.ObjectId; name: string; email: string; role: string };
-  authorDeptSnapshot: { _id: Types.ObjectId; name: string } | null;
-  text: string;
-  editedAt: Date | null;
-  deletedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): IDiscussionMessageData {
+function mapMessage(msg: IDiscussionMessage): IDiscussionMessageData {
   const deleted = msg.deletedAt != null;
   return {
     _id: msg._id.toString(),
@@ -58,8 +43,11 @@ function mapMessage(msg: {
       name: msg.author.name,
       email: msg.author.email,
       role: msg.author.role,
-      department: msg.authorDeptSnapshot
-        ? { _id: msg.authorDeptSnapshot._id.toString(), name: msg.authorDeptSnapshot.name }
+      department: msg.author.department
+        ? {
+            _id: msg.author.department._id.toString(),
+            name: msg.author.department.name,
+          }
         : null,
     },
     text: deleted ? "[deleted]" : msg.text,
@@ -92,10 +80,13 @@ export const getThread = async (
     .limit(PAGE_SIZE)
     .lean();
 
-  if (messages.length === 0) return { data: [], total, page: actualPage, pageSize: PAGE_SIZE };
+  if (messages.length === 0)
+    return { data: [], total, page: actualPage, pageSize: PAGE_SIZE };
 
   return {
-    data: messages.map((m) => mapMessage(m as Parameters<typeof mapMessage>[0])),
+    data: messages.map((m) =>
+      mapMessage(m as Parameters<typeof mapMessage>[0]),
+    ),
     total,
     page: actualPage,
     pageSize: PAGE_SIZE,
@@ -105,8 +96,13 @@ export const getThread = async (
 // ---------------------------------------------------------------------------
 // Post a new message (author info embedded at creation)
 // ---------------------------------------------------------------------------
-export const postMessage = async (input: PostMessageInput): Promise<IDiscussionMessageData> => {
-  const ticketExists = await Ticket.exists({ _id: input.ticketId, orgId: input.orgId });
+export const postMessage = async (
+  input: PostMessageInput,
+): Promise<IDiscussionMessageData> => {
+  const ticketExists = await Ticket.exists({
+    _id: input.ticketId,
+    orgId: input.orgId,
+  });
   if (!ticketExists) throw createError("Ticket not found", 404, "NOT_FOUND");
 
   const msg = await DiscussionMessage.create({
@@ -117,8 +113,8 @@ export const postMessage = async (input: PostMessageInput): Promise<IDiscussionM
       name: input.author.name,
       email: input.author.email,
       role: input.author.role,
+      department: input.author.department,
     },
-    authorDeptSnapshot: input.author.departmentSnapshot ?? null,
     text: input.text,
   });
 
@@ -149,7 +145,7 @@ export const editMessage = async (
 };
 
 // ---------------------------------------------------------------------------
-// Delete a message (author or admin — soft delete)
+// Delete a message (author or admin - soft delete)
 // ---------------------------------------------------------------------------
 export const deleteMessage = async (
   orgId: string,
@@ -163,7 +159,11 @@ export const deleteMessage = async (
   if (msg.deletedAt != null) return; // idempotent
 
   if (msg.author._id.toString() !== authorId && callerRole !== ROLES.ADMIN)
-    throw createError("You can only delete your own messages", 403, "FORBIDDEN");
+    throw createError(
+      "You can only delete your own messages",
+      403,
+      "FORBIDDEN",
+    );
 
   msg.deletedAt = new Date();
   await msg.save();

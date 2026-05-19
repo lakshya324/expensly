@@ -7,7 +7,7 @@ import { IOrganization } from "../types/organization.types.js";
  * Build the full ITicketData payload from a ticket document.
  *
  * All display fields (submitter name, department name, merchant name, category name,
- * reviewer names, bundle title) are read from embedded snapshots — no secondary
+ * reviewer names, bundle title) are read from embedded snapshots - no secondary
  * queries for those. Only fetches what genuinely requires fresh resolution:
  *   - Receipts (pre-signed S3 URLs expire)
  *   - Department (full data for the detail view)

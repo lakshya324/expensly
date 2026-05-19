@@ -3,7 +3,7 @@
  *
  * Called by the cron scheduler every 15 seconds.
  * Polls SQS for up to 10 messages, dispatches each to the appropriate
- * handler, then deletes the message regardless of outcome (no retry —
+ * handler, then deletes the message regardless of outcome (no retry -
  * users re-trigger via REST endpoint).
  */
 import { receiveMessages, deleteMessage } from "../services/queue.service.js";
@@ -36,7 +36,7 @@ export async function processAiJobQueue(): Promise<void> {
           code: "AI_JOB_DISPATCH_ERROR",
         });
       } finally {
-        // Always delete — prevents infinite requeue on bad messages
+        // Always delete - prevents infinite requeue on bad messages
         await deleteMessage(msg.receiptHandle).catch((err) =>
           logError(err as Error, {
             message: "Failed to delete SQS message",

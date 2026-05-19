@@ -58,11 +58,11 @@ export async function processOcrJob(job: OcrScanJob): Promise<void> {
     Organization.findById(orgId),
   ]);
   if (!ticket) {
-    logInfo(`[OCR Worker] Ticket ${ticketId} not found — skipping`);
+    logInfo(`[OCR Worker] Ticket ${ticketId} not found - skipping`);
     return;
   }
   if (!org) {
-    logInfo(`[OCR Worker] Org ${orgId} not found — skipping`);
+    logInfo(`[OCR Worker] Org ${orgId} not found - skipping`);
     return;
   }
   const isScanningFlow = ticket.status === TICKET_STATUS.SCANNING;
@@ -100,7 +100,7 @@ export async function processOcrJob(job: OcrScanJob): Promise<void> {
     emitOcrCompleted(orgId, ticketData);
     // Automatically chain AI validation
     await enqueueJob({ jobType: QueueJobType.AiValidate, ticketId, orgId });
-    logInfo(`[OCR Worker] OCR completed for ticket ${ticketId} — ai_validate enqueued`);
+    logInfo(`[OCR Worker] OCR completed for ticket ${ticketId} - ai_validate enqueued`);
   } else {
     emitOcrFailed(orgId, ticketId, "OCR extraction failed");
     logError(new Error("OCR failed"), {

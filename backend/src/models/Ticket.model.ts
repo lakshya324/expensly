@@ -1,23 +1,13 @@
 import mongoose, { Schema } from "mongoose";
-import { TICKET_STATUS, CURRENCIES, EXPENSE_TYPE, OCR_STATUS, AI_VALIDATION_STATUS } from "../config/constants.js";
+import {
+  TICKET_STATUS,
+  CURRENCIES,
+  EXPENSE_TYPE,
+  OCR_STATUS,
+  AI_VALIDATION_STATUS,
+} from "../config/constants.js";
 import { IApproval, ITicket } from "../types/ticket.types.js";
-
-const UserSnapshotSchema = new Schema(
-  {
-    _id: { type: Schema.Types.ObjectId, required: true },
-    name: { type: String, required: true },
-    email: { type: String, required: true },
-  },
-  { _id: false },
-);
-
-const EntitySnapshotSchema = new Schema(
-  {
-    _id: { type: Schema.Types.ObjectId, required: true },
-    name: { type: String, required: true },
-  },
-  { _id: false },
-);
+import { EntitySnapshotSchema, UserSnapshotSchema } from "./common.model.js";
 
 const ApprovalSchema = new Schema<IApproval>(
   {
@@ -36,7 +26,11 @@ const TicketSchema = new Schema<ITicket>(
     /** Nullable in draft / scanning state; required before promotion to pending */
     title: { type: String, trim: true, default: null },
     submittedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    submitterManagerId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    submitterManagerId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true },
     /** Nullable in draft / scanning state */
     amount: { type: Number, min: 0, default: null },
@@ -51,7 +45,10 @@ const TicketSchema = new Schema<ITicket>(
     description: { type: String, trim: true, default: "" },
     tags: { type: [String], default: [] },
     /** References to Receipt documents for attached files */
-    receiptIds: { type: [{ type: Schema.Types.ObjectId, ref: "Receipt" }], default: [] },
+    receiptIds: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Receipt" }],
+      default: [],
+    },
     status: {
       type: String,
       enum: Object.values(TICKET_STATUS),
@@ -78,11 +75,15 @@ const TicketSchema = new Schema<ITicket>(
       enum: Object.values(EXPENSE_TYPE),
       default: EXPENSE_TYPE.REGULAR,
     },
-    /** OCR extraction result — populated asynchronously after upload */
+    /** OCR extraction result - populated asynchronously after upload */
     ocrData: {
       type: new Schema(
         {
-          status: { type: String, enum: Object.values(OCR_STATUS), required: true },
+          status: {
+            type: String,
+            enum: Object.values(OCR_STATUS),
+            required: true,
+          },
           rawText: { type: String, default: null },
           confidence: { type: Number, default: null },
           processedAt: { type: String, default: null },
@@ -91,11 +92,15 @@ const TicketSchema = new Schema<ITicket>(
       ),
       default: null,
     },
-    /** AI validation summary — advisory only, never auto-approves */
+    /** AI validation summary - advisory only, never auto-approves */
     aiValidation: {
       type: new Schema(
         {
-          status: { type: String, enum: Object.values(AI_VALIDATION_STATUS), required: true },
+          status: {
+            type: String,
+            enum: Object.values(AI_VALIDATION_STATUS),
+            required: true,
+          },
           checks: {
             type: [
               new Schema(
@@ -128,15 +133,15 @@ const TicketSchema = new Schema<ITicket>(
       default: null,
     },
     // ─── Denormalized display snapshots ───────────────────────────────────
-    /** Submitter display info — embedded at creation, propagated on rename. */
+    /** Submitter display info - embedded at creation, propagated on rename. */
     submitterSnapshot: { type: UserSnapshotSchema, default: null },
-    /** Department display info — embedded at creation, propagated on rename. */
+    /** Department display info - embedded at creation, propagated on rename. */
     departmentSnapshot: { type: EntitySnapshotSchema, default: null },
-    /** Merchant display info — embedded when linked, propagated on rename. */
+    /** Merchant display info - embedded when linked, propagated on rename. */
     merchantSnapshot: { type: EntitySnapshotSchema, default: null },
-    /** Category display info — embedded when linked, propagated on rename. */
+    /** Category display info - embedded when linked, propagated on rename. */
     categorySnapshot: { type: EntitySnapshotSchema, default: null },
-    /** Bundle display info — embedded when grouped, propagated on title change. */
+    /** Bundle display info - embedded when grouped, propagated on title change. */
     bundleSnapshot: { type: EntitySnapshotSchema, default: null },
   },
   { timestamps: true },
@@ -167,10 +172,17 @@ const APPROVAL_STATUSES: string[] = [
 ];
 TicketSchema.pre("save", function () {
   if (APPROVAL_STATUSES.includes(this.status)) {
-    if (!this.title?.trim()) this.invalidate("title", "Title is required for submitted tickets");
-    if (this.amount == null) this.invalidate("amount", "Amount is required for submitted tickets");
-    if (!this.currency) this.invalidate("currency", "Currency is required for submitted tickets");
-    if (!this.department) this.invalidate("department", "Department is required for submitted tickets");
+    if (!this.title?.trim())
+      this.invalidate("title", "Title is required for submitted tickets");
+    if (this.amount == null)
+      this.invalidate("amount", "Amount is required for submitted tickets");
+    if (!this.currency)
+      this.invalidate("currency", "Currency is required for submitted tickets");
+    if (!this.department)
+      this.invalidate(
+        "department",
+        "Department is required for submitted tickets",
+      );
   }
 });
 

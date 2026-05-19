@@ -1,5 +1,10 @@
 import { Document, Types } from "mongoose";
 import { Currency, ExpenseType, TicketStatus } from "../config/constants.js";
+import {
+  IEntitySnapshot,
+  IEntitySnapshotData,
+  IUserSnapshot,
+} from "./common.types.js";
 import { IUserMinimalData } from "./user.types.js";
 import { IDepartmentData } from "./department.types.js";
 import { IOcrData } from "./ocr.types.js";
@@ -9,24 +14,19 @@ import { ICategoryData } from "./category.types.js";
 import { IBundleSummaryData } from "./bundle.types.js";
 import { IReceiptRef } from "./receipt.types.js";
 
-/** Snapshot of a user's display fields, embedded at write time. */
-export interface IUserSnapshot {
-  _id: Types.ObjectId;
-  name: string;
-  email: string;
-}
-
-/** Snapshot of a named entity's display fields, embedded at write time. */
-export interface IEntitySnapshot {
-  _id: Types.ObjectId;
-  name: string;
-}
+export type {
+  IEntitySnapshot,
+  IUserSnapshot,
+  IEntitySnapshotData,
+  IUserSnapshotData,
+  IPolicySnapshot,
+} from "./common.types.js";
 
 export interface IApproval {
   required?: boolean;
   approved: boolean | null;
   reviewedBy: Types.ObjectId | null;
-  /** Reviewer display name embedded at review time — no lookup needed. */
+  /** Reviewer display name embedded at review time - no lookup needed. */
   reviewerSnapshot: IUserSnapshot | null;
   reviewedAt: Date | null;
   comments: string | null;
@@ -34,7 +34,7 @@ export interface IApproval {
 
 export interface ITicket extends Document {
   _id: Types.ObjectId;
-  /** Nullable in draft/scanning state — required before submission to pending */
+  /** Nullable in draft/scanning state - required before submission to pending */
   title: string | null;
   submittedBy: Types.ObjectId;
   /** Manager ID of the submitter at creation time (for efficient filtering) */
@@ -48,7 +48,7 @@ export interface ITicket extends Document {
   department: Types.ObjectId | null;
   description: string;
   tags: string[];
-  /** Replaces the old single receiptKey field — supports multi-receipt uploads */
+  /** Replaces the old single receiptKey field - supports multi-receipt uploads */
   receiptIds: Types.ObjectId[];
   status: TicketStatus;
   flagged: boolean;
@@ -69,7 +69,7 @@ export interface ITicket extends Document {
   ocrData: IOcrData | null;
   /** AI validation summary; populated after async validation run */
   aiValidation: IAiValidationResult | null;
-  // ─── Denormalized display snapshots — written at mutation time ────────────
+  // ─── Denormalized display snapshots - written at mutation time ────────────
   submitterSnapshot: IUserSnapshot | null;
   departmentSnapshot: IEntitySnapshot | null;
   merchantSnapshot: IEntitySnapshot | null;
@@ -87,7 +87,7 @@ export interface IApprovalData {
   comments: string | null;
 }
 
-/** Full ticket shape — returned by single-ticket endpoints, websocket events, and OCR/AI workers. */
+/** Full ticket shape - returned by single-ticket endpoints, websocket events, and OCR/AI workers. */
 export interface ITicketData {
   _id: string;
   title: string | null;
@@ -110,7 +110,7 @@ export interface ITicketData {
   // ─── Relation fields ───────────────────────────────────────────────────────
   merchant: IMerchantData | null;
   category: ICategoryData | null;
-  /** Nested bundle summary — use bundle._id to navigate to the bundle */
+  /** Nested bundle summary - use bundle._id to navigate to the bundle */
   bundle: IBundleSummaryData | null;
   expenseType: ExpenseType;
   ocrData: IOcrData | null;
@@ -121,13 +121,16 @@ export interface ITicketData {
 /**
  * Lightweight ticket shape for paginated list responses.
  * Department, merchant, and category are name-only summaries (no full docs).
- * Receipts contain IDs only (no pre-signed URLs — use the dedicated receipt endpoint).
+ * Receipts contain IDs only (no pre-signed URLs - use the dedicated receipt endpoint).
  */
-export type ITicketSummaryData = Omit<ITicketData, "receipts" | "department" | "merchant" | "category" | "bundle"> & {
-  /** Receipt IDs only — no pre-signed URLs in list context */
+export type ITicketSummaryData = Omit<
+  ITicketData,
+  "receipts" | "department" | "merchant" | "category" | "bundle"
+> & {
+  /** Receipt IDs only - no pre-signed URLs in list context */
   receipts: { _id: string }[];
-  department: { _id: string; name: string } | null;
-  merchant: { _id: string; name: string } | null;
-  category: { _id: string; name: string } | null;
+  department: IEntitySnapshotData | null;
+  merchant: IEntitySnapshotData | null;
+  category: IEntitySnapshotData | null;
   bundle: { _id: string; title: string; description: string } | null;
 };

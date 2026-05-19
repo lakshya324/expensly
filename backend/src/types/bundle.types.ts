@@ -1,6 +1,7 @@
 import { Document, Types } from "mongoose";
 import { BundleStatus, Currency } from "../config/constants.js";
 import { IApproval } from "./ticket.types.js";
+import { IUserSnapshot } from "./common.types.js";
 import { IUserMinimalData } from "./user.types.js";
 import { IDepartmentData } from "./department.types.js";
 
@@ -9,14 +10,14 @@ export interface IBundle extends Document {
   orgId: Types.ObjectId;
   title: string;
   description: string;
-  /** Denormalized submitter info — embedded at creation, propagated on rename. */
-  submitter: { _id: Types.ObjectId; name: string; email: string };
+  /** Denormalized submitter info - embedded at creation, propagated on rename. */
+  submitter: IUserSnapshot;
   status: BundleStatus;
   /** Pre-computed sum in org base currency, recalculated on add/remove and submit */
   totalAmountBase: number | null;
   /** ISO currency code for totalAmountBase */
   baseCurrency: Currency | null;
-  /** Denormalized count of tickets — kept in sync */
+  /** Denormalized count of tickets - kept in sync */
   ticketCount: number;
   tags: string[];
   managerApproval: IApproval | null;

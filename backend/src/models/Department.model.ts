@@ -1,14 +1,7 @@
 import mongoose, { Schema } from "mongoose";
-import {
-  BUDGET_RESET_PERIODS,
-  CURRENCIES,
-} from "../config/constants.js";
+import { BUDGET_RESET_PERIODS, CURRENCIES } from "../config/constants.js";
 import { IDepartment, IDepartmentData } from "../types/department.types.js";
-
-const EntitySnapshotSchema = new Schema(
-  { _id: { type: Schema.Types.ObjectId, required: true }, name: { type: String, required: true } },
-  { _id: false },
-);
+import { EntitySnapshotSchema } from "./common.model.js";
 
 const DepartmentSchema = new Schema<IDepartment>(
   {
@@ -38,7 +31,7 @@ const DepartmentSchema = new Schema<IDepartment>(
     },
     policySnapshot: { type: EntitySnapshotSchema, default: null },
     /**
-     * @deprecated Free-form department tags — replaced by Merchant & Category models.
+     * @deprecated Free-form department tags - replaced by Merchant & Category models.
      * Kept for backward-compat; do not add new logic that writes to this field.
      */
     tags: { type: [String], default: [] },
@@ -58,7 +51,9 @@ DepartmentSchema.index({ orgId: 1, name: 1 }, { unique: true });
 DepartmentSchema.index({ orgId: 1, isActive: 1 });
 DepartmentSchema.index({ nextResetDate: 1, isActive: 1 }); // hourly budget-reset cron: {nextResetDate <= now, isActive: true}
 
-DepartmentSchema.methods.toData = function (this: IDepartment): IDepartmentData {
+DepartmentSchema.methods.toData = function (
+  this: IDepartment,
+): IDepartmentData {
   return {
     _id: this._id.toString(),
     orgId: this.orgId.toString(),
@@ -69,7 +64,10 @@ DepartmentSchema.methods.toData = function (this: IDepartment): IDepartmentData 
     permissions: this.permissions,
     policyId: this.policyId?.toString() ?? null,
     policySnapshot: this.policySnapshot
-      ? { _id: this.policySnapshot._id.toString(), name: this.policySnapshot.name }
+      ? {
+          _id: this.policySnapshot._id.toString(),
+          name: this.policySnapshot.name,
+        }
       : null,
     tags: this.tags,
     budgetResetPeriod: this.budgetResetPeriod,

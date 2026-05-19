@@ -9,7 +9,7 @@ export interface IMerchant extends Document {
   normalizedName: string;
   isActive: boolean;
   createdBy: Types.ObjectId;
-  /** Embedded logo — id for deletion, s3Key for presigned URL generation */
+  /** Embedded logo - id for deletion, s3Key for presigned URL generation */
   logo: { id: Types.ObjectId; s3Key: string } | null;
   createdAt: Date;
   updatedAt: Date;
