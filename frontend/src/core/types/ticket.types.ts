@@ -1,4 +1,12 @@
-import type { Currency, ExpenseType, TicketStatus, BudgetResetPeriod } from './api.types';
+import type {
+  Currency,
+  ExpenseType,
+  TicketStatus,
+  BudgetResetPeriod,
+} from "./api.types";
+import type { IEntitySnapshotData, IUserSnapshotData } from "./common.types";
+
+export type { IEntitySnapshotData, IUserSnapshotData } from "./common.types";
 
 export interface DepartmentPermissions {
   view_all_tickets: boolean;
@@ -16,7 +24,7 @@ export interface IDepartmentData {
   approvalThresholds: Record<Currency, number>;
   permissions: DepartmentPermissions;
   policyId: string | null;
-  policySnapshot: { _id: string; name: string } | null;
+  policySnapshot: IEntitySnapshotData | null;
   tags: string[];
   budgetResetPeriod: BudgetResetPeriod;
   nextResetDate: string | null;
@@ -28,14 +36,14 @@ export interface IDepartmentData {
 export interface ApprovalStep {
   required: boolean;
   approved: boolean | null;
-  reviewedBy: { _id: string; name: string } | null;
+  reviewedBy: IEntitySnapshotData | null;
   reviewedAt: string | null;
   comments: string | null;
 }
 
 /** Matches the backend IOcrData shape (flat primitives, all nullable until OCR completes). */
 export interface OcrData {
-  status: 'processing' | 'completed' | 'failed';
+  status: "processing" | "completed" | "failed";
   rawText: string | null;
   confidence: number | null;
   processedAt: string | null;
@@ -49,7 +57,7 @@ export interface AiValidationCheck {
 }
 
 export interface AiValidation {
-  status: 'passed' | 'flagged' | 'error' | 'pending' | 'in_progress';
+  status: "passed" | "flagged" | "error" | "pending" | "in_progress";
   checks: AiValidationCheck[];
   summary: string | null;
   validatedAt: string | null;
@@ -72,12 +80,12 @@ export interface IReceiptRef {
 export interface ITicketData {
   _id: string;
   title: string | null;
-  submittedBy: { _id: string; name: string; email: string };
+  submittedBy: IUserSnapshotData;
   submitterManagerId: string | null;
   orgId: string;
   amount: number | null;
   currency: Currency | null;
-  department: { _id: string; name: string } | null;
+  department: IEntitySnapshotData | null;
   description: string;
   tags: string[];
   receipts: IReceiptRef[];
@@ -102,17 +110,23 @@ export interface ITicketData {
  * merchant/category carry only _id + name (no S3 URLs).
  * receipts carry only _id (no presigned URLs).
  */
-export type ITicketSummaryData = Omit<ITicketData, 'receipts' | 'merchant' | 'category'> & {
+export type ITicketSummaryData = Omit<
+  ITicketData,
+  "receipts" | "merchant" | "category"
+> & {
   receipts: { _id: string }[];
-  merchant: { _id: string; name: string } | null;
-  category: { _id: string; name: string } | null;
+  merchant: IEntitySnapshotData | null;
+  category: IEntitySnapshotData | null;
 };
 
 export interface IDiscussionMessageData {
   _id: string;
   ticketId: string;
   orgId: string;
-  author: { _id: string; name: string; email: string; role: string; department: { _id: string; name: string } | null };
+  author: IUserSnapshotData & {
+    role: string;
+    department: IEntitySnapshotData | null;
+  };
   text: string;
   editedAt: string | null;
   deleted: boolean;
@@ -148,7 +162,11 @@ export interface ICategoryData {
 }
 
 // ─── Policy ───────────────────────────────────────────────────────────────────
-export type PermissionKey = 'view_all_tickets' | 'approve_finance' | 'export_reports' | 'view_analytics';
+export type PermissionKey =
+  | "view_all_tickets"
+  | "approve_finance"
+  | "export_reports"
+  | "view_analytics";
 
 export interface IPolicyData {
   _id: string;
@@ -165,11 +183,30 @@ export interface IPolicyData {
 
 // ─── Audit Log ────────────────────────────────────────────────────────────────
 export type AuditAction =
-  | 'created' | 'updated' | 'status_changed' | 'deleted' | 'flagged' | 'unflagged'
-  | 'approved' | 'rejected' | 'commented' | 'bundle_added' | 'bundle_removed'
-  | 'user_created' | 'user_updated' | 'user_disabled' | 'user_enabled' | 'permissions_updated';
+  | "created"
+  | "updated"
+  | "status_changed"
+  | "deleted"
+  | "flagged"
+  | "unflagged"
+  | "approved"
+  | "rejected"
+  | "commented"
+  | "bundle_added"
+  | "bundle_removed"
+  | "user_created"
+  | "user_updated"
+  | "user_disabled"
+  | "user_enabled"
+  | "permissions_updated";
 
-export type EntityType = 'ticket' | 'user' | 'department' | 'bundle' | 'merchant' | 'category';
+export type EntityType =
+  | "ticket"
+  | "user"
+  | "department"
+  | "bundle"
+  | "merchant"
+  | "category";
 
 export interface IAuditLogData {
   _id: string;
@@ -177,22 +214,22 @@ export interface IAuditLogData {
   entityType: EntityType;
   entityId: string;
   action: AuditAction;
-  performer: { _id: string; name: string };
+  performer: IEntitySnapshotData;
   ip: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
 }
 
 // ─── Bundle ───────────────────────────────────────────────────────────────────
-export type BundleStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
+export type BundleStatus = "draft" | "submitted" | "approved" | "rejected";
 
 export interface IBundleData {
   _id: string;
   orgId: string;
   title: string;
   description: string;
-  submittedBy: { _id: string; name: string; email: string };
-  submittedByDepartment: { _id: string; name: string } | null;
+  submittedBy: IUserSnapshotData;
+  submittedByDepartment: IEntitySnapshotData | null;
   status: BundleStatus;
   ticketCount: number;
   totalAmountBase: number | null;
@@ -200,13 +237,13 @@ export interface IBundleData {
   tags: string[];
   managerApproval: {
     approved: boolean | null;
-    reviewedBy: { _id: string; name: string } | null;
+    reviewedBy: IEntitySnapshotData | null;
     reviewedAt: string | null;
     comments: string | null;
   } | null;
   financeApproval: {
     approved: boolean | null;
-    reviewedBy: { _id: string; name: string } | null;
+    reviewedBy: IEntitySnapshotData | null;
     reviewedAt: string | null;
     comments: string | null;
   } | null;

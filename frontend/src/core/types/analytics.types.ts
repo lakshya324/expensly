@@ -1,4 +1,5 @@
-import type { Currency } from './api.types';
+import type { Currency } from "./api.types";
+import type { IEntitySnapshotData } from "./common.types";
 
 export interface MonthlyTrendPoint {
   year: number;
@@ -51,7 +52,11 @@ export interface OrgAnalytics {
   totalAmountPending: number;
   avgResolutionTimeMs: number;
   topTags: { tag: string; count: number }[];
-  currencyBreakdown: { currency: Currency; total: number; originalTotal: number }[];
+  currencyBreakdown: {
+    currency: Currency;
+    total: number;
+    originalTotal: number;
+  }[];
   totalFlagged?: number;
   flaggedRate?: number;
   monthlyTrend?: MonthlyTrendPoint[];
@@ -73,7 +78,7 @@ export interface IExchangeRateSnapshot {
   orgId: string;
   rates: Record<Currency, number>;
   baseCurrency: Currency;
-  source: 'manual' | 'fetched';
-  creator: { _id: string; name: string };
+  source: "manual" | "fetched";
+  creator: IEntitySnapshotData;
   createdAt: string;
 }
