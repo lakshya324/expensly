@@ -63,7 +63,11 @@ export default class DiscussionController {
           name: user.name,
           email: user.email,
           role: user.role,
-          departmentSnapshot: dept ? { _id: dept._id, name: dept.name } : null,
+          department: dept ? {
+            _id: dept._id,
+            name: dept.name,
+
+          } : null,
         },
         text: text ?? "",
       });
