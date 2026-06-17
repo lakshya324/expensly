@@ -5,6 +5,24 @@ import { randomUUID } from 'crypto';
 import config from '../config/env.config.js';
 import { s3Client } from '../config/s3.config.js';
 
+const RECEIPT_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const SAFE_EXTENSIONS = new Map([
+  ['image/jpeg', 'jpg'],
+  ['image/png', 'png'],
+  ['image/webp', 'webp'],
+  ['application/pdf', 'pdf'],
+]);
+
+function extensionFor(file: Express.Multer.File): string {
+  return SAFE_EXTENSIONS.get(file.mimetype) ?? 'bin';
+}
+
+function malwareScanPlaceholder(_file: Express.Multer.File): true {
+  // Hook point for ClamAV/vendor scanning before accepting uploads in regulated deployments.
+  return true;
+}
+
 // ─── Key builders ─────────────────────────────────────────────────────────────
 
 const receiptKeyBuilder = (
@@ -12,7 +30,7 @@ const receiptKeyBuilder = (
   file: Express.Multer.File,
   cb: (error: Error | null, key?: string) => void,
 ): void => {
-  const ext = file.mimetype.split('/')[1] ?? 'bin';
+  const ext = extensionFor(file);
   const key = `expensly/receipts/${randomUUID()}.${ext}`;
   cb(null, key);
 };
@@ -22,7 +40,7 @@ const logoKeyBuilder = (
   file: Express.Multer.File,
   cb: (error: Error | null, key?: string) => void,
 ): void => {
-  const ext = file.mimetype.split('/')[1] ?? 'bin';
+  const ext = extensionFor(file);
   const key = `expensly/logos/${randomUUID()}.${ext}`;
   cb(null, key);
 };
@@ -32,7 +50,7 @@ const iconKeyBuilder = (
   file: Express.Multer.File,
   cb: (error: Error | null, key?: string) => void,
 ): void => {
-  const ext = file.mimetype.split('/')[1] ?? 'bin';
+  const ext = extensionFor(file);
   const key = `expensly/icons/${randomUUID()}.${ext}`;
   cb(null, key);
 };
@@ -44,8 +62,7 @@ const receiptFileFilter = (
   file: Express.Multer.File,
   cb: FileFilterCallback,
 ): void => {
-  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-  if (allowed.includes(file.mimetype)) {
+  if (RECEIPT_MIME_TYPES.includes(file.mimetype) && malwareScanPlaceholder(file)) {
     cb(null, true);
   } else {
     cb(new Error('Only JPEG, PNG, WebP and PDF files are allowed for receipts'));
@@ -57,8 +74,7 @@ const imageOnlyFilter = (
   file: Express.Multer.File,
   cb: FileFilterCallback,
 ): void => {
-  const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-  if (allowed.includes(file.mimetype)) {
+  if (IMAGE_MIME_TYPES.includes(file.mimetype) && malwareScanPlaceholder(file)) {
     cb(null, true);
   } else {
     cb(new Error('Only JPEG, PNG, and WebP images are allowed'));

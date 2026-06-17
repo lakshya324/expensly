@@ -13,6 +13,7 @@ import { IMerchantData } from "./merchant.types.js";
 import { ICategoryData } from "./category.types.js";
 import { IBundleSummaryData } from "./bundle.types.js";
 import { IReceiptRef } from "./receipt.types.js";
+import { QueueJobStatus, QueueJobType } from "./queue.types.js";
 
 export type {
   IEntitySnapshot,
@@ -30,6 +31,18 @@ export interface IApproval {
   reviewerSnapshot: IUserSnapshot | null;
   reviewedAt: Date | null;
   comments: string | null;
+}
+
+export interface IProcessingJob {
+  jobId: string;
+  jobType: QueueJobType;
+  status: QueueJobStatus;
+  attempt: number;
+  traceId: string;
+  reason: string | null;
+  queuedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
 }
 
 export interface ITicket extends Document {
@@ -69,6 +82,8 @@ export interface ITicket extends Document {
   ocrData: IOcrData | null;
   /** AI validation summary; populated after async validation run */
   aiValidation: IAiValidationResult | null;
+  /** Operational history for OCR/AI background jobs. */
+  processingJobs: IProcessingJob[];
   // ─── Denormalized display snapshots - written at mutation time ────────────
   submitterSnapshot: IUserSnapshot | null;
   departmentSnapshot: IEntitySnapshot | null;
@@ -115,6 +130,7 @@ export interface ITicketData {
   expenseType: ExpenseType;
   ocrData: IOcrData | null;
   aiValidation: IAiValidationResult | null;
+  processingJobs: IProcessingJob[];
   createdAt: Date;
 }
 

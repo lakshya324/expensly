@@ -13,20 +13,26 @@ import {
 } from "@aws-sdk/client-sqs";
 import { sqsClient } from "../config/sqs.config.js";
 import config from "../config/env.config.js";
-import { QueueJob } from "../types/queue.types.js";
+import { buildQueueJob, parseQueueJob, QueueJob, QueueJobInput } from "../types/queue.types.js";
+import { logError, logWarn } from "../utils/logger.js";
 
-export const enqueueJob = async (job: QueueJob): Promise<void> => {
+export const enqueueJob = async (job: QueueJobInput): Promise<QueueJob> => {
+  const enrichedJob = buildQueueJob(job);
   await sqsClient.send(
     new SendMessageCommand({
       QueueUrl: config.awsConfig.sqs.queueUrl,
-      MessageBody: JSON.stringify(job),
+      MessageBody: JSON.stringify(enrichedJob),
     }),
   );
+  return enrichedJob;
 };
 
 export interface SqsMessage {
   body: QueueJob;
   receiptHandle: string;
+  messageId: string | null;
+  receiveCount: number;
+  sentAt: string | null;
 }
 
 export const receiveMessages = async (
@@ -36,8 +42,9 @@ export const receiveMessages = async (
     new ReceiveMessageCommand({
       QueueUrl: config.awsConfig.sqs.queueUrl,
       MaxNumberOfMessages: maxMessages,
-      WaitTimeSeconds: 0,
+      WaitTimeSeconds: 10,
       VisibilityTimeout: 90,
+      MessageSystemAttributeNames: ["ApproximateReceiveCount", "SentTimestamp"],
     }),
   );
 
@@ -45,9 +52,32 @@ export const receiveMessages = async (
 
   return result.Messages.flatMap((msg) => {
     if (!msg.Body || !msg.ReceiptHandle) return [];
+    const receiveCount = Number(msg.Attributes?.["ApproximateReceiveCount"] ?? "1");
+    const sentTimestamp = msg.Attributes?.["SentTimestamp"] ?? null;
+    const sentAt = sentTimestamp ? new Date(Number(sentTimestamp)).toISOString() : null;
+
     try {
-      return [{ body: JSON.parse(msg.Body) as QueueJob, receiptHandle: msg.ReceiptHandle }];
-    } catch {
+      const parsed = parseQueueJob(JSON.parse(msg.Body));
+      parsed.meta.attempt = Math.max(parsed.meta.attempt, receiveCount - 1);
+      return [{
+        body: parsed,
+        receiptHandle: msg.ReceiptHandle,
+        messageId: msg.MessageId ?? null,
+        receiveCount,
+        sentAt,
+      }];
+    } catch (err) {
+      logWarn("Dropping malformed SQS message", {
+        code: "SQS_MALFORMED_MESSAGE",
+        messageId: msg.MessageId,
+      });
+      deleteMessage(msg.ReceiptHandle).catch((deleteErr) =>
+        logError(deleteErr, {
+          message: "Failed to delete malformed SQS message",
+          code: "SQS_DELETE_MALFORMED_ERROR",
+          messageId: msg.MessageId,
+        }),
+      );
       return [];
     }
   });

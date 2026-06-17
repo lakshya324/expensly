@@ -10,6 +10,8 @@ import { logError, logSuccess } from "./utils/logger.js";
 import { initializeSocket } from "./socket.js";
 import { startCronJobs } from "./cron.js";
 import { mountSwagger } from "./swagger.js";
+import mongoose from "mongoose";
+import getRedisClient from "./config/redis.config.js";
 
 // Setup Environment
 setupEnvironment();
@@ -36,6 +38,22 @@ databases()
       logSuccess(`Server started on port ${config.port}`),
     );
     startCronJobs();
+
+    const shutdown = (signal: string) => {
+      logSuccess("Graceful shutdown started", { signal });
+      server.close(() => {
+        Promise.allSettled([
+          mongoose.disconnect(),
+          getRedisClient().quit(),
+        ]).finally(() => {
+          logSuccess("Graceful shutdown completed", { signal });
+          process.exit(0);
+        });
+      });
+    };
+
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
   })
   .catch((err) =>
     logError(err, {

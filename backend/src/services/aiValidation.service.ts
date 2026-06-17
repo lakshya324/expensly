@@ -18,6 +18,7 @@ import { IOcrData } from "../types/ocr.types.js";
 import config from "../config/env.config.js";
 import { logError } from "../utils/logger.js";
 import { openai } from "../config/openai.config.js";
+import { z } from "zod";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,33 @@ interface GptValidationResponse {
   checks: CheckResult[];
   summary: string;
 }
+
+const gptValidationResponseSchema = z.object({
+  extracted: z.object({
+    title: z.string().nullable().default(null),
+    description: z.string().nullable().default(null),
+    amount: z.number().finite().nonnegative().nullable().default(null),
+    currency: z.string().nullable().default(null),
+    date: z.string().nullable().default(null),
+    merchantName: z.string().nullable().default(null),
+    categoryName: z.string().nullable().default(null),
+  }).default({
+    title: null,
+    description: null,
+    amount: null,
+    currency: null,
+    date: null,
+    merchantName: null,
+    categoryName: null,
+  }),
+  checks: z.array(z.object({
+    label: z.string().min(1),
+    passed: z.boolean(),
+    confidence: z.number().min(0).max(1).nullable().default(null),
+    detail: z.string().nullable().default(null),
+  })).default([]),
+  summary: z.string().nullable().default(null),
+});
 
 // ─── Prompt builder ───────────────────────────────────────────────────────────
 
@@ -139,7 +167,7 @@ export const validateTicket = async (
     });
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
-    const parsed: GptValidationResponse = JSON.parse(raw);
+    const parsed = gptValidationResponseSchema.parse(JSON.parse(raw)) as GptValidationResponse;
 
     const checks: IValidationCheck[] = (parsed.checks ?? []).map((c) => ({
       label: c.label,
@@ -178,22 +206,6 @@ export const validateTicket = async (
       message: "AI validation failed",
       code: "AI_VALIDATION_ERROR",
     });
-    return {
-      status: AI_VALIDATION_STATUS.ERROR,
-      checks: [],
-      summary: "Validation could not be completed due to an internal error.",
-      validatedAt: new Date().toISOString(),
-      suggestedTitle: null,
-      suggestedAmount: null,
-      suggestedCurrency: null,
-      suggestedDate: null,
-      suggestedMerchantName: null,
-      suggestedCategoryName: null,
-      suggestedDescription: null,
-      unmatchedMerchantSuggestionText: null,
-      unmatchedCategorySuggestionText: null,
-      failureReason: null,
-    };
+    throw err;
   }
 };
-

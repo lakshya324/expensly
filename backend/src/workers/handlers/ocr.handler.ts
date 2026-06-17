@@ -12,13 +12,14 @@
 import { Ticket } from "../../models/Ticket.model.js";
 import { Organization } from "../../models/Organization.model.js";
 import { AI_VALIDATION_STATUS, OCR_STATUS, TICKET_STATUS } from "../../config/constants.js";
-import { OcrScanJob, QueueJobType } from "../../types/queue.types.js";
+import { JobFailureKind, JobProcessingResult, OcrScanJob, QueueJobStatus, QueueJobType } from "../../types/queue.types.js";
 import { extractReceiptData } from "../../services/ocr.service.js";
 import { enqueueJob } from "../../services/queue.service.js";
 import { emitOcrCompleted, emitTicketFailed } from "../../websocket/handlers/ticket.handler.js";
 import { logError, logInfo } from "../../utils/logger.js";
 import { Receipt } from "../../models/Receipt.model.js";
 import { buildTicketData } from "../../utils/ticket.utils.js";
+import { markJobFinished, markJobProcessing, markJobQueued } from "../jobState.js";
 
 function markOcrFailure(ticket: InstanceType<typeof Ticket>, isScanningFlow: boolean, reason: string): void {
   if (isScanningFlow) {
@@ -51,8 +52,9 @@ function markOcrFailure(ticket: InstanceType<typeof Ticket>, isScanningFlow: boo
   } as typeof ticket.aiValidation;
 }
 
-export async function processOcrJob(job: OcrScanJob): Promise<void> {
+export async function processOcrJob(job: OcrScanJob): Promise<JobProcessingResult> {
   const { ticketId, receiptId, orgId } = job;
+  const logContext = { jobId: job.meta.jobId, traceId: job.meta.traceId, ticketId, orgId };
 
   // Mark as processing
   const [ticket, org] = await Promise.all([
@@ -60,13 +62,21 @@ export async function processOcrJob(job: OcrScanJob): Promise<void> {
     Organization.findById(orgId),
   ]);
   if (!ticket) {
-    logInfo(`[OCR Worker] Ticket ${ticketId} not found - skipping`);
-    return;
+    logInfo("[OCR Worker] Ticket not found - skipping", logContext);
+    return { status: QueueJobStatus.Skipped, failureKind: JobFailureKind.NonRetryable, reason: "Ticket not found" };
   }
   if (!org) {
-    logInfo(`[OCR Worker] Org ${orgId} not found - skipping`);
-    return;
+    logInfo("[OCR Worker] Org not found - skipping", logContext);
+    return { status: QueueJobStatus.Skipped, failureKind: JobFailureKind.NonRetryable, reason: "Org not found" };
   }
+
+  if (ticket.ocrData?.status === OCR_STATUS.COMPLETED) {
+    markJobFinished(ticket, job, QueueJobStatus.Skipped, "OCR already completed");
+    await ticket.save();
+    return { status: QueueJobStatus.Skipped, reason: "OCR already completed" };
+  }
+
+  markJobProcessing(ticket, job);
   const isScanningFlow = ticket.status === TICKET_STATUS.SCANNING;
 
   ticket.ocrData = {
@@ -86,8 +96,11 @@ export async function processOcrJob(job: OcrScanJob): Promise<void> {
     logError(new Error("Receipt metadata not found"), {
       message: `OCR failed for ticket ${ticketId}`,
       code: "OCR_WORKER_FAILED",
+      ...logContext,
     });
-    return;
+    markJobFinished(ticket, job, QueueJobStatus.Failed, reason);
+    await ticket.save();
+    return { status: QueueJobStatus.Failed, failureKind: JobFailureKind.NonRetryable, reason };
   }
 
   // Run OCR
@@ -103,15 +116,33 @@ export async function processOcrJob(job: OcrScanJob): Promise<void> {
   if (ocrData.status === OCR_STATUS.COMPLETED) {
     emitOcrCompleted(orgId, ticketData);
     // Automatically chain AI validation
-    await enqueueJob({ jobType: QueueJobType.AiValidate, ticketId, orgId });
-    logInfo(`[OCR Worker] OCR completed for ticket ${ticketId} - ai_validate enqueued`);
+    const chainedJob = await enqueueJob({
+      jobType: QueueJobType.AiValidate,
+      ticketId,
+      orgId,
+      meta: {
+        traceId: job.meta.traceId,
+        requestedBy: job.meta.requestedBy,
+      },
+    });
+    markJobFinished(ticket, job, QueueJobStatus.Completed);
+    markJobQueued(ticket, chainedJob);
+    await ticket.save();
+    logInfo("[OCR Worker] OCR completed - ai_validate enqueued", {
+      ...logContext,
+      chainedJobId: chainedJob.meta.jobId,
+    });
+    return { status: QueueJobStatus.Completed };
   } else {
     const reason = ticket.ocrData?.failureReason ?? "Could not extract text from the receipt.";
     emitTicketFailed(orgId, ticketData, reason);
     logError(new Error("OCR failed"), {
       message: `OCR failed for ticket ${ticketId}`,
       code: "OCR_WORKER_FAILED",
+      ...logContext,
     });
+    markJobFinished(ticket, job, QueueJobStatus.Failed, reason);
+    await ticket.save();
+    return { status: QueueJobStatus.Failed, failureKind: JobFailureKind.NonRetryable, reason };
   }
 }
-

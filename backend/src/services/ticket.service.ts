@@ -92,6 +92,7 @@ export async function listTicketsPaginated(
       expenseType: t.expenseType,
       ocrData: t.ocrData ?? null,
       aiValidation: t.aiValidation ?? null,
+      processingJobs: t.processingJobs ?? [],
       createdAt: t.createdAt,
     };
   });

@@ -3,10 +3,8 @@
  *
  * Handles per-department budget reset scheduling and execution.
  */
-import { Types } from "mongoose";
 import { Department } from "../models/Department.model.js";
 import { BUDGET_RESET_PERIODS, BudgetResetPeriod } from "../config/constants.js";
-import { IDepartment } from "../types/department.types.js";
 import { logInfo } from "../utils/logger.js";
 
 // ---------------------------------------------------------------------------
@@ -26,7 +24,7 @@ export function calculateNextResetDate(
       next.setDate(1);
       next.setHours(0, 0, 0, 0);
       break;
-    case BUDGET_RESET_PERIODS.QUARTERLY:
+    case BUDGET_RESET_PERIODS.QUARTERLY: {
       // Start of next quarter
       const currentMonth = next.getMonth(); // 0-indexed
       const nextQuarterStart = Math.floor(currentMonth / 3) * 3 + 3;
@@ -34,6 +32,7 @@ export function calculateNextResetDate(
       next.setDate(1);
       next.setHours(0, 0, 0, 0);
       break;
+    }
     case BUDGET_RESET_PERIODS.YEARLY:
       next.setFullYear(next.getFullYear() + 1);
       next.setMonth(0);

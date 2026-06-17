@@ -6,7 +6,8 @@ import {
   OCR_STATUS,
   AI_VALIDATION_STATUS,
 } from "../config/constants.js";
-import { IApproval, ITicket } from "../types/ticket.types.js";
+import { IApproval, IProcessingJob, ITicket } from "../types/ticket.types.js";
+import { QueueJobStatus, QueueJobType } from "../types/queue.types.js";
 import { EntitySnapshotSchema, UserSnapshotSchema } from "./common.model.js";
 
 const ApprovalSchema = new Schema<IApproval>(
@@ -17,6 +18,29 @@ const ApprovalSchema = new Schema<IApproval>(
     reviewerSnapshot: { type: UserSnapshotSchema, default: null },
     reviewedAt: { type: Date, default: null },
     comments: { type: String, trim: true, default: null },
+  },
+  { _id: false },
+);
+
+const ProcessingJobSchema = new Schema<IProcessingJob>(
+  {
+    jobId: { type: String, required: true },
+    jobType: {
+      type: String,
+      enum: Object.values(QueueJobType),
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: Object.values(QueueJobStatus),
+      required: true,
+    },
+    attempt: { type: Number, default: 0 },
+    traceId: { type: String, required: true },
+    reason: { type: String, default: null },
+    queuedAt: { type: String, required: true },
+    startedAt: { type: String, default: null },
+    finishedAt: { type: String, default: null },
   },
   { _id: false },
 );
@@ -133,6 +157,10 @@ const TicketSchema = new Schema<ITicket>(
         { _id: false },
       ),
       default: null,
+    },
+    processingJobs: {
+      type: [ProcessingJobSchema],
+      default: [],
     },
     // ─── Denormalized display snapshots ───────────────────────────────────
     /** Submitter display info - embedded at creation, propagated on rename. */

@@ -35,16 +35,14 @@ export function verifyAccessToken(header: string | undefined): JwtPayload {
     // Bearer token
     const set = header.split(" ");
     const token = set[set.length - 1];
-    let decodedToken: JwtPayload;
-
     // Decode token
-    decodedToken = jwt.verify(
+    const decodedToken = jwt.verify(
       token,
       config.authConfig.jwt.secret,
     ) as JwtPayload;
     if (!decodedToken) createError("Not authenticated.", 401, "UNAUTHORIZED");
     return decodedToken;
-  } catch (err) {
+  } catch (_err) {
     // logError(err, {
     //   message: "Error verifying access token",
     //   code: "TOKEN_VERIFY_ERROR",

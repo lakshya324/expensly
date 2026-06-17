@@ -99,6 +99,7 @@ export async function buildTicketData(ticket: ITicket, org: IOrganization): Prom
     expenseType: ticket.expenseType,
     ocrData: ticket.ocrData ?? null,
     aiValidation: ticket.aiValidation ?? null,
+    processingJobs: ticket.processingJobs ?? [],
     createdAt: ticket.createdAt,
   };
 }

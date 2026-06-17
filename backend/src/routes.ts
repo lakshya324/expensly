@@ -17,7 +17,14 @@ const router: Router = express.Router();
 //! Log Middleware
 router.use((req: AuthRequest, res: Response, next: NextFunction) => {
   logInfo(
-    `${req.method} ${req.originalUrl} - User: ${req.user ? req.user._id.toString() : "Guest"} - IP: ${req.ip}`,
+    "HTTP request",
+    {
+      requestId: req.requestId,
+      method: req.method,
+      url: req.originalUrl,
+      userId: req.user ? req.user._id.toString() : "guest",
+      ip: req.ip,
+    },
   );
   next();
 });

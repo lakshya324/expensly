@@ -14,18 +14,20 @@
 import { Ticket } from "../../models/Ticket.model.js";
 import { Organization } from "../../models/Organization.model.js";
 import { AI_VALIDATION_STATUS, TICKET_STATUS, CURRENCIES } from "../../config/constants.js";
-import { AiValidateJob } from "../../types/queue.types.js";
+import { AiValidateJob, JobFailureKind, JobProcessingResult, QueueJobStatus } from "../../types/queue.types.js";
 import { validateTicket } from "../../services/aiValidation.service.js";
 import { resolveMerchantAndCategoryMatches } from "../../services/merchantCategoryMatcher.service.js";
 import { emitAiValidated, emitTicketFailed, emitTicketUpdate } from "../../websocket/handlers/ticket.handler.js";
 import { logError, logInfo } from "../../utils/logger.js";
 import { buildTicketData } from "../../utils/ticket.utils.js";
 import type { Currency } from "../../config/constants.js";
+import { markJobFinished, markJobProcessing } from "../jobState.js";
 
 // ─── Job processor ────────────────────────────────────────────────────────────
 
-export async function processAiValidationJob(job: AiValidateJob): Promise<void> {
+export async function processAiValidationJob(job: AiValidateJob): Promise<JobProcessingResult> {
   const { ticketId, orgId } = job;
+  const logContext = { jobId: job.meta.jobId, traceId: job.meta.traceId, ticketId, orgId };
 
   const [ticket, org] = await Promise.all([
     Ticket.findById(ticketId),
@@ -33,15 +35,25 @@ export async function processAiValidationJob(job: AiValidateJob): Promise<void> 
   ]);
 
   if (!ticket) {
-    logInfo(`[AI Validation Worker] Ticket ${ticketId} not found - skipping`);
-    return;
+    logInfo("[AI Validation Worker] Ticket not found - skipping", logContext);
+    return { status: QueueJobStatus.Skipped, failureKind: JobFailureKind.NonRetryable, reason: "Ticket not found" };
   }
   if (!org) {
-    logInfo(`[AI Validation Worker] Org ${orgId} not found - skipping`);
-    return;
+    logInfo("[AI Validation Worker] Org not found - skipping", logContext);
+    return { status: QueueJobStatus.Skipped, failureKind: JobFailureKind.NonRetryable, reason: "Org not found" };
+  }
+
+  if (
+    ticket.aiValidation?.status === AI_VALIDATION_STATUS.PASSED ||
+    ticket.aiValidation?.status === AI_VALIDATION_STATUS.FLAGGED
+  ) {
+    markJobFinished(ticket, job, QueueJobStatus.Skipped, "AI validation already completed");
+    await ticket.save();
+    return { status: QueueJobStatus.Skipped, reason: "AI validation already completed" };
   }
 
   const wasScanning = ticket.status === TICKET_STATUS.SCANNING;
+  markJobProcessing(ticket, job);
 
   // Mark as in-progress
   ticket.aiValidation = {
@@ -67,28 +79,17 @@ export async function processAiValidationJob(job: AiValidateJob): Promise<void> 
   try {
     result = await validateTicket(ticket, ticket.ocrData ?? null);
   } catch (err) {
-    const reason = "AI validation failed. Please re-submit the ticket to try again.";
-    if (wasScanning) {
-      ticket.status = TICKET_STATUS.FAILED;
-    }
-    ticket.aiValidation = {
-      ...(ticket.aiValidation ?? {}),
-      status: AI_VALIDATION_STATUS.ERROR,
-      checks: [],
-      summary: null,
-      validatedAt: new Date().toISOString(),
-      failureReason: reason,
-    } as typeof ticket.aiValidation;
+    const reason = "AI validation provider failed. The queue will retry this job.";
+    markJobFinished(ticket, job, QueueJobStatus.Retryable, reason);
     await ticket.save();
-
-    const ticketData = await buildTicketData(ticket, org);
-    emitTicketFailed(orgId, ticketData, reason);
 
     logError(err as Error, {
       message: `AI validation failed for ticket ${ticketId}`,
       code: "AI_VALIDATION_WORKER_FAILED",
+      ...logContext,
+      wasScanning,
     });
-    return;
+    return { status: QueueJobStatus.Failed, failureKind: JobFailureKind.Retryable, reason };
   }
 
   // ─── Scanning → Draft promotion ───────────────────────────────────────────
@@ -135,10 +136,11 @@ export async function processAiValidationJob(job: AiValidateJob): Promise<void> 
     result.unmatchedCategorySuggestionText = matchedEntities.unmatchedCategorySuggestionText;
 
     ticket.status = TICKET_STATUS.DRAFT;
-    logInfo(`[AI Validation Worker] Promoted ticket ${ticketId} scanning → draft`);
+    logInfo("[AI Validation Worker] Promoted scanning ticket to draft", logContext);
   }
 
   ticket.aiValidation = result;
+  markJobFinished(ticket, job, QueueJobStatus.Completed);
   await ticket.save();
 
   const ticketData = await buildTicketData(ticket, org);
@@ -150,6 +152,8 @@ export async function processAiValidationJob(job: AiValidateJob): Promise<void> 
   }
 
   logInfo(
-    `[AI Validation Worker] Validation ${result.status} for ticket ${ticketId}`,
+    "[AI Validation Worker] Validation completed",
+    { ...logContext, validationStatus: result.status },
   );
+  return { status: QueueJobStatus.Completed };
 }

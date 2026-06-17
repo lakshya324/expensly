@@ -7,5 +7,8 @@ const router = express.Router();
 
 //* Health Check [GET /api/health]
 router.get('/', HealthController.getHealth);
+router.get('/live', HealthController.live);
+router.get('/ready', HealthController.ready);
+router.get('/dependencies', HealthController.dependencies);
 
 export default router;
