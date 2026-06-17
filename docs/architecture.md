@@ -14,6 +14,8 @@ This document describes the high-level system design of Expensly — how the maj
 6. [Approval State Machine](#approval-state-machine)
 7. [Caching Strategy](#caching-strategy)
 8. [Real-Time Layer](#real-time-layer)
+9. [Background Processing](#background-processing)
+10. [Operational Baseline](#operational-baseline)
 
 ---
 
@@ -23,10 +25,10 @@ Expensly is a monorepo composed of two packages:
 
 | Package | Purpose |
 |---|---|
-| `backend/` | Express REST API + Socket.IO WebSocket server + cron scheduler |
+| `backend/` | Express REST API + Socket.IO WebSocket server + cron scheduler + dedicated AI/OCR worker |
 | `frontend/` | React 19 single-page application |
 
-The backend is the source of truth for all business logic. The frontend consumes the REST API for CRUD operations and receives live push updates via Socket.IO.
+The backend is the source of truth for all business logic. The frontend consumes the REST API for CRUD operations and receives live push updates via Socket.IO. Long-running OCR and AI validation work is queued in SQS and handled by a separately scalable worker process.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -53,6 +55,12 @@ The backend is the source of truth for all business logic. The frontend consumes
 │  │         SMTP Email (Nodemailer)                 │ │       │
 │  └─────────────────────────────────────────────────┘ │       │
 └──────────────────────────────────────────────────────┘       
+
+┌─────────────────────────────────────────────────────────────┐
+│                    AI / OCR Worker Process                  │
+│        Polls SQS, validates job payloads, updates tickets   │
+│        and emits Socket.IO events through shared handlers    │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -68,6 +76,7 @@ backend/src/
 ├── middlewares.ts    ← Global middleware stack (helmet, cors, morgan, body-parser)
 ├── socket.ts         ← Socket.IO server setup
 ├── cron.ts           ← node-cron job definitions
+├── workers/          ← Dedicated SQS worker runtime and OCR/AI handlers
 │
 ├── controllers/      ← Thin HTTP handlers — validate input, call services, respond
 ├── services/         ← Core business logic — no HTTP knowledge
@@ -92,6 +101,7 @@ A typical authenticated REST request travels through the following layers:
    Headers: Authorization: Bearer <access-token>
 
 2. Global middleware (middlewares.ts)
+   └── requestContext()  — assigns x-request-id for correlation
    └── helmet()          — security headers
    └── cors()            — origin validation
    └── morgan()          — HTTP request logging
@@ -236,3 +246,42 @@ Socket.IO runs on the same HTTP server as Express. The WebSocket connection is a
 After authentication, the server assigns the socket to rooms based on the user's org and (optionally) their subscribed departments. Controllers emit typed events via a shared `emitToOrg` / `emitToDept` helper after mutating state, so all connected clients receive live updates without polling.
 
 See [websockets.md](./websockets.md) for the full event catalogue.
+
+---
+
+## Background Processing
+
+Receipt OCR and AI validation are intentionally outside the HTTP request path:
+
+1. Ticket creation enqueues an SQS job with metadata: `jobId`, `traceId`, `attempt`, `createdAt`, and optional `requestedBy`.
+2. The worker process (`npm run start:worker`) long-polls SQS and validates each message with runtime schemas.
+3. OCR jobs mark ticket `ocrData`, emit completion/failure events, and enqueue AI validation when OCR succeeds.
+4. AI validation jobs validate provider output before saving advisory checks and extracted suggestions.
+5. Successful, skipped, malformed, and explicitly non-retryable jobs are deleted from SQS.
+6. Retryable failures are left in SQS so the queue redrive policy can retry and eventually move poison messages to the DLQ.
+
+Tickets keep a `processingJobs` history for operational visibility: queued, processing, completed, failed, retryable, and skipped states.
+
+---
+
+## Operational Baseline
+
+The repo now has root orchestration and CI-quality commands:
+
+| Command | Purpose |
+|---|---|
+| `npm run typecheck` | Backend + frontend TypeScript checks |
+| `npm run lint` | Backend + frontend ESLint checks |
+| `npm run test` | Backend + frontend Vitest suites |
+| `npm run build` | Backend compile + frontend production build |
+| `npm run audit:ci` | Production dependency audit for both packages |
+
+Health endpoints are split by deployment use case:
+
+| Endpoint | Purpose |
+|---|---|
+| `/api/health/live` | Process liveness |
+| `/api/health/ready` | Traffic readiness; requires MongoDB |
+| `/api/health/dependencies` | MongoDB and Redis dependency detail |
+
+See [deployment-runbook.md](./deployment-runbook.md) for Docker Compose, worker deployment, SQS DLQ, backup, and rollback notes.
