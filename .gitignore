@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Local generated seed credentials contain usable demo/admin secrets.
+backend/seed-*-credentials.json
+backend/seed-credentials.json
+backend/seed-api-credentials.json
+backend/seed-demo-credentials.json
