@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useState, useEffect } from 'react';
+import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, RotateCcw, Trash2, Pencil, Tag, Building2 } from 'lucide-react';
+import { Plus, RotateCcw, Trash2, Pencil, Tag, Building2, Shield } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -25,7 +25,12 @@ import {
 } from '../hooks/useDepartments';
 import { departmentSchema, type DepartmentFormValues } from '../validators';
 import { formatCurrency, formatPercent } from '@/core/utils/formatters';
-import type { IDepartmentData } from '@/core/types/ticket.types';
+import type { IDepartmentData, IPolicyData, PermissionKey } from '@/core/types/ticket.types';
+import apiClient from '@/infrastructure/api/client';
+import { EP } from '@/infrastructure/api/endpoints';
+import type { ApiResponse } from '@/core/types/api.types';
+import { CURRENCIES } from '@/core/constants/constants';
+import { useAuthStore } from '@/features/auth/store/authStore';
 
 const RESET_PERIOD_LABELS: Record<string, string> = {
   none: 'No Reset',
@@ -34,13 +39,25 @@ const RESET_PERIOD_LABELS: Record<string, string> = {
   yearly: 'Yearly',
 };
 
-const CURRENCIES = [
-  'USD', 'EUR', 'GBP', 'INR', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'SGD',
-  'AED', 'HKD', 'MXN', 'BRL', 'KRW', 'SEK', 'NOK', 'DKK', 'NZD', 'ZAR',
+const DEPT_PERM_LABELS: { key: string; label: string }[] = [
+  { key: 'view_all_tickets', label: 'View All Tickets' },
+  { key: 'approve_finance', label: 'Finance Approval' },
+  { key: 'export_reports', label: 'Export Reports' },
+  { key: 'view_analytics', label: 'View Analytics' },
 ];
 
 export function DepartmentsPage() {
   const { data, loading, refetch } = useDepartments({ limit: 100 });
+  const baseCurrency = useAuthStore((s) => s.user?.org?.baseCurrency ?? 'USD');
+
+  // Policies
+  const [policies, setPolicies] = useState<IPolicyData[]>([]);
+  useEffect(() => {
+    apiClient
+      .get<ApiResponse<IPolicyData[]>>(EP.ADMIN_POLICIES)
+      .then((r) => setPolicies(r.data.data ?? []))
+      .catch(() => {});
+  }, []);
 
   // Create
   const [createOpen, setCreateOpen] = useState(false);
@@ -53,11 +70,13 @@ export function DepartmentsPage() {
     defaultValues: {
       budgetResetPeriod: 'none',
       budget: '0',
-      permissions: { canViewAllTickets: false, canApprove: false },
+      policyId: null,
+      permissions: { view_all_tickets: false, approve_finance: false, export_reports: false, view_analytics: false },
       approvalThresholds: [],
     },
   });
   const createThresholds = useFieldArray({ control: createForm.control, name: 'approvalThresholds' });
+  const watchedCreatePolicy = useWatch({ control: createForm.control, name: 'policyId' });
 
   // Edit
   const [editTarget, setEditTarget] = useState<IDepartmentData | null>(null);
@@ -67,6 +86,7 @@ export function DepartmentsPage() {
   });
   const editForm = useForm<DepartmentFormValues>({ resolver: zodResolver(departmentSchema) });
   const editThresholds = useFieldArray({ control: editForm.control, name: 'approvalThresholds' });
+  const watchedEditPolicy = useWatch({ control: editForm.control, name: 'policyId' });
 
   const openEdit = (dept: IDepartmentData) => {
     setEditTarget(dept);
@@ -74,9 +94,12 @@ export function DepartmentsPage() {
       name: dept.name,
       budget: String(dept.budget),
       budgetResetPeriod: dept.budgetResetPeriod,
+      policyId: dept.policyId ?? null,
       permissions: {
-        canViewAllTickets: dept.permissions.canViewAllTickets,
-        canApprove: dept.permissions.canApprove,
+        view_all_tickets: dept.permissions.view_all_tickets,
+        approve_finance: dept.permissions.approve_finance,
+        export_reports: dept.permissions.export_reports,
+        view_analytics: dept.permissions.view_analytics,
       },
       approvalThresholds: Object.entries(dept.approvalThresholds).map(([currency, amount]) => ({
         currency,
@@ -113,11 +136,13 @@ export function DepartmentsPage() {
         ),
       },
       values.permissions,
+      values.policyId ?? null,
     );
     createForm.reset({
       budgetResetPeriod: 'none',
       budget: '0',
-      permissions: { canViewAllTickets: false, canApprove: false },
+      policyId: null,
+      permissions: { view_all_tickets: false, approve_finance: false, export_reports: false, view_analytics: false },
       approvalThresholds: [],
     });
   });
@@ -133,6 +158,7 @@ export function DepartmentsPage() {
         ),
       },
       values.permissions,
+      values.policyId ?? null,
     );
   });
 
@@ -189,6 +215,7 @@ export function DepartmentsPage() {
                   dept={dept}
                   pct={pct}
                   isOverBudget={isOverBudget}
+                  baseCurrency={baseCurrency}
                   onEdit={() => openEdit(dept)}
                   onReset={() => setResetTarget(dept)}
                   onDelete={() => setDeleteTarget(dept)}
@@ -236,22 +263,57 @@ export function DepartmentsPage() {
               </select>
             </div>
             {/* Permissions */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-[var(--foreground)]">Default Permissions</label>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-[var(--foreground)]">Permissions</label>
+                <span className="text-xs text-[var(--muted-foreground)]">optional</span>
+              </div>
               <Controller
                 control={createForm.control}
-                name="permissions.canViewAllTickets"
+                name="policyId"
                 render={({ field }) => (
-                  <BoolToggleRow label="Can View All Tickets" checked={field.value} onChange={field.onChange} />
+                  <select
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value || null)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option value="">No policy - set manually</option>
+                    {policies.map((pol) => (
+                      <option key={pol._id} value={pol._id}>
+                        {pol.name}{pol.isSystem ? ' (system)' : ''}
+                      </option>
+                    ))}
+                  </select>
                 )}
               />
-              <Controller
-                control={createForm.control}
-                name="permissions.canApprove"
-                render={({ field }) => (
-                  <BoolToggleRow label="Can Approve Tickets" checked={field.value} onChange={field.onChange} />
-                )}
-              />
+              <div className="flex flex-wrap gap-2">
+                {DEPT_PERM_LABELS.map(({ key, label }) => {
+                  const fromPolicy = !!(policies.find((p) => p._id === watchedCreatePolicy)?.grants ?? []).includes(key as PermissionKey);
+                  return (
+                    <Controller
+                      key={key}
+                      control={createForm.control}
+                      name={`permissions.${key}` as `permissions.${keyof DepartmentFormValues['permissions']}`}
+                      render={({ field }) => (
+                        <button
+                          type="button"
+                          onClick={() => field.onChange(!field.value)}
+                          title={field.value ? 'Explicitly granted - click to remove' : fromPolicy ? 'Granted via policy - click to also set explicitly' : 'Not granted - click to enable'}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                            field.value
+                              ? 'bg-brand-600 text-white border-brand-600'
+                              : fromPolicy
+                              ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border-brand-300 dark:border-brand-700'
+                              : 'bg-[var(--background)] text-[var(--muted-foreground)] border-[var(--border)] hover:border-brand-400 hover:text-[var(--foreground)]'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      )}
+                    />
+                  );
+                })}
+              </div>
             </div>
             {/* Approval Thresholds */}
             <div className="space-y-2">
@@ -266,7 +328,7 @@ export function DepartmentsPage() {
                 </button>
               </div>
               {createThresholds.fields.length === 0 ? (
-                <p className="text-xs text-[var(--muted-foreground)]">No thresholds — approvals won't be gated by amount.</p>
+                <p className="text-xs text-[var(--muted-foreground)]">No thresholds - approvals won't be gated by amount.</p>
               ) : (
                 createThresholds.fields.map((field, idx) => (
                   <div key={field.id} className="flex items-center gap-2">
@@ -343,22 +405,57 @@ export function DepartmentsPage() {
               </select>
             </div>
             {/* Permissions */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-[var(--foreground)]">Default Permissions</label>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-[var(--foreground)]">Permissions</label>
+                <span className="text-xs text-[var(--muted-foreground)]">optional</span>
+              </div>
               <Controller
                 control={editForm.control}
-                name="permissions.canViewAllTickets"
+                name="policyId"
                 render={({ field }) => (
-                  <BoolToggleRow label="Can View All Tickets" checked={field.value} onChange={field.onChange} />
+                  <select
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value || null)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option value="">No policy - set manually</option>
+                    {policies.map((pol) => (
+                      <option key={pol._id} value={pol._id}>
+                        {pol.name}{pol.isSystem ? ' (system)' : ''}
+                      </option>
+                    ))}
+                  </select>
                 )}
               />
-              <Controller
-                control={editForm.control}
-                name="permissions.canApprove"
-                render={({ field }) => (
-                  <BoolToggleRow label="Can Approve Tickets" checked={field.value} onChange={field.onChange} />
-                )}
-              />
+              <div className="flex flex-wrap gap-2">
+                {DEPT_PERM_LABELS.map(({ key, label }) => {
+                  const fromPolicy = !!(policies.find((p) => p._id === watchedEditPolicy)?.grants ?? []).includes(key as PermissionKey);
+                  return (
+                    <Controller
+                      key={key}
+                      control={editForm.control}
+                      name={`permissions.${key}` as `permissions.${keyof DepartmentFormValues['permissions']}`}
+                      render={({ field }) => (
+                        <button
+                          type="button"
+                          onClick={() => field.onChange(!field.value)}
+                          title={field.value ? 'Explicitly granted - click to remove' : fromPolicy ? 'Granted via policy - click to also set explicitly' : 'Not granted - click to enable'}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                            field.value
+                              ? 'bg-brand-600 text-white border-brand-600'
+                              : fromPolicy
+                              ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border-brand-300 dark:border-brand-700'
+                              : 'bg-[var(--background)] text-[var(--muted-foreground)] border-[var(--border)] hover:border-brand-400 hover:text-[var(--foreground)]'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      )}
+                    />
+                  );
+                })}
+              </div>
             </div>
             {/* Approval Thresholds */}
             <div className="space-y-2">
@@ -373,7 +470,7 @@ export function DepartmentsPage() {
                 </button>
               </div>
               {editThresholds.fields.length === 0 ? (
-                <p className="text-xs text-[var(--muted-foreground)]">No thresholds — approvals won't be gated by amount.</p>
+                <p className="text-xs text-[var(--muted-foreground)]">No thresholds - approvals won't be gated by amount.</p>
               ) : (
                 editThresholds.fields.map((field, idx) => (
                   <div key={field.id} className="flex items-center gap-2">
@@ -442,42 +539,11 @@ export function DepartmentsPage() {
   );
 }
 
-function BoolToggleRow({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between p-3 rounded-xl border border-[var(--border)] bg-[var(--muted)]/30">
-      <span className="text-sm font-medium text-[var(--foreground)]">{label}</span>
-      <div className="flex items-center gap-1">
-        {([true, false] as const).map((val) => (
-          <button
-            key={String(val)}
-            type="button"
-            onClick={() => onChange(val)}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
-              checked === val
-                ? 'bg-brand-600 text-white'
-                : 'bg-[var(--muted)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]'
-            }`}
-          >
-            {val ? 'Yes' : 'No'}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 interface DepartmentCardProps {
   dept: IDepartmentData;
   pct: number;
   isOverBudget: boolean;
+  baseCurrency: string;
   onEdit: () => void;
   onReset: () => void;
   onDelete: () => void;
@@ -487,6 +553,7 @@ function DepartmentCard({
   dept,
   pct,
   isOverBudget,
+  baseCurrency,
   onEdit,
   onReset,
   onDelete,
@@ -497,12 +564,18 @@ function DepartmentCard({
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="font-semibold text-[var(--foreground)]">{dept.name}</p>
-            <div className="flex items-center gap-1.5 mt-1">
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               <Badge variant={dept.isActive ? 'success' : 'muted'}>
                 {dept.isActive ? 'Active' : 'Inactive'}
               </Badge>
               {dept.budgetResetPeriod !== 'none' && (
                 <Badge variant="info">{RESET_PERIOD_LABELS[dept.budgetResetPeriod]}</Badge>
+              )}
+              {dept.policySnapshot && (
+                <span className="flex items-center gap-1 text-xs text-(--muted-foreground)">
+                  <Shield className="w-3 h-3 shrink-0" />
+                  {dept.policySnapshot.name}
+                </span>
               )}
             </div>
           </div>
@@ -537,7 +610,7 @@ function DepartmentCard({
             <span
               className={`font-medium ${isOverBudget ? 'text-danger-500' : 'text-[var(--foreground)]'}`}
             >
-              {formatCurrency(dept.spent, 'USD')} / {formatCurrency(dept.budget, 'USD')}
+              {formatCurrency(dept.spent, baseCurrency)} / {formatCurrency(dept.budget, baseCurrency)}
             </span>
           </div>
           <div className="h-2 rounded-full bg-[var(--muted)] overflow-hidden">

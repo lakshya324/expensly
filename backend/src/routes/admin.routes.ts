@@ -3,6 +3,11 @@ import AdminController from "../controllers/admin.controller.js";
 import { validate } from "../middleware/validate.js";
 import { createUserValidation } from "../validation/admin.schema.js";
 import { updateUserPermissionsValidation } from "../validation/department.schema.js";
+import departmentRoutes from "./department.routes.js";
+import exchangeRatesRoutes from "./exchangeRates.routes.js";
+import analyticsRoutes from "./analytics.routes.js";
+import merchantRoutes from "./merchant.routes.js";
+import categoryRoutes from "./category.routes.js";
 
 const router = Router();
 
@@ -32,5 +37,39 @@ router.patch(
   validate(updateUserPermissionsValidation),
   AdminController.updateUserPermissions,
 );
+
+//* Audit Log [GET /api/admin/audit-log]
+router.get("/audit-log", AdminController.getAuditLog);
+
+//? Policies
+
+//* List Policies [GET /api/admin/policies]
+router.get("/policies", AdminController.listPolicies);
+
+//* Create Policy [POST /api/admin/policies]
+router.post("/policies", AdminController.createPolicy);
+
+//* Update Policy [PATCH /api/admin/policies/:id]
+router.patch("/policies/:id", AdminController.updatePolicy);
+
+//* Delete Policy [DELETE /api/admin/policies/:id]
+router.delete("/policies/:id", AdminController.deletePolicy);
+
+//? Sub-domain routers (auth inherited from /api/admin mount)
+
+//* Department Routes [ALL Methods /api/admin/departments]
+router.use("/departments", departmentRoutes);
+
+//* Exchange Rate Routes [ALL Methods /api/admin/exchange-rates]
+router.use("/exchange-rates", exchangeRatesRoutes);
+
+//* Analytics Routes [ALL Methods /api/admin/analytics]
+router.use("/analytics", analyticsRoutes);
+
+//* Merchant Routes [ALL Methods /api/admin/merchants]
+router.use("/merchants", merchantRoutes);
+
+//* Category Routes [ALL Methods /api/admin/categories]
+router.use("/categories", categoryRoutes);
 
 export default router;

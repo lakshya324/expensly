@@ -20,7 +20,7 @@ export function useExchangeRates() {
       const res = await apiClient.get<ApiResponse<IExchangeRateSnapshot>>(EP.EXCHANGE_RATES);
       setData(res.data.data);
     } catch {
-      // current rates may not exist yet — silent
+      // current rates may not exist yet - silent
     } finally {
       setLoading(false);
     }
@@ -39,6 +39,7 @@ interface HistoryFilters {
 }
 
 export function useExchangeRateHistory(filters: HistoryFilters = {}) {
+  const filterKey = JSON.stringify(filters);
   const [data, setData] = useState<IExchangeRateSnapshot[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,8 +47,9 @@ export function useExchangeRateHistory(filters: HistoryFilters = {}) {
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
+      const queryFilters = JSON.parse(filterKey) as HistoryFilters;
       const params = Object.fromEntries(
-        Object.entries(filters).filter(([, v]) => v !== undefined),
+        Object.entries(queryFilters).filter(([, v]) => v !== undefined),
       );
       const res = await apiClient.get<ApiResponse<PaginatedData<IExchangeRateSnapshot>>>(
         EP.EXCHANGE_RATES_HISTORY,
@@ -60,7 +62,7 @@ export function useExchangeRateHistory(filters: HistoryFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(filters)]);
+  }, [filterKey]);
 
   useEffect(() => {
     fetch();

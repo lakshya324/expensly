@@ -15,7 +15,8 @@ Deep-dive into the React 19 single-page application — folder structure, routin
 7. [Socket.IO Client](#socketio-client)
 8. [UI Library & Styling](#ui-library--styling)
 9. [Form Handling & Validation](#form-handling--validation)
-10. [Build & Configuration](#build--configuration)
+10. [Quality Gates](#quality-gates)
+11. [Build & Configuration](#build--configuration)
 
 ---
 
@@ -48,6 +49,8 @@ frontend/src/
     ├── hooks/            ← useDebounce, usePagination, useLocalStorage, etc.
     └── utils/            ← cn() class-name helper, date utils, etc.
 ```
+
+UI utility files that export non-component helpers, such as button variants, live outside component files so React Fast Refresh stays reliable.
 
 ---
 
@@ -257,7 +260,10 @@ On a `401 Unauthorized` response:
 1. Checks that this is not already the `/auth/refresh` endpoint (prevents infinite loops).
 2. Attempts `POST /api/auth/refresh` once (the HttpOnly cookie is sent automatically).
 3. If successful: stores the new access token and **retries the original request** transparently.
-4. If the refresh also fails: dispatches a custom `auth:logout` DOM event.
+4. Refreshes the Socket.IO auth payload so reconnects use the newest token.
+5. If the refresh also fails: dispatches a custom `auth:logout` DOM event.
+
+---
 
 `AuthProvider` listens for `auth:logout` and calls `clearAuth()`, which redirects to the login page.
 
@@ -287,14 +293,14 @@ Normal API request
 
 ## Socket.IO Client
 
-Located in `infrastructure/socket/socketClient.ts`. A lazily initialized Socket.IO client that:
+Located in `infrastructure/socket/socket.client.ts`. A lazily initialized Socket.IO client that:
 
 1. Connects to the backend WebSocket server with the in-memory access token as auth payload.
-2. Wraps `socket.on` / `socket.off` / `socket.emit` with typed generics.
-3. Handles `connect_error` — if the token is expired, fires `auth:logout`.
-4. Exposes `subscribe(dept)` / `unsubscribe(dept)` helpers that emit `subscribe_dept` / `unsubscribe_dept` to join or leave department-scoped rooms.
+2. Exposes typed `on`, `off`, and `emit` helpers based on `ServerSocketEvents` and `ClientSocketEvents`.
+3. Refreshes the socket auth payload after Axios refresh via `socketClient.refreshAuth()`.
+4. Emits `subscribe_dept` / `unsubscribe_dept` for department-scoped rooms.
 
-Feature components connect to specific events via React hooks (`useTicketEvents`, `useAnalyticsEvents`, etc.) that call `socketClient.on(event, handler)` in a `useEffect` and clean up on unmount.
+Feature components subscribe through `useSocket(event, handler)`. Socket boundary casts are isolated inside `infrastructure/socket/socket.client.ts`; feature code should use typed payloads rather than `any`.
 
 ---
 
@@ -334,6 +340,25 @@ const form = useForm<z.infer<typeof schema>>({
 ```
 
 Zod schemas for auth forms live in the `auth` feature; for expense forms in the `expenses` feature. Validation runs client-side on submit and on blur. Server-side errors (from `express-validator`) are mapped back to the form's error state via the Axios response interceptor.
+
+---
+
+## Quality Gates
+
+Frontend quality is covered by:
+
+| Command | Purpose |
+|---|---|
+| `npm run typecheck` | TypeScript project checks |
+| `npm run lint` | ESLint, React Hooks, React Compiler, and Fast Refresh checks |
+| `npm run test` | Vitest test suite |
+| `npm run build` | Production Vite build |
+
+The root repo command runs frontend and backend together:
+
+```bash
+npm run check
+```
 
 ---
 

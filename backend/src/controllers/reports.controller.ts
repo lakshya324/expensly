@@ -1,5 +1,6 @@
 import { Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
+import { logInfo } from '../utils/logger.js';
 import { generateTicketsCsv } from '../services/csv.service.js';
 import { buildReportKey, uploadFile, getReportSignedUrl, getReportBuffer, deleteFile } from '../services/s3.service.js';
 import { sendReportEmail } from '../services/email.service.js';
@@ -39,10 +40,6 @@ export class ReportsController {
       }
 
       const tickets = await Ticket.find(filter)
-        .populate('submittedBy', 'name email')
-        .populate('department', 'name')
-        .populate({ path: 'managerApproval.reviewedBy', select: 'name' })
-        .populate({ path: 'financeApproval.reviewedBy', select: 'name' })
         .sort({ createdAt: -1 })
         .lean();
 
@@ -62,6 +59,7 @@ export class ReportsController {
 
       // --- Persist to S3 & DB (best-effort, non-blocking to client) ---
       try {
+        logInfo(`Persisting report for user ${user._id.toString()} - filters: ${JSON.stringify({ status, department, from, to })}`);
         const reportDoc = new Report({
           orgId: org._id,
           generatedBy: user._id,

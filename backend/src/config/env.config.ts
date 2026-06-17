@@ -1,19 +1,49 @@
 import "dotenv/config";
-import { createError } from "../utils/error.js";
+import { z } from "zod";
 
-function requireEnv(key: string): string {
-  const val = process.env[key];
-  if (!val) createError(`Missing required environment variable: ${key}`, 500);
-  return val;
+const envSchema = z.object({
+  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  CORS_ORIGIN: z.string().default("http://localhost:5173,http://127.0.0.1:5173"),
+  MONGODB_URI: z.string().min(1),
+  JWT_SECRET: z.string().min(16),
+  JWT_REFRESH_SECRET: z.string().min(16),
+  JWT_EXPIRES_IN: z.string().default("15m"),
+  JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
+  BCRYPT_ROUNDS: z.coerce.number().int().min(8).max(15).default(10),
+  SUPER_ADMIN_EMAIL: z.string().email(),
+  SUPER_ADMIN_PASSWORD: z.string().min(8),
+  AWS_BUCKET: z.string().min(1).optional(),
+  AWS_REGION: z.string().min(1).default("ap-south-1"),
+  AWS_ACCESS_KEY_ID: z.string().min(1).optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().min(1),
+  AWS_SQS_QUEUE_URL: z.string().url(),
+  REDIS_URL: z.string().min(1),
+  SMTP_HOST: z.string().min(1),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+  SMTP_USER: z.string().min(1),
+  SMTP_PASS: z.string().min(1),
+  OTP_EXPIRES_IN: z.coerce.number().int().min(60).max(3600).default(300),
+  OPENAI_API_KEY: z.string().min(1),
+  OPENAI_MODEL: z.string().min(1).default("gpt-5-nano"),
+});
+
+const parsedEnv = envSchema.safeParse(process.env);
+
+if (!parsedEnv.success) {
+  const details = z.flattenError(parsedEnv.error).fieldErrors;
+  throw new Error(`Invalid environment configuration: ${JSON.stringify(details)}`);
 }
 
+const env = parsedEnv.data;
+
 const config = {
-  port: parseInt(process.env["PORT"] ?? "3000") || 3000,
-  nodeEnv: process.env["NODE_ENV"] ?? "development",
-  corsOrigin: (process.env["CORS_ORIGIN"] ?? "http://localhost:5173,http://127.0.0.1:5173").split(",").map(s => s.trim()),
+  port: env.PORT,
+  nodeEnv: env.NODE_ENV,
+  corsOrigin: env.CORS_ORIGIN.split(",").map(s => s.trim()).filter(Boolean),
 
   //* MongoDB
-  mongodbUri: requireEnv("MONGODB_URI"),
+  mongodbUri: env.MONGODB_URI,
 
   //* Rate Limiting
   ratelimit: {
@@ -30,41 +60,51 @@ const config = {
   //* Authentication & Authorization
   authConfig: {
     jwt: {
-      secret: requireEnv("JWT_SECRET"),
-      refreshSecret: requireEnv("JWT_REFRESH_SECRET"),
-      expiresIn: process.env["JWT_EXPIRES_IN"] ?? "15m",
-      refreshExpiresIn: process.env["JWT_REFRESH_EXPIRES_IN"] ?? "7d",
+      secret: env.JWT_SECRET,
+      refreshSecret: env.JWT_REFRESH_SECRET,
+      expiresIn: env.JWT_EXPIRES_IN,
+      refreshExpiresIn: env.JWT_REFRESH_EXPIRES_IN,
     },
-    bcryptRounds: parseInt(process.env["BCRYPT_ROUNDS"] ?? "10") || 10,
+    bcryptRounds: env.BCRYPT_ROUNDS,
   },
 
   //* Super Admin
   superAdminConfig: {
-    email: requireEnv("SUPER_ADMIN_EMAIL"),
-    password: requireEnv("SUPER_ADMIN_PASSWORD"),
+    email: env.SUPER_ADMIN_EMAIL,
+    password: env.SUPER_ADMIN_PASSWORD,
   },
 
   //* AWS S3
   awsConfig: {
-    awsBucket: process.env["AWS_BUCKET"] as string | undefined,
-    awsRegion: process.env["AWS_REGION"] ?? "ap-south-1",
-    awsAccessKeyId: process.env["AWS_ACCESS_KEY_ID"] as string | undefined,
-    awsSecretAccessKey: requireEnv("AWS_SECRET_ACCESS_KEY"),
+    awsBucket: env.AWS_BUCKET,
+    awsRegion: env.AWS_REGION,
+    awsAccessKeyId: env.AWS_ACCESS_KEY_ID,
+    awsSecretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+
+    sqs: {
+      queueUrl: env.AWS_SQS_QUEUE_URL,
+    },
   },
 
   //* Redis
-  redisUrl: requireEnv("REDIS_URL"),
+  redisUrl: env.REDIS_URL,
 
   //* Email (SMTP)
   emailConfig: {
-    host: requireEnv("SMTP_HOST"),
-    port: parseInt(process.env["SMTP_PORT"] ?? "587") || 587,
-    user: requireEnv("SMTP_USER"),
-    pass: requireEnv("SMTP_PASS"),
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    user: env.SMTP_USER,
+    pass: env.SMTP_PASS,
   },
 
   //* OTP
-  otpExpiresIn: parseInt(process.env["OTP_EXPIRES_IN"] ?? "300") || 300, // seconds
+  otpExpiresIn: env.OTP_EXPIRES_IN, // seconds
+
+  //* OpenAI
+  openai: {
+    apiKey: env.OPENAI_API_KEY,
+    model: env.OPENAI_MODEL,
+  },
 };
 
 export default config;

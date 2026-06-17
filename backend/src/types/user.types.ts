@@ -1,14 +1,14 @@
 import { Document, Types } from "mongoose";
-import { Role } from "../config/constants.js";
+import { Role, PermissionKey } from "../config/constants.js";
 import { IOrganization, IOrganizationData } from "./organization.types.js";
-import { IDepartmentData } from "./department.types.js";
+import {
+  IEntitySnapshot,
+  IEntitySnapshotData,
+  IPolicySnapshot,
+} from "./common.types.js";
 
-export interface IUserPermissions {
-  /** Override dept-level canViewAllTickets. null = inherit from dept */
-  canViewAllTickets: boolean | null;
-  /** Override dept-level canApprove. null = inherit from dept */
-  canApprove: boolean | null;
-}
+/** null = inherit from dept/policy chain; true/false = explicit override */
+export type IUserPermissions = { [K in PermissionKey]: boolean | null };
 
 export interface IUser extends Document {
   _id: Types.ObjectId;
@@ -18,8 +18,12 @@ export interface IUser extends Document {
   role: Role;
   orgId: Types.ObjectId | null;
   department: Types.ObjectId | null;
+  departmentSnapshot: IEntitySnapshot | null;
   managerId: Types.ObjectId | null;
+  managerSnapshot: IEntitySnapshot | null;
   permissions: IUserPermissions;
+  policyId: Types.ObjectId | null;
+  policySnapshot: IPolicySnapshot | null;
   isDisabled: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -34,9 +38,11 @@ export interface IUserData {
   email: string;
   role: Role;
   org: IOrganizationData | null;
-  department: IDepartmentData | null;
+  department: IEntitySnapshotData | null;
   permissions: IUserPermissions;
-  manager: Omit<IUserData, "org" | "department" | "manager" | "permissions"> | null;
+  policyId: string | null;
+  effectivePermissions: Record<PermissionKey, boolean>;
+  manager: IEntitySnapshotData | null;
   isDisabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -47,5 +53,5 @@ export interface IUserMinimalData {
   name: string;
   email: string;
   role: Role;
-  department: IDepartmentData | null;
+  department: IEntitySnapshotData | null;
 }

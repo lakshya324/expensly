@@ -13,9 +13,11 @@ Deep-dive into the Express API server — how it boots, how middleware is wired,
 5. [Services](#services)
 6. [Controllers](#controllers)
 7. [Cron Jobs](#cron-jobs)
-8. [Logging](#logging)
-9. [Swagger / API Docs](#swagger--api-docs)
-10. [Error Handling](#error-handling)
+8. [Background Worker](#background-worker)
+9. [Logging And Correlation](#logging-and-correlation)
+10. [Health Checks](#health-checks)
+11. [Swagger / API Docs](#swagger--api-docs)
+12. [Error Handling](#error-handling)
 
 ---
 
@@ -51,7 +53,8 @@ backend/src/
 ├── types/                ← Shared TypeScript types
 ├── utils/                ← Utility helpers
 ├── validation/           ← express-validator schemas
-└── websocket/            ← Socket.IO handlers and event types
+├── websocket/            ← Socket.IO handlers and event types
+└── workers/              ← Dedicated SQS worker runtime and OCR/AI handlers
 ```
 
 ---
@@ -69,6 +72,18 @@ The entry point:
 5. Starts cron jobs via `startCronJobs()`.
 6. Seeds the super admin account via `seedSuperAdmin()` if it does not already exist.
 7. Calls `server.listen(PORT)`.
+8. Registers graceful shutdown for HTTP, MongoDB, and Redis.
+
+### `workers/index.ts`
+
+The queue worker is a separate process from the API server:
+
+1. Connects to MongoDB and Redis.
+2. Polls SQS every second using long polling.
+3. Dispatches validated queue jobs to OCR or AI validation handlers.
+4. Deletes only successful, skipped, malformed, or explicitly non-retryable messages.
+5. Leaves retryable provider/system failures in SQS for queue retry and DLQ redrive.
+6. Waits for in-flight work during graceful shutdown.
 
 ### `setup.ts`
 
@@ -87,6 +102,7 @@ Creates and returns the Express application:
 
 | Middleware | Purpose |
 |---|---|
+| `requestContext()` | Assigns `x-request-id` for logs and response correlation |
 | `helmet()` | Sets secure HTTP headers (CSP, HSTS, X-Frame-Options, etc.) |
 | `cors()` | Validates `Origin` against `CORS_ORIGIN` env variable (comma-separated list) |
 | `morgan('dev')` | HTTP request/response logging to console |
@@ -105,7 +121,7 @@ Reads `req.user.role` and confirms it is in the allowed roles array. Throws `403
 
 **`middleware/upload.ts`**
 
-Multer configuration for multipart form data. Files are streamed directly to the S3 service via a custom storage engine — nothing is written to disk.
+Multer configuration for multipart form data. Files are streamed directly to S3. Receipt uploads allow JPEG, PNG, WebP, and PDF with explicit safe extension mapping and a malware-scan hook point. Merchant/category images allow JPEG, PNG, and WebP.
 
 **`middleware/validate.ts` — `validate(schema)`**
 
@@ -133,7 +149,7 @@ The final Express error middleware. Distinguishes between:
 
 ### `config/env.config.ts`
 
-Parses and validates all environment variables at startup. Application will throw a descriptive error and refuse to start if any required variable is missing or invalid. Exports a typed `env` object consumed everywhere else.
+Parses and validates all environment variables with Zod at startup. Application startup fails fast with grouped field errors if required values are missing or malformed. Numeric settings such as ports, bcrypt rounds, SMTP port, and OTP TTL are range checked.
 
 ### `config/constants.ts`
 
@@ -193,6 +209,18 @@ Thin wrappers around ioredis for consistent JSON serialization:
 | `setJSON(key, value, ttl?)` | `JSON.stringify` then `redis.set` with optional `EX ttl` |
 | `setString(key, value, ttl?)` | Raw string set |
 | `del(key)` | Delete key |
+
+### `queue.service.ts`
+
+SQS wrapper used by controllers and workers:
+
+| Function | Description |
+|---|---|
+| `enqueueJob(job)` | Adds metadata (`jobId`, `traceId`, `createdAt`, `attempt`) and sends the message |
+| `receiveMessages(max?)` | Long-polls SQS, validates payloads, stamps receive count, drops malformed messages |
+| `deleteMessage(handle)` | Deletes a successfully handled or non-retryable message |
+
+Queue job payloads are discriminated by `jobType` (`ocr_scan` or `ai_validate`) and validated at runtime before handler dispatch.
 
 ### `email.service.ts`
 
@@ -262,26 +290,68 @@ Each controller file is a thin orchestration layer — it extracts validated inp
 
 ## Cron Jobs
 
-Defined in `cron.ts` and started in `index.ts`:
+Cron remains inside the API process for lightweight scheduled maintenance:
 
-| Schedule | Task | Code path |
+| Job | Schedule | Purpose |
 |---|---|---|
-| Every hour at `:00` | Invoke `processDueBudgetResets()` — resets `spent = 0` for departments past their reset date | `budget.service.ts` |
-| Daily at `00:00` | Invoke `refreshOrgAnalytics(orgId)` for every enabled org (uses `Promise.allSettled` so one failing org doesn't block others) | `analytics.service.ts` |
+| Budget reset | Hourly | Resets departments whose `nextResetDate` has passed |
+| Analytics refresh | Daily midnight | Refreshes analytics snapshots for active organizations |
+
+The AI/OCR SQS consumer no longer runs inside cron. It is owned by the dedicated worker process so queue throughput can scale independently from HTTP traffic.
 
 ---
 
-## Logging
+## Background Worker
 
-`logs.ts` configures a Winston logger with:
-- **Console transport** — colorized output in development
-- **File transport** — JSON logs written to `logs/error.log` (error level) and `logs/combined.log` (all levels)
+Run the compiled worker with:
 
-Morgan HTTP access logs are piped into the same Winston instance so all output is unified.
+```bash
+npm run start:worker
+```
 
-Log levels used: `error`, `warn`, `info`, `http`, `debug`.
+Development mode:
+
+```bash
+npm run dev:worker
+```
+
+The worker processes:
+
+| Job type | Handler | Behavior |
+|---|---|---|
+| `ocr_scan` | `workers/handlers/ocr.handler.ts` | Extracts text from receipt files, stores `ocrData`, emits socket updates, queues AI validation |
+| `ai_validate` | `workers/handlers/aiValidation.handler.ts` | Calls OpenAI, validates JSON output, stores advisory checks and suggested fields |
+
+Ticket documents include `processingJobs[]` for operational history. Each entry tracks `jobId`, `jobType`, `status`, `attempt`, `traceId`, timestamps, and a reason when applicable.
+
+Recommended SQS setup is documented in [deployment-runbook.md](./deployment-runbook.md): long polling, 90s visibility timeout, and DLQ redrive after a small retry count.
 
 ---
+
+## Logging And Correlation
+
+`utils/logger.ts` writes structured JSON logs with:
+
+- `level`
+- `message`
+- `timestamp`
+- `service`
+- optional `requestId`, `traceId`, `jobId`, `code`, and contextual fields
+
+HTTP requests receive an `x-request-id` through `requestContext`. Queue jobs carry `traceId` and `jobId`, so worker failures can be traced without logging PII such as OTPs, tokens, or receipt text.
+
+---
+
+## Health Checks
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/health` | Backward-compatible readiness check |
+| `GET /api/health/live` | Process liveness |
+| `GET /api/health/ready` | MongoDB readiness |
+| `GET /api/health/dependencies` | MongoDB + Redis dependency detail |
+
+Use `/ready` for load balancer traffic decisions and `/live` for process restart checks.
 
 ## Swagger / API Docs
 

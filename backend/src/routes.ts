@@ -2,9 +2,6 @@ import express, { Router, Response, NextFunction } from "express";
 import { AuthRequest } from "./types/types.js";
 import { logInfo } from "./utils/logger.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
-import exchangeRatesRoutes from "./routes/exchangeRates.routes.js";
-import departmentRoutes from "./routes/department.routes.js";
-import analyticsRoutes from "./routes/analytics.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import healthRoutes from "./routes/health.routes.js";
@@ -20,7 +17,14 @@ const router: Router = express.Router();
 //! Log Middleware
 router.use((req: AuthRequest, res: Response, next: NextFunction) => {
   logInfo(
-    `${req.method} ${req.originalUrl} - User: ${req.user ? req.user._id.toString() : "Guest"} - IP: ${req.ip}`,
+    "HTTP request",
+    {
+      requestId: req.requestId,
+      method: req.method,
+      url: req.originalUrl,
+      userId: req.user ? req.user._id.toString() : "guest",
+      ip: req.ip,
+    },
   );
   next();
 });
@@ -49,33 +53,6 @@ router.use(
   authenticate,
   authorize(ROLES.ADMIN),
   adminRoutes,
-);
-
-//* Admin: Department Routes [ALL Methods /api/admin/departments]
-router.use(
-  "/api/admin/departments",
-  apiLimiter,
-  authenticate,
-  authorize(ROLES.ADMIN),
-  departmentRoutes,
-);
-
-//* Admin: Exchange Rate Routes [ALL Methods /api/admin/exchange-rates]
-router.use(
-  "/api/admin/exchange-rates",
-  apiLimiter,
-  authenticate,
-  authorize(ROLES.ADMIN),
-  exchangeRatesRoutes,
-);
-
-//* Admin: Analytics Routes [ALL Methods /api/admin/analytics]
-router.use(
-  "/api/admin/analytics",
-  apiLimiter,
-  authenticate,
-  authorize(ROLES.ADMIN),
-  analyticsRoutes,
 );
 
 //* Super Admin Routes [ALL Methods /api/superadmin]

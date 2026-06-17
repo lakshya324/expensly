@@ -129,12 +129,15 @@ Open `.env` and fill in every placeholder:
 | `AWS_REGION` | AWS region (e.g. `ap-south-1`) |
 | `AWS_ACCESS_KEY_ID` | AWS IAM access key ID |
 | `AWS_SECRET_ACCESS_KEY` | AWS IAM secret access key |
+| `AWS_SQS_QUEUE_URL` | SQS queue URL for OCR/AI validation jobs |
 | `REDIS_URL` | Redis connection URL |
 | `SMTP_HOST` | SMTP server host (e.g. `smtp.gmail.com`) |
 | `SMTP_PORT` | SMTP port (e.g. `587`) |
 | `SMTP_USER` | SMTP username / email address |
 | `SMTP_PASS` | SMTP password / app password |
 | `OTP_EXPIRES_IN` | OTP validity in seconds (default `300`) |
+| `OPENAI_API_KEY` | OpenAI API key for AI validation |
+| `OPENAI_MODEL` | Model used for AI validation (default `gpt-5-nano`) |
 
 #### 2c. Start the development server
 
@@ -150,8 +153,10 @@ Swagger UI (development only) is available at `http://localhost:3000/api-docs`.
 | Script | Description |
 |---|---|
 | `npm run dev` | Start with ts-node / nodemon (hot reload) |
+| `npm run dev:worker` | Start the dedicated OCR/AI queue worker in development |
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run compiled output from `dist/` |
+| `npm run start:worker` | Run the compiled OCR/AI queue worker |
 
 ---
 
@@ -214,6 +219,7 @@ The app starts at `http://localhost:5173`.
 | [docs/api-reference.md](./docs/api-reference.md) | Full REST API reference — every route, parameters, auth, and responses |
 | [docs/data-models.md](./docs/data-models.md) | MongoDB models — fields, relationships, approval state machine, budget lifecycle |
 | [docs/websockets.md](./docs/websockets.md) | WebSocket architecture — all client↔server events and payloads |
+| [docs/deployment-runbook.md](./docs/deployment-runbook.md) | Deployment, worker, SQS DLQ, health checks, backups, and rollback notes |
 
 ---
 

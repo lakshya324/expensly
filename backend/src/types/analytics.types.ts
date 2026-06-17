@@ -1,5 +1,32 @@
 import { Document, Types } from "mongoose";
 
+export interface IMonthlyTrendPoint {
+  year: number;
+  month: number; // 1-12
+  submittedCount: number;
+  approvedAmount: number;
+}
+
+export interface ICategoryBreakdownItem {
+  categoryId: string | null;
+  name: string;
+  count: number;
+  totalAmount: number;
+}
+
+export interface IMerchantBreakdownItem {
+  merchantId: string | null;
+  name: string;
+  count: number;
+  totalAmount: number;
+}
+
+export interface IExpenseTypeBreakdownItem {
+  type: string;
+  count: number;
+  totalAmount: number;
+}
+
 export interface IDeptAnalytics {
   departmentId: Types.ObjectId;
   name: string;
@@ -28,6 +55,12 @@ export interface IOrgAnalytics extends Document {
     avgResolutionTimeMs: number;
     topTags: { tag: string; count: number }[];
     currencyBreakdown: { currency: string; total: number; originalTotal: number }[];
+    totalFlagged: number;
+    flaggedRate: number;
+    monthlyTrend: IMonthlyTrendPoint[];
+    categoryBreakdown: ICategoryBreakdownItem[];
+    merchantBreakdown: IMerchantBreakdownItem[];
+    expenseTypeBreakdown: IExpenseTypeBreakdownItem[];
   };
   departments: IDeptAnalytics[];
   generatedAt: Date;
@@ -60,6 +93,12 @@ export interface IOrgAnalyticsData {
     avgResolutionTimeMs: number;
     topTags: { tag: string; count: number }[];
     currencyBreakdown: { currency: string; total: number; originalTotal: number }[];
+    totalFlagged: number;
+    flaggedRate: number;
+    monthlyTrend: IMonthlyTrendPoint[];
+    categoryBreakdown: ICategoryBreakdownItem[];
+    merchantBreakdown: IMerchantBreakdownItem[];
+    expenseTypeBreakdown: IExpenseTypeBreakdownItem[];
   };
   departments: IDeptAnalyticsData[];
   generatedAt: Date;

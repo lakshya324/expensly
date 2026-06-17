@@ -24,7 +24,16 @@ export interface ApiError {
 
 export type Role = 'user' | 'admin' | 'super_admin';
 
-export type TicketStatus = 'pending' | 'awaiting_finance' | 'approved' | 'rejected';
+export type TicketStatus =
+  | 'draft'
+  | 'scanning'
+  | 'failed'
+  | 'pending'
+  | 'awaiting_finance'
+  | 'approved'
+  | 'rejected';
+
+export type ExpenseType = 'regular' | 'per_diem' | 'mileage';
 
 export type Currency =
   | 'USD' | 'EUR' | 'GBP' | 'INR' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'SGD'

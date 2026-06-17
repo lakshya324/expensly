@@ -1,6 +1,6 @@
 {
   "name": "expensly-backend",
-  "version": "2.3.0",
+  "version": "2.1.0",
   "description": "Expensly Backend - expense management system",
   "license": "MIT",
   "author": "Lakshya Sharma",
@@ -12,12 +12,17 @@
   },
   "scripts": {
     "start": "node dist/index.js",
+    "start:worker": "node dist/workers/index.js",
     "dev": "tsc-watch --onSuccess \"npm start\"",
+    "dev:worker": "tsc-watch --onSuccess \"npm run start:worker\"",
     "build": "tsc -p .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.993.0",
+    "@aws-sdk/client-sqs": "^3.1005.0",
     "@aws-sdk/s3-request-presigner": "^3.993.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
@@ -33,28 +38,41 @@
     "mongoose": "^9.2.1",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
+    "multer-s3": "^3.0.1",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.1",
+    "openai": "^6.27.0",
+    "pdf-parse": "^2.4.5",
+    "sharp": "^0.34.5",
     "socket.io": "^4.8.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "tesseract.js": "^7.0.0",
     "tsc-watch": "^7.2.0",
-    "ws": "^8.19.0"
+    "ws": "^8.19.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.0.0",
+    "@types/multer-s3": "^3.0.3",
     "@types/node": "^25.3.0",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^7.0.10",
+    "@types/pdf-parse": "^1.1.5",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
     "@types/ws": "^8.18.1",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.0",
+    "vitest": "^4.0.15"
   }
 }

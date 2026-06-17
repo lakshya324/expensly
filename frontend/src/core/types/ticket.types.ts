@@ -1,8 +1,18 @@
-import type { Currency, TicketStatus, BudgetResetPeriod } from './api.types';
+import type {
+  Currency,
+  ExpenseType,
+  TicketStatus,
+  BudgetResetPeriod,
+} from "./api.types";
+import type { IEntitySnapshotData, IUserSnapshotData } from "./common.types";
+
+export type { IEntitySnapshotData, IUserSnapshotData } from "./common.types";
 
 export interface DepartmentPermissions {
-  canViewAllTickets: boolean;
-  canApprove: boolean;
+  view_all_tickets: boolean;
+  approve_finance: boolean;
+  export_reports: boolean;
+  view_analytics: boolean;
 }
 
 export interface IDepartmentData {
@@ -13,6 +23,8 @@ export interface IDepartmentData {
   spent: number;
   approvalThresholds: Record<Currency, number>;
   permissions: DepartmentPermissions;
+  policyId: string | null;
+  policySnapshot: IEntitySnapshotData | null;
   tags: string[];
   budgetResetPeriod: BudgetResetPeriod;
   nextResetDate: string | null;
@@ -24,29 +36,219 @@ export interface IDepartmentData {
 export interface ApprovalStep {
   required: boolean;
   approved: boolean | null;
-  reviewedBy: { _id: string; name: string } | null;
+  reviewedBy: IEntitySnapshotData | null;
   reviewedAt: string | null;
   comments: string | null;
 }
 
+/** Matches the backend IOcrData shape (flat primitives, all nullable until OCR completes). */
+export interface OcrData {
+  status: "processing" | "completed" | "failed";
+  rawText: string | null;
+  confidence: number | null;
+  processedAt: string | null;
+  failureReason: string | null;
+}
+
+export interface AiValidationCheck {
+  label: string;
+  passed: boolean;
+  confidence: number | null;
+  detail: string | null;
+}
+
+export interface AiValidation {
+  status: "passed" | "flagged" | "error" | "pending" | "in_progress";
+  checks: AiValidationCheck[];
+  summary: string | null;
+  validatedAt: string | null;
+  suggestedTitle: string | null;
+  suggestedAmount: number | null;
+  suggestedCurrency: string | null;
+  suggestedDate: string | null;
+  suggestedMerchantName: string | null;
+  suggestedCategoryName: string | null;
+  suggestedDescription: string | null;
+  unmatchedMerchantSuggestionText: string | null;
+  unmatchedCategorySuggestionText: string | null;
+  failureReason: string | null;
+}
+
+export interface IReceiptRef {
+  _id: string;
+  url: string;
+}
+
 export interface ITicketData {
   _id: string;
-  title: string;
-  submittedBy: { _id: string; name: string; email: string };
+  title: string | null;
+  submittedBy: IUserSnapshotData;
   submitterManagerId: string | null;
   orgId: string;
-  amount: number;
-  currency: Currency;
-  department: { _id: string; name: string } | null;
+  amount: number | null;
+  currency: Currency | null;
+  department: IEntitySnapshotData | null;
   description: string;
   tags: string[];
-  receiptKey: string | null;
+  receipts: IReceiptRef[];
   status: TicketStatus;
   flagged: boolean;
+  merchant: { _id: string; name: string; logoUrl?: string | null } | null;
+  category: { _id: string; name: string; iconUrl?: string | null } | null;
+  bundle: { _id: string; title: string; description: string } | null;
+  expenseType: ExpenseType;
+  ocrData: OcrData | null;
+  aiValidation: AiValidation | null;
   managerApproval: ApprovalStep | null;
   financeApproval: ApprovalStep | null;
   exchangeRateSnapshotId: string | null;
   convertedAmount: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Lighter shape returned by paginated list endpoints.
+ * merchant/category carry only _id + name (no S3 URLs).
+ * receipts carry only _id (no presigned URLs).
+ */
+export type ITicketSummaryData = Omit<
+  ITicketData,
+  "receipts" | "merchant" | "category"
+> & {
+  receipts: { _id: string }[];
+  merchant: IEntitySnapshotData | null;
+  category: IEntitySnapshotData | null;
+};
+
+export interface IDiscussionMessageData {
+  _id: string;
+  ticketId: string;
+  orgId: string;
+  author: IUserSnapshotData & {
+    role: string;
+    department: IEntitySnapshotData | null;
+  };
+  text: string;
+  editedAt: string | null;
+  deleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Merchant ─────────────────────────────────────────────────────────────────
+export interface IMerchantData {
+  _id: string;
+  orgId: string;
+  name: string;
+  normalizedName: string;
+  isActive: boolean;
+  createdBy: string;
+  logoUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Category ────────────────────────────────────────────────────────────────
+export interface ICategoryData {
+  _id: string;
+  orgId: string;
+  name: string;
+  normalizedName: string;
+  description: string;
+  isActive: boolean;
+  isSystem: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Policy ───────────────────────────────────────────────────────────────────
+export type PermissionKey =
+  | "view_all_tickets"
+  | "approve_finance"
+  | "export_reports"
+  | "view_analytics";
+
+export interface IPolicyData {
+  _id: string;
+  orgId: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  isActive: boolean;
+  grants: PermissionKey[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+export type AuditAction =
+  | "created"
+  | "updated"
+  | "status_changed"
+  | "deleted"
+  | "flagged"
+  | "unflagged"
+  | "approved"
+  | "rejected"
+  | "commented"
+  | "bundle_added"
+  | "bundle_removed"
+  | "user_created"
+  | "user_updated"
+  | "user_disabled"
+  | "user_enabled"
+  | "permissions_updated";
+
+export type EntityType =
+  | "ticket"
+  | "user"
+  | "department"
+  | "bundle"
+  | "merchant"
+  | "category";
+
+export interface IAuditLogData {
+  _id: string;
+  orgId: string;
+  entityType: EntityType;
+  entityId: string;
+  action: AuditAction;
+  performer: IEntitySnapshotData;
+  ip: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+// ─── Bundle ───────────────────────────────────────────────────────────────────
+export type BundleStatus = "draft" | "submitted" | "approved" | "rejected";
+
+export interface IBundleData {
+  _id: string;
+  orgId: string;
+  title: string;
+  description: string;
+  submittedBy: IUserSnapshotData;
+  submittedByDepartment: IEntitySnapshotData | null;
+  status: BundleStatus;
+  ticketCount: number;
+  totalAmountBase: number | null;
+  baseCurrency: string | null;
+  tags: string[];
+  managerApproval: {
+    approved: boolean | null;
+    reviewedBy: IEntitySnapshotData | null;
+    reviewedAt: string | null;
+    comments: string | null;
+  } | null;
+  financeApproval: {
+    approved: boolean | null;
+    reviewedBy: IEntitySnapshotData | null;
+    reviewedAt: string | null;
+    comments: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }

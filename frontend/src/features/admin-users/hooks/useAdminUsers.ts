@@ -18,12 +18,13 @@ const errMsg = (e: unknown, fallback: string) =>
   (e as ApiErr)?.response?.data?.message ?? fallback;
 
 export function useAdminUsers(filters: UserFilters = {}) {
-  const { enabled = true, ...queryFilters } = filters;
+  const filterKey = JSON.stringify(filters);
   const [data, setData] = useState<IUserData[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
-  const [loading, setLoading] = useState(enabled);
+  const [loading, setLoading] = useState(() => (JSON.parse(filterKey) as UserFilters).enabled ?? true);
 
   const fetch = useCallback(async () => {
+    const { enabled = true, ...queryFilters } = JSON.parse(filterKey) as UserFilters;
     if (!enabled) {
       setData([]);
       setPagination(null);
@@ -45,7 +46,7 @@ export function useAdminUsers(filters: UserFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(filters)]);
+  }, [filterKey]);
 
   useEffect(() => {
     fetch();
@@ -58,7 +59,7 @@ interface CreateUserBody {
   name: string;
   email: string;
   password: string;
-  department?: string;
+  department: string;
   managerId?: string;
   role?: 'user' | 'admin';
 }
@@ -129,17 +130,22 @@ export function useToggleDisableUser(id: string, onSuccess?: () => void) {
 }
 
 interface PermissionsBody {
-  canViewAllTickets: boolean | null;
-  canApprove: boolean | null;
+  permissions: {
+    view_all_tickets: boolean | null;
+    approve_finance: boolean | null;
+    export_reports: boolean | null;
+    view_analytics: boolean | null;
+  };
+  policyId?: string | null;
 }
 
 export function useUpdateUserPermissions(id: string, onSuccess?: () => void) {
   const [loading, setLoading] = useState(false);
 
-  const update = async (permissions: PermissionsBody) => {
+  const update = async (body: PermissionsBody) => {
     setLoading(true);
     try {
-      await apiClient.patch<ApiResponse<IUserData>>(EP.ADMIN_USER_PERMISSIONS(id), permissions);
+      await apiClient.patch<ApiResponse<IUserData>>(EP.ADMIN_USER_PERMISSIONS(id), body);
       toast.success('Permissions updated');
       onSuccess?.();
     } catch (e) {

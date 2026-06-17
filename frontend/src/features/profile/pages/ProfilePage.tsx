@@ -13,9 +13,9 @@ const ROLE_LABEL: Record<string, string> = {
   super_admin: 'Super Admin',
 };
 
-const ROLE_COLOR: Record<string, 'default' | 'info' | 'warning' | 'success'> = {
-  user: 'default',
-  admin: 'info',
+const ROLE_COLOR: Record<string, 'default' | 'warning' | 'muted'> = {
+  user: 'muted',
+  admin: 'default',
   super_admin: 'warning',
 };
 
@@ -44,7 +44,7 @@ export function ProfilePage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-5">
-              <div className="w-20 h-20 rounded-full bg-brand-600 text-white flex items-center justify-center text-2xl font-bold select-none flex-shrink-0">
+              <div className="w-20 h-20 rounded-full bg-brand-600 text-white flex items-center justify-center text-2xl font-bold select-none shrink-0">
                 {initials}
               </div>
               <div className="min-w-0 flex-1">
@@ -80,11 +80,19 @@ export function ProfilePage() {
               <Row label="Email" value={user.email} />
               <Row
                 label="Department"
-                value={user.department?.name ?? <span className="text-muted-foreground italic">Unassigned</span>}
+                value={
+                  user.department
+                    ? <Badge variant="muted" className="font-normal">{user.department.name}</Badge>
+                    : <span className="text-muted-foreground italic">Unassigned</span>
+                }
               />
               <Row
                 label="Manager"
-                value={user.manager?.name ?? <span className="text-muted-foreground italic">None</span>}
+                value={
+                  user.manager
+                    ? <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />{user.manager.name}</span>
+                    : <span className="text-muted-foreground italic">None</span>
+                }
               />
               <Row
                 label="Member since"
@@ -106,14 +114,10 @@ export function ProfilePage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <PermissionRow
-                label="View all expenses"
-                value={user.permissions?.canViewAllTickets}
-              />
-              <PermissionRow
-                label="Approve expenses"
-                value={user.permissions?.canApprove}
-              />
+              <PermissionRow label="View all expenses" value={user.permissions?.view_all_tickets} />
+              <PermissionRow label="Approve expenses" value={user.permissions?.approve_finance} />
+              <PermissionRow label="Export reports" value={user.permissions?.export_reports} />
+              <PermissionRow label="View analytics" value={user.permissions?.view_analytics} />
             </CardContent>
           </Card>
         </div>

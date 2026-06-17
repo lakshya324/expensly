@@ -6,6 +6,26 @@ const TopTagSchema = new Schema(
   { _id: false },
 );
 
+const MonthlyTrendPointSchema = new Schema(
+  { year: Number, month: Number, submittedCount: Number, approvedAmount: Number },
+  { _id: false },
+);
+
+const CategoryBreakdownSchema = new Schema(
+  { categoryId: { type: Schema.Types.ObjectId, default: null }, name: String, count: Number, totalAmount: Number },
+  { _id: false },
+);
+
+const MerchantBreakdownSchema = new Schema(
+  { merchantId: { type: Schema.Types.ObjectId, default: null }, name: String, count: Number, totalAmount: Number },
+  { _id: false },
+);
+
+const ExpenseTypeBreakdownSchema = new Schema(
+  { type: String, count: Number, totalAmount: Number },
+  { _id: false },
+);
+
 const DeptAnalyticsSchema = new Schema<IDeptAnalytics>(
   {
     departmentId: { type: Schema.Types.ObjectId, required: true },
@@ -46,6 +66,12 @@ const OrgAnalyticsSchema = new Schema<IOrgAnalytics>(
         default: [],
         _id: false,
       } as any,
+      totalFlagged: { type: Number, default: 0 },
+      flaggedRate: { type: Number, default: 0 },
+      monthlyTrend: { type: [MonthlyTrendPointSchema], default: [] },
+      categoryBreakdown: { type: [CategoryBreakdownSchema], default: [] },
+      merchantBreakdown: { type: [MerchantBreakdownSchema], default: [] },
+      expenseTypeBreakdown: { type: [ExpenseTypeBreakdownSchema], default: [] },
     },
     departments: { type: [DeptAnalyticsSchema], default: [] },
     generatedAt: { type: Date, default: Date.now },

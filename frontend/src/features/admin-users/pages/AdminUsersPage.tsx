@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { MoreHorizontal, Plus, UserCheck, UserX, Shield, Pencil } from 'lucide-react';
+import { MoreHorizontal, Plus, UserCheck, UserX, Shield, Pencil, Info, Building2, User } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { DataTable, type Column } from '@/shared/components/data-display/DataTable';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Input } from '@/shared/components/ui/Input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
+import { Card, CardContent } from '@/shared/components/ui/Card';
 import {
   Dialog,
   DialogContent,
@@ -35,19 +35,36 @@ import {
   type CreateUserFormValues,
   type UpdateUserFormValues,
 } from '../validators';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/Select';
 import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
 import { formatDate } from '@/core/utils/formatters';
 import type { IUserData } from '@/core/types/user.types';
-import type { IDepartmentData } from '@/core/types/ticket.types';
+import type { IDepartmentData, IPolicyData, PermissionKey } from '@/core/types/ticket.types';
 import type { ApiResponse, PaginatedData } from '@/core/types/api.types';
 
 type PermissionValue = boolean | null;
 
+type UserPermsMap = { [K in PermissionKey]: PermissionValue };
+
 interface PermissionsState {
-  canViewAllTickets: PermissionValue;
-  canApprove: PermissionValue;
+  permissions: UserPermsMap;
+  policyId: string | null;
 }
+
+const BLANK_PERMS: UserPermsMap = {
+  view_all_tickets: null,
+  approve_finance: null,
+  export_reports: null,
+  view_analytics: null,
+};
+
+const PERM_LABELS: { key: PermissionKey; label: string }[] = [
+  { key: 'view_all_tickets', label: 'View All Tickets' },
+  { key: 'approve_finance', label: 'Finance Approval' },
+  { key: 'export_reports', label: 'Export Reports' },
+  { key: 'view_analytics', label: 'View Analytics' },
+];
 
 export function AdminUsersPage() {
   const [page, setPage] = useState(1);
@@ -60,12 +77,17 @@ export function AdminUsersPage() {
     department: deptFilter || undefined,
   });
 
-  // Departments for selects
+  // Departments & policies for selects - fetched once on mount
   const [departments, setDepartments] = useState<IDepartmentData[]>([]);
+  const [policies, setPolicies] = useState<IPolicyData[]>([]);
   useEffect(() => {
     apiClient
       .get<ApiResponse<PaginatedData<IDepartmentData>>>(EP.ADMIN_DEPARTMENTS)
       .then((r) => setDepartments(r.data.data.data))
+      .catch(() => {});
+    apiClient
+      .get<ApiResponse<IPolicyData[]>>(EP.ADMIN_POLICIES)
+      .then((r) => setPolicies(r.data.data ?? []))
       .catch(() => {});
   }, []);
 
@@ -76,14 +98,14 @@ export function AdminUsersPage() {
     resolver: zodResolver(createUserSchema),
     defaultValues: { role: 'user' },
   });
-  const watchedCreateDept = createForm.watch('department');
+  const watchedCreateDept = useWatch({ control: createForm.control, name: 'department' });
   const [createDeptUsers, setCreateDeptUsers] = useState<IUserData[]>([]);
 
   // Edit dialog
   const [editTarget, setEditTarget] = useState<IUserData | null>(null);
   const { updateUser, loading: updating } = useUpdateUser(editTarget?._id ?? '');
   const editForm = useForm<UpdateUserFormValues>({ resolver: zodResolver(updateUserSchema) });
-  const watchedEditDept = editForm.watch('department');
+  const watchedEditDept = useWatch({ control: editForm.control, name: 'department' });
   const [editDeptUsers, setEditDeptUsers] = useState<IUserData[]>([]);
 
   useEffect(() => {
@@ -102,18 +124,18 @@ export function AdminUsersPage() {
           .then((r) => setEditDeptUsers(r.data.data.data))
           .catch(() => {});
       } else {
-        setEditDeptUsers([]);
+        queueMicrotask(() => setEditDeptUsers([]));
       }
     } else {
-      setEditDeptUsers([]);
+      queueMicrotask(() => setEditDeptUsers([]));
     }
-  }, [editTarget]);
+  }, [editForm, editTarget]);
 
   // Fetch users in selected dept for manager dropdown (create form)
   useEffect(() => {
     createForm.setValue('managerId', '');
     if (!watchedCreateDept) {
-      setCreateDeptUsers([]);
+      queueMicrotask(() => setCreateDeptUsers([]));
       return;
     }
     apiClient
@@ -122,7 +144,7 @@ export function AdminUsersPage() {
       })
       .then((r) => setCreateDeptUsers(r.data.data.data))
       .catch(() => {});
-  }, [watchedCreateDept]);
+  }, [createForm, watchedCreateDept]);
 
   // Re-fetch users when dept changes in edit form (skip initial render that matches editTarget)
   useEffect(() => {
@@ -130,7 +152,7 @@ export function AdminUsersPage() {
     if (watchedEditDept === (editTarget.department?._id ?? '')) return;
     editForm.setValue('managerId', '');
     if (!watchedEditDept) {
-      setEditDeptUsers([]);
+      queueMicrotask(() => setEditDeptUsers([]));
       return;
     }
     apiClient
@@ -139,7 +161,7 @@ export function AdminUsersPage() {
       })
       .then((r) => setEditDeptUsers(r.data.data.data))
       .catch(() => {});
-  }, [watchedEditDept]);
+  }, [editForm, editTarget, watchedEditDept]);
 
   // Disable / enable
   const [disableTarget, setDisableTarget] = useState<IUserData | null>(null);
@@ -154,8 +176,8 @@ export function AdminUsersPage() {
   // Permissions dialog
   const [permTarget, setPermTarget] = useState<IUserData | null>(null);
   const [perms, setPerms] = useState<PermissionsState>({
-    canViewAllTickets: null,
-    canApprove: null,
+    permissions: { ...BLANK_PERMS },
+    policyId: null,
   });
   const { update: updatePerms, loading: updatingPerms } = useUpdateUserPermissions(
     permTarget?._id ?? '',
@@ -167,9 +189,16 @@ export function AdminUsersPage() {
 
   useEffect(() => {
     if (permTarget) {
-      setPerms({
-        canViewAllTickets: permTarget.permissions.canViewAllTickets,
-        canApprove: permTarget.permissions.canApprove,
+      queueMicrotask(() => {
+        setPerms({
+          permissions: {
+            view_all_tickets: permTarget.permissions.view_all_tickets,
+            approve_finance: permTarget.permissions.approve_finance,
+            export_reports: permTarget.permissions.export_reports,
+            view_analytics: permTarget.permissions.view_analytics,
+          },
+          policyId: permTarget.policyId ?? null,
+        });
       });
     }
   }, [permTarget]);
@@ -179,7 +208,7 @@ export function AdminUsersPage() {
       name: values.name,
       email: values.email,
       password: values.password,
-      department: values.department || undefined,
+      department: values.department,
       managerId: values.managerId || undefined,
       role: values.role,
     });
@@ -219,7 +248,7 @@ export function AdminUsersPage() {
       header: 'Role',
       width: '100px',
       render: (row) => (
-        <Badge variant={row.role === 'admin' ? 'default' : 'muted'}>
+        <Badge variant={row.role === 'admin' ? 'default' : 'muted'} className="capitalize">
           {row.role}
         </Badge>
       ),
@@ -227,22 +256,29 @@ export function AdminUsersPage() {
     {
       key: 'department',
       header: 'Department',
-      width: '140px',
-      render: (row) => (
-        <span className="text-sm text-[var(--muted-foreground)]">
-          {row.department?.name ?? '—'}
-        </span>
-      ),
+      width: '150px',
+      render: (row) =>
+        row.department ? (
+          <Badge variant="muted" className="font-normal">
+            {row.department.name}
+          </Badge>
+        ) : (
+          <span className="text-sm text-(--muted-foreground)">-</span>
+        ),
     },
     {
       key: 'manager',
       header: 'Manager',
-      width: '140px',
-      render: (row) => (
-        <span className="text-sm text-[var(--muted-foreground)]">
-          {row.manager?.name ?? '—'}
-        </span>
-      ),
+      width: '150px',
+      render: (row) =>
+        row.manager ? (
+          <span className="flex items-center gap-1.5 text-sm text-(--foreground)">
+            <User className="w-3.5 h-3.5 text-(--muted-foreground) shrink-0" />
+            {row.manager.name}
+          </span>
+        ) : (
+          <span className="text-sm text-(--muted-foreground)">-</span>
+        ),
     },
     {
       key: 'status',
@@ -302,10 +338,17 @@ export function AdminUsersPage() {
     },
   ];
 
+  const permTargetFullDept = permTarget?.department
+    ? (departments.find((d) => d._id === permTarget.department!._id) ?? null)
+    : null;
+  const deptPolicy = permTargetFullDept?.policyId
+    ? (policies.find((p) => p._id === permTargetFullDept.policyId) ?? null)
+    : null;
+
   return (
     <AppShell title="Users">
       <div className="space-y-4">
-        {/* Header */}
+        {/* Header */ }
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 className="text-xl font-bold text-[var(--foreground)]">Team Members</h2>
@@ -321,27 +364,35 @@ export function AdminUsersPage() {
 
         {/* Dept filter */}
         <div className="flex items-center gap-2">
-          <select
-            value={deptFilter}
-            onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+          <Select
+            value={deptFilter || 'all'}
+            onValueChange={(v) => { setDeptFilter(v === 'all' ? '' : v); setPage(1); }}
           >
-            <option value="">All Departments</option>
-            {departments.map((d) => (
-              <option key={d._id} value={d._id}>{d.name}</option>
-            ))}
-          </select>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="All Departments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Departments</SelectItem>
+              {departments.map((d) => (
+                <SelectItem key={d._id} value={d._id}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={data}
-          loading={loading}
-          pagination={pagination ?? undefined}
-          onPageChange={setPage}
-          emptyTitle="No users found"
-          emptyDescription="Add your first team member to get started."
-        />
+        <Card>
+          <CardContent className="p-0">
+            <DataTable
+              columns={columns}
+              data={data}
+              loading={loading}
+              pagination={pagination ?? undefined}
+              onPageChange={setPage}
+              emptyTitle="No users found"
+              emptyDescription="Add your first team member to get started."
+            />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Create User Dialog */}
@@ -374,17 +425,20 @@ export function AdminUsersPage() {
             />
             <div className="w-full">
               <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-                Department <span className="text-[var(--muted-foreground)]">(optional)</span>
+                Department <span className="text-danger-500">*</span>
               </label>
               <select
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className={`w-full px-3.5 py-2.5 rounded-xl border bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500 ${createForm.formState.errors.department ? 'border-danger-500' : 'border-[var(--input)]'}`}
                 {...createForm.register('department')}
               >
-                <option value="">No department</option>
+                <option value="">Select a department</option>
                 {departments.map((d) => (
                   <option key={d._id} value={d._id}>{d.name}</option>
                 ))}
               </select>
+              {createForm.formState.errors.department && (
+                <p className="mt-1 text-xs text-danger-500">{createForm.formState.errors.department.message}</p>
+              )}
             </div>
             <div className="w-full">
               <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
@@ -413,6 +467,54 @@ export function AdminUsersPage() {
                 ))}
               </select>
             </div>
+            {/* Dept Permissions Preview */}
+            {watchedCreateDept && (() => {
+              const selectedDept = departments.find(d => d._id === watchedCreateDept);
+              if (!selectedDept) return null;
+              const deptPol = selectedDept.policyId ? policies.find(p => p._id === selectedDept.policyId) ?? null : null;
+              return (
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--muted)]/30 p-3.5 space-y-2.5">
+                  <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                    Permissions inherited from {selectedDept.name}
+                  </p>
+                  {deptPol && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 font-medium">
+                        {deptPol.name}
+                      </span>
+                      {deptPol.grants.map((g) => (
+                        <span key={g} className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--muted)] text-[var(--muted-foreground)] border border-[var(--border)] font-medium">
+                          {PERM_LABELS.find(l => l.key === g)?.label ?? g}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {PERM_LABELS.map(({ key, label }) => {
+                      const fromDeptDirect = selectedDept.permissions[key];
+                      const fromDeptPolicy = deptPol?.grants.includes(key) ?? false;
+                      const effective = fromDeptDirect || fromDeptPolicy;
+                      return (
+                        <span
+                          key={key}
+                          className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                            effective
+                              ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border-brand-300 dark:border-brand-700'
+                              : 'bg-[var(--background)] text-[var(--muted-foreground)] border-[var(--border)]'
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <p className="flex items-center gap-1.5 text-[10px] text-[var(--muted-foreground)]">
+                    <Info className="w-3 h-3 flex-shrink-0" />
+                    You can override individual permissions after creating the user
+                  </p>
+                </div>
+              );
+            })()}
             <div className="flex gap-2 justify-end pt-2">
               <Button variant="outline" type="button" onClick={() => setCreateOpen(false)}>
                 Cancel
@@ -485,30 +587,158 @@ export function AdminUsersPage() {
       <Dialog open={!!permTarget} onOpenChange={(o) => !o && setPermTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Permissions</DialogTitle>
+            <DialogTitle>Permissions - {permTarget?.name}</DialogTitle>
             <DialogDescription>
-              Override department permissions for {permTarget?.name}. Set to "Inherit" to use
-              department defaults.
+              Users inherit permissions from their department. Use a policy override or individual toggles to customise.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <PermissionRow
-              label="Can View All Tickets"
-              value={perms.canViewAllTickets}
-              onChange={(v) => setPerms((p) => ({ ...p, canViewAllTickets: v }))}
-            />
-            <PermissionRow
-              label="Can Approve"
-              value={perms.canApprove}
-              onChange={(v) => setPerms((p) => ({ ...p, canApprove: v }))}
-            />
-            <div className="flex gap-2 justify-end pt-2">
+          <div className="space-y-5 mt-2">
+            {/* Department Defaults */}
+            {permTargetFullDept && (
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-(--muted-foreground)" />
+                  <p className="text-sm font-medium text-(--foreground)">
+                    {permTargetFullDept.name} Defaults
+                  </p>
+                </div>
+                {deptPolicy && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--muted)] text-[var(--muted-foreground)] border border-[var(--border)] font-medium">
+                      {deptPolicy.name}
+                    </span>
+                    {deptPolicy.grants.map((g) => (
+                      <span key={g} className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--muted)] text-[var(--muted-foreground)] border border-[var(--border)] font-medium">
+                        {PERM_LABELS.find(l => l.key === g)?.label ?? g}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {PERM_LABELS.map(({ key, label }) => {
+                    const fromDeptDirect = permTargetFullDept?.permissions?.[key];
+                    const fromDeptPolicy = deptPolicy?.grants.includes(key) ?? false;
+                    const effective = fromDeptDirect || fromDeptPolicy;
+                    return (
+                      <span
+                        key={key}
+                        className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                          effective
+                            ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border-brand-300 dark:border-brand-700'
+                            : 'bg-[var(--background)] text-[var(--muted-foreground)] border-[var(--border)]'
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    );
+                  })}
+                </div>
+                <hr className="border-[var(--border)]" />
+              </div>
+            )}
+
+            {/* Policy Override */}
+            <div>
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">Policy Override</label>
+              <select
+                value={perms.policyId ?? ''}
+                onChange={(e) => setPerms((p) => ({ ...p, policyId: e.target.value || null }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">
+                  {deptPolicy ? `Inherit from department (${deptPolicy.name})` : 'No policy override'}
+                </option>
+                {policies.map((pol) => (
+                  <option key={pol._id} value={pol._id}>
+                    {pol.name}{pol.isSystem ? ' (system)' : ''}
+                  </option>
+                ))}
+              </select>
+              {perms.policyId && (() => {
+                const selectedPol = policies.find((p) => p._id === perms.policyId);
+                return selectedPol && selectedPol.grants.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {selectedPol.grants.map((g) => (
+                      <span
+                        key={g}
+                        className="text-[10px] px-2 py-0.5 rounded-full border font-medium bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border-brand-200 dark:border-brand-800"
+                      >
+                        {PERM_LABELS.find((l) => l.key === g)?.label ?? g}
+                      </span>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
+            </div>
+
+            {/* Per-permission overrides */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-[var(--foreground)]">Permission Overrides</p>
+              {PERM_LABELS.map(({ key, label }) => (
+                <PermissionRow
+                  key={key}
+                  label={label}
+                  value={perms.permissions[key]}
+                  onChange={(v) =>
+                    setPerms((p) => ({ ...p, permissions: { ...p.permissions, [key]: v } }))
+                  }
+                />
+              ))}
+            </div>
+
+            {/* Effective Permissions - live preview */}
+            {(() => {
+              const userPolicyGrants = perms.policyId
+                ? (policies.find(p => p._id === perms.policyId)?.grants ?? [])
+                : [];
+              const deptDirectPerms = permTargetFullDept?.permissions;
+              const deptPolicyGrants = deptPolicy?.grants ?? [];
+              return (
+                <div className="space-y-2 pt-1 border-t border-[var(--border)]">
+                  <p className="text-sm font-medium text-[var(--foreground)] flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-[var(--muted-foreground)]" />
+                    Effective Permissions
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PERM_LABELS.map(({ key, label }) => {
+                      const userOverride = perms.permissions[key];
+                      let effective: boolean;
+                      if (userOverride !== null) {
+                        effective = userOverride as boolean;
+                      } else if (userPolicyGrants.includes(key)) {
+                        effective = true;
+                      } else if (deptDirectPerms?.[key]) {
+                        effective = true;
+                      } else if (deptPolicyGrants.includes(key)) {
+                        effective = true;
+                      } else {
+                        effective = false;
+                      }
+                      return (
+                        <span
+                          key={key}
+                          className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                            effective
+                              ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border-brand-300 dark:border-brand-700'
+                              : 'bg-[var(--background)] text-[var(--muted-foreground)] border-[var(--border)]'
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="flex gap-2 justify-end pt-1">
               <Button variant="outline" onClick={() => setPermTarget(null)}>
                 Cancel
               </Button>
               <Button
                 loading={updatingPerms}
-                onClick={() => updatePerms(perms)}
+                onClick={() => updatePerms({ permissions: perms.permissions, policyId: perms.policyId })}
               >
                 Save Permissions
               </Button>

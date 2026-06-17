@@ -62,6 +62,31 @@ const ProfilePage = lazy(() =>
   import('@/features/profile/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 );
 
+// Bundles
+const BundlesPage = lazy(() =>
+  import('@/features/bundles/pages/BundlesPage').then((m) => ({ default: m.BundlesPage })),
+);
+const BundleDetailPage = lazy(() =>
+  import('@/features/bundles/pages/BundleDetailPage').then((m) => ({ default: m.BundleDetailPage })),
+);
+const AdminBundlesPage = lazy(() =>
+  import('@/features/bundles/pages/AdminBundlesPage').then((m) => ({ default: m.AdminBundlesPage })),
+);
+
+// Admin extra
+const AdminMerchantsPage = lazy(() =>
+  import('@/features/merchants/pages/AdminMerchantsPage').then((m) => ({ default: m.AdminMerchantsPage })),
+);
+const AdminCategoriesPage = lazy(() =>
+  import('@/features/categories/pages/AdminCategoriesPage').then((m) => ({ default: m.AdminCategoriesPage })),
+);
+const AdminPoliciesPage = lazy(() =>
+  import('@/features/policies/pages/AdminPoliciesPage').then((m) => ({ default: m.AdminPoliciesPage })),
+);
+const AdminAuditLogPage = lazy(() =>
+  import('@/features/audit-log/pages/AdminAuditLogPage').then((m) => ({ default: m.AdminAuditLogPage })),
+);
+
 // ── Helpers ───────────────────────────────────────────────────
 function roleHome(role: Role): string {
   if (role === 'admin') return ROUTES.ADMIN_DASHBOARD;
@@ -115,6 +140,8 @@ export function AppRouter() {
           <Route path={ROUTES.EXPENSES} element={<ExpensesPage />} />
           <Route path={ROUTES.EXPENSE_NEW} element={<NewExpensePage />} />
           {/* <Route path="/expenses/:id" element={<ExpenseDetailPage />} /> */}
+          <Route path={ROUTES.BUNDLES} element={<BundlesPage />} />
+          <Route path={ROUTES.BUNDLE_DETAIL(':id')} element={<BundleDetailPage />} />
         </Route>
 
         {/* Expense detail accessible by both users and admins */}
@@ -131,6 +158,12 @@ export function AppRouter() {
           <Route path={ROUTES.ADMIN_ANALYTICS} element={<AnalyticsPage />} />
           <Route path={ROUTES.ADMIN_EXCHANGE_RATES} element={<ExchangeRatesPage />} />
           <Route path={ROUTES.ADMIN_REPORTS} element={<ReportsPage />} />
+          <Route path={ROUTES.ADMIN_MERCHANTS} element={<AdminMerchantsPage />} />
+          <Route path={ROUTES.ADMIN_CATEGORIES} element={<AdminCategoriesPage />} />
+          <Route path={ROUTES.ADMIN_POLICIES} element={<AdminPoliciesPage />} />
+          <Route path={ROUTES.ADMIN_AUDIT_LOG} element={<AdminAuditLogPage />} />
+          <Route path={ROUTES.ADMIN_BUNDLES} element={<AdminBundlesPage />} />
+          <Route path={ROUTES.ADMIN_BUNDLE_DETAIL(':id')} element={<BundleDetailPage />} />
         </Route>
 
         {/* Superadmin routes */}

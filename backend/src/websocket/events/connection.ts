@@ -7,13 +7,13 @@ export default (io: Server) => async (socket: AuthSocket) => {
 
   //! Join Rooms
 
-  // Org-wide room — for org broadcasts
+  // Org-wide room - for org broadcasts
   if (user.orgId) await socket.join(user.orgId.toString());
 
-  // Personal room — for user-specific events (disable, personal notifications)
+  // Personal room - for user-specific events (disable, personal notifications)
   await socket.join(user._id.toString());
 
-  // Dept room — for dept-specific broadcasts (if user has a dept)
+  // Dept room - for dept-specific broadcasts (if user has a dept)
   if (user.department) await socket.join(`dept:${user.department.toString()}`);
 
   console.log(
@@ -29,7 +29,7 @@ export default (io: Server) => async (socket: AuthSocket) => {
     });
   });
 
-  //! Subscriptions — allow clients to subscribe/unsubscribe from other dept rooms
+  //! Subscriptions - allow clients to subscribe/unsubscribe from other dept rooms
   socket.on("subscribe_dept", async (deptId: string) => {
     await socket.join(`dept:${deptId}`);
   });

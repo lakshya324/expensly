@@ -11,7 +11,7 @@ import { Organization } from "./models/Organization.model.js";
 import { logError, logInfo } from "./utils/logger.js";
 
 export function startCronJobs(): void {
-  // Budget reset — every hour at minute 0
+  // Budget reset - every hour at minute 0
   cron.schedule("0 * * * *", async () => {
     try {
       const count = await processDueBudgetResets();
@@ -25,12 +25,12 @@ export function startCronJobs(): void {
     }
   });
 
-  // Analytics refresh — every day at midnight (00:00)
+  // Analytics refresh - every day at midnight (00:00)
   cron.schedule("0 0 * * *", async () => {
     try {
       const orgs = await Organization.find(
         { isDisabled: false },
-        { _id: 1 },
+        { _id: 1, baseCurrency: 1 },
       ).lean();
 
       await Promise.allSettled(
@@ -53,4 +53,6 @@ export function startCronJobs(): void {
   });
 
   logInfo("[Cron] Budget reset (hourly) and analytics refresh (daily) scheduled");
+
+  logInfo("[Cron] AI queue consumer moved to npm run start:worker");
 }

@@ -22,7 +22,7 @@ import { IUserData } from "../types/user.types.js";
 import { User } from "../models/User.model.js";
 import { Organization } from "../models/Organization.model.js";
 
-// Redis OTP key prefixes (keyed by userId — no random session)
+// Redis OTP key prefixes (keyed by userId - no random session)
 const LOGIN_OTP_PREFIX = "otp:";
 const RESET_OTP_PREFIX = "pwd:";
 const OTP_MAX_ATTEMPTS = 5;
@@ -78,7 +78,7 @@ export default class AuthController {
         await session.commitTransaction();
       } catch (err: any) {
         await session.abortTransaction();
-        // Unique index violations — no pre-check round-trip needed
+        // Unique index violations - no pre-check round-trip needed
         if (err.code === 11000) {
           const key = err.keyValue as Record<string, unknown>;
           if (key?.slug)
@@ -105,7 +105,7 @@ export default class AuthController {
   }
 
   /**
-   * POST /api/auth/login  (Step 1 of 2 — validate credentials, issue OTP via email)
+   * POST /api/auth/login  (Step 1 of 2 - validate credentials, issue OTP via email)
    * Returns an otpSessionId. Access tokens are NOT issued here.
    */
   static async login(
@@ -175,7 +175,7 @@ export default class AuthController {
   }
 
   /**
-   * POST /api/auth/verify-otp  (Step 2 of 2 — validate OTP, issue access + refresh tokens)
+   * POST /api/auth/verify-otp  (Step 2 of 2 - validate OTP, issue access + refresh tokens)
    */
   static async verifyOtp(
     req: Request,

@@ -10,7 +10,7 @@ import { useExpenses, useExpenseStats } from '@/features/expenses/hooks/useExpen
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { ROUTES } from '@/core/constants/constants';
 import { formatCurrency, formatRelativeTime } from '@/core/utils/formatters';
-import type { ITicketData } from '@/core/types/ticket.types';
+import type { ITicketSummaryData } from '@/core/types/ticket.types';
 
 export function UserDashboardPage() {
   const navigate = useNavigate();
@@ -25,7 +25,7 @@ export function UserDashboardPage() {
     rejected: statsData?.rejected ?? 0,
   };
 
-  const recentColumns: Column<ITicketData>[] = [
+  const recentColumns: Column<ITicketSummaryData>[] = [
     {
       key: 'title',
       header: 'Title',
@@ -34,7 +34,13 @@ export function UserDashboardPage() {
     {
       key: 'amount',
       header: 'Amount',
-      render: (row) => <span className="font-semibold text-[var(--foreground)]">{formatCurrency(row.amount, row.currency)}</span>,
+      render: (row) => (
+        <span className="font-semibold text-[var(--foreground)]">
+          {row.amount != null && row.currency
+            ? formatCurrency(row.amount, row.currency)
+            : <span className="text-[var(--muted-foreground)] italic text-xs">Pending</span>}
+        </span>
+      ),
     },
     {
       key: 'status',
@@ -69,10 +75,10 @@ export function UserDashboardPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Total Submitted" value={statsLoading ? '—' : stats.total} icon={Receipt} color="brand" />
-          <StatCard title="Pending Review" value={statsLoading ? '—' : stats.pending} icon={Clock} color="warning" />
-          <StatCard title="Approved" value={statsLoading ? '—' : stats.approved} icon={CheckCircle2} color="success" />
-          <StatCard title="Rejected" value={statsLoading ? '—' : stats.rejected} icon={XCircle} color="danger" />
+          <StatCard title="Total Submitted" value={statsLoading ? '-' : stats.total} icon={Receipt} color="brand" />
+          <StatCard title="Pending Review" value={statsLoading ? '-' : stats.pending} icon={Clock} color="warning" />
+          <StatCard title="Approved" value={statsLoading ? '-' : stats.approved} icon={CheckCircle2} color="success" />
+          <StatCard title="Rejected" value={statsLoading ? '-' : stats.rejected} icon={XCircle} color="danger" />
         </div>
 
         {/* Recent Expenses */}

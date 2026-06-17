@@ -8,20 +8,32 @@
  * All computation is done inside MongoDB using aggregation pipelines ($facet,
  * $lookup, $getField) - no approved tickets are loaded into Node.js memory.
  *
- * Two pipelines are used:
+ * Pipelines used:
  *
  * 1. Overview pipeline
- * $facet over ALL tickets: counts, resolution times, tags
+ * $facet over ALL tickets: counts (incl. flagged), resolution times, tags, expense type counts
  *
  * 2. Amounts pipeline
- * approved tickets only → $lookup exchange snapshot → $addFields convertedAmount (via $getField on the rates Map) → $facet for org total, currency breakdown, dept amounts
+ * approved tickets only → $lookup exchange snapshot → $addFields convertedAmount → $facet for org total, currency breakdown, dept amounts, expense type amounts
+ *
+ * 3. Monthly trend pipelines (last 12 months)
+ * 3a: submission counts grouped by year/month
+ * 3b: approved amounts grouped by financeApproval.reviewedAt year/month
+ *
+ * 4. Category breakdown - approved only, $lookup categories, group by category, top 10
+ *
+ * 5. Merchant breakdown - approved only, $lookup merchants, group by merchant, top 10
  */
 import { Types } from "mongoose";
 import { Ticket } from "../models/Ticket.model.js";
 import { Department } from "../models/Department.model.js";
 import { OrgAnalytics } from "../models/OrgAnalytics.model.js";
 import { CURRENCIES, TICKET_STATUS } from "../config/constants.js";
-import { IOrgAnalyticsData } from "../types/analytics.types.js";
+import {
+  IExpenseTypeBreakdownItem,
+  IMonthlyTrendPoint,
+  IOrgAnalyticsData,
+} from "../types/analytics.types.js";
 import { logInfo } from "../utils/logger.js";
 import { getJSON, setJSON, del } from "./cache.service.js";
 import { IOrganization } from "../types/organization.types.js";
@@ -97,6 +109,9 @@ export async function refreshOrgAnalytics(
                     0,
                   ],
                 },
+              },
+              totalFlagged: {
+                $sum: { $cond: [{ $eq: ["$flagged", true] }, 1, 0] },
               },
             },
           },
@@ -199,6 +214,16 @@ export async function refreshOrgAnalytics(
             $group: {
               _id: "$_id.dept",
               tags: { $push: { tag: "$_id.tag", count: "$count" } },
+            },
+          },
+        ],
+
+        // Org-level expense type counts
+        expenseTypeCounts: [
+          {
+            $group: {
+              _id: { $ifNull: ["$expenseType", "regular"] },
+              count: { $sum: 1 },
             },
           },
         ],
@@ -322,13 +347,207 @@ export async function refreshOrgAnalytics(
             },
           },
         ],
+
+        expenseTypeAmounts: [
+          {
+            $group: {
+              _id: { $ifNull: ["$expenseType", "regular"] },
+              totalAmount: { $sum: "$convertedAmount" },
+            },
+          },
+        ],
       },
     },
+  ]);
+
+  //! Pipelines 3-5: Monthly trend, category breakdown, merchant breakdown
+  // Run all three in parallel - all are independent of Pipeline 1 & 2 results.
+
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+  twelveMonthsAgo.setDate(1);
+  twelveMonthsAgo.setHours(0, 0, 0, 0);
+
+  // Reusable currency conversion expression (same logic as Pipeline 2)
+  const conversionExpr: Record<string, any> = {
+    $cond: {
+      if: { $eq: ["$currency", orgBaseCurrency] },
+      then: "$amount",
+      else: {
+        $cond: {
+          if: { $gt: [{ $size: "$snapshot" }, 0] },
+          then: {
+            $let: {
+              vars: { rates: { $arrayElemAt: ["$snapshot.rates", 0] } },
+              in: {
+                $divide: [
+                  {
+                    $multiply: [
+                      "$amount",
+                      { $ifNull: [{ $getField: { field: orgBaseCurrency, input: "$$rates" } }, 1] },
+                    ],
+                  },
+                  { $ifNull: [{ $getField: { field: "$currency", input: "$$rates" } }, 1] },
+                ],
+              },
+            },
+          },
+          else: "$amount",
+        },
+      },
+    },
+  };
+
+  // Reusable exchange rate lookup stage
+  const exchangeLookupStage = {
+    $lookup: {
+      from: "exchangeratesnapshots",
+      let: { snapId: "$exchangeRateSnapshotId" },
+      pipeline: [
+        { $match: { $expr: { $eq: ["$_id", "$$snapId"] } } },
+        { $project: { _id: 0, rates: 1 } },
+      ],
+      as: "snapshot",
+    },
+  };
+
+  const [trendSubmitted, trendApproved, categoryData, merchantData] = await Promise.all([
+    // 3a: Submission counts per month (last 12 months)
+    Ticket.aggregate([
+      { $match: { orgId: oid, createdAt: { $gte: twelveMonthsAgo } } },
+      {
+        $group: {
+          _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
+          submittedCount: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]),
+
+    // 3b: Approved amounts per month (by financeApproval.reviewedAt, last 12 months)
+    Ticket.aggregate([
+      {
+        $match: {
+          orgId: oid,
+          status: TICKET_STATUS.APPROVED,
+          "financeApproval.reviewedAt": { $gte: twelveMonthsAgo, $ne: null },
+        },
+      },
+      exchangeLookupStage,
+      { $addFields: { convertedAmount: conversionExpr } },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$financeApproval.reviewedAt" },
+            month: { $month: "$financeApproval.reviewedAt" },
+          },
+          approvedAmount: { $sum: "$convertedAmount" },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]),
+
+    // Pipeline 4: Category breakdown (approved, top 10 by converted amount)
+    // Uses embedded categorySnapshot - no $lookup needed.
+    Ticket.aggregate([
+      { $match: { orgId: oid, status: TICKET_STATUS.APPROVED } },
+      exchangeLookupStage,
+      { $addFields: { convertedAmount: conversionExpr } },
+      {
+        $group: {
+          _id: "$categorySnapshot._id",
+          name: { $first: { $ifNull: ["$categorySnapshot.name", "Uncategorized"] } },
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$convertedAmount" },
+        },
+      },
+      { $sort: { totalAmount: -1 } },
+      { $limit: 10 },
+      {
+        $project: {
+          _id: 0,
+          categoryId: { $cond: [{ $eq: ["$_id", null] }, null, { $toString: "$_id" }] },
+          name: 1,
+          count: 1,
+          totalAmount: { $round: ["$totalAmount", 2] },
+        },
+      },
+    ]),
+
+    // Pipeline 5: Merchant breakdown (approved, top 10 by converted amount)
+    // Uses embedded merchantSnapshot - no $lookup needed.
+    Ticket.aggregate([
+      { $match: { orgId: oid, status: TICKET_STATUS.APPROVED } },
+      exchangeLookupStage,
+      { $addFields: { convertedAmount: conversionExpr } },
+      {
+        $group: {
+          _id: "$merchantSnapshot._id",
+          name: { $first: { $ifNull: ["$merchantSnapshot.name", "Unknown Merchant"] } },
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$convertedAmount" },
+        },
+      },
+      { $sort: { totalAmount: -1 } },
+      { $limit: 10 },
+      {
+        $project: {
+          _id: 0,
+          merchantId: { $cond: [{ $eq: ["$_id", null] }, null, { $toString: "$_id" }] },
+          name: 1,
+          count: 1,
+          totalAmount: { $round: ["$totalAmount", 2] },
+        },
+      },
+    ]),
   ]);
 
   //! Assemble results
   const orgStat = overview?.orgStats?.[0] ?? {};
   const orgAmountStat = amounts?.orgAmounts?.[0] ?? {};
+
+  // Flagged metrics
+  const totalFlagged: number = orgStat.totalFlagged ?? 0;
+  const totalTicketsCount: number = orgStat.totalTickets ?? 0;
+  const flaggedRate = totalTicketsCount > 0
+    ? parseFloat(((totalFlagged / totalTicketsCount) * 100).toFixed(2))
+    : 0;
+
+  // Monthly trend - zero-fill all 12 months (oldest → newest)
+  const submittedMap = new Map<string, number>(
+    trendSubmitted.map((p: any) => [`${p._id.year}-${p._id.month}`, p.submittedCount as number]),
+  );
+  const approvedAmountMap = new Map<string, number>(
+    trendApproved.map((p: any) => [`${p._id.year}-${p._id.month}`, p.approvedAmount as number]),
+  );
+  const now = new Date();
+  const monthlyTrend: IMonthlyTrendPoint[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    const key = `${year}-${month}`;
+    monthlyTrend.push({
+      year,
+      month,
+      submittedCount: submittedMap.get(key) ?? 0,
+      approvedAmount: parseFloat(((approvedAmountMap.get(key) ?? 0)).toFixed(2)),
+    });
+  }
+
+  // Expense type breakdown - merge counts (Pipeline 1) with amounts (Pipeline 2)
+  const expenseTypeCountMap = new Map<string, number>(
+    (overview?.expenseTypeCounts ?? []).map((e: any) => [e._id as string, e.count as number]),
+  );
+  const expenseTypeAmountMap = new Map<string, number>(
+    (amounts?.expenseTypeAmounts ?? []).map((e: any) => [e._id as string, e.totalAmount as number]),
+  );
+  const allExpenseTypes = new Set([...expenseTypeCountMap.keys(), ...expenseTypeAmountMap.keys()]);
+  const expenseTypeBreakdown: IExpenseTypeBreakdownItem[] = Array.from(allExpenseTypes).map((type) => ({
+    type,
+    count: expenseTypeCountMap.get(type) ?? 0,
+    totalAmount: parseFloat((expenseTypeAmountMap.get(type) ?? 0).toFixed(2)),
+  }));
 
   const deptCountMap = new Map<string, any>(
     (overview?.deptCounts ?? []).map((d: any) => [d._id?.toString(), d]),
@@ -410,12 +629,18 @@ export async function refreshOrgAnalytics(
           avgResolutionTimeMs: overview?.orgResolutionTime?.[0]?.avg ?? 0,
           topTags: overview?.topTags ?? [],
           currencyBreakdown: amounts?.currencyBreakdown ?? [],
+          totalFlagged,
+          flaggedRate,
+          monthlyTrend,
+          categoryBreakdown: categoryData,
+          merchantBreakdown: merchantData,
+          expenseTypeBreakdown,
         },
         departments,
         generatedAt: new Date(),
       },
     },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: "after" },
   );
 
   logInfo(`Analytics refreshed for org ${oid.toString()}`);

@@ -4,11 +4,8 @@ import { verifyAccessToken } from "../services/auth.service.js";
 import { User } from "../models/User.model.js";
 import { isValidObjectId } from "mongoose";
 import { Organization } from "../models/Organization.model.js";
+import { ROLES } from "../config/constants.js";
 
-/**
- * This function is used to authenticate the user. Verify the token and fetches the user from the database.
- * @access Works for organization, teacher and student.
- */
 export default (io: Server) =>
   async (socket: AuthSocket, next: (err?: ExtendedError) => void) => {
     const token = socket.handshake.auth.token;
@@ -25,22 +22,16 @@ export default (io: Server) =>
       const user = await User.findById(id);
       if (!user) return next(new Error("Authentication error: User not found"));
       if (user.isDisabled)
-        return next(
-          new Error("Authentication error: User account is disabled"),
-        );
+        return next(new Error("Authentication error: User account is disabled"));
 
       socket.user = user;
 
-      if (user.orgId && user.role !== "super_admin") {
+      if (user.orgId && user.role !== ROLES.SUPER_ADMIN) {
         const org = await Organization.findById(user.orgId);
         if (!org)
-          return next(
-            new Error("Authentication error: Organization not found"),
-          );
+          return next(new Error("Authentication error: Organization not found"));
         if (org.isDisabled)
-          return next(
-            new Error("Authentication error: Organization is disabled"),
-          );
+          return next(new Error("Authentication error: Organization is disabled"));
 
         socket.organization = org;
       }

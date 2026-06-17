@@ -4,6 +4,7 @@ import TicketController from "../controllers/ticket.controller.js";
 import * as schema from "../validation/ticket.schema.js";
 import { validate } from "../middleware/validate.js";
 import { uploadReceipt } from "../middleware/upload.js";
+import discussionRoutes from "./discussion.routes.js";
 
 const router = express.Router();
 
@@ -27,6 +28,9 @@ router.post(
   TicketController.create,
 );
 
+//* Receipt Scan (AI-first draft) [POST /api/users/expenses/receipt-scan]
+router.post("/receipt-scan", uploadReceipt, TicketController.receiptScan);
+
 //* Get Ticket Details [GET /api/users/expenses/:id]
 router.get("/:id", TicketController.getOne);
 
@@ -48,5 +52,11 @@ router.patch(
 
 //* Get Receipt Image [GET /api/users/expenses/:id/receipt]
 router.get("/:id/receipt", TicketController.getReceipt);
+
+//* Submit Draft [POST /api/users/expenses/:id/submit]
+router.post("/:id/submit", TicketController.submitDraft);
+
+//? Discussion sub-resource [ALL Methods /api/users/expenses/:ticketId/discussion]
+router.use("/:ticketId/discussion", discussionRoutes);
 
 export default router;

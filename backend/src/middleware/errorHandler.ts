@@ -14,7 +14,7 @@ export const errorHandler = (
   res: Response,
   next: NextFunction,
 ): void => {
-//   logError(err);
+  logError(err);
 
   const statusCode = err.statusCode || 500;
   const errorCode = err.code || "ERROR";
@@ -38,7 +38,7 @@ export const errorHandler = (
 };
 
 /**
- * 404 handler — placed after all routes.
+ * 404 handler - placed after all routes.
  */
 export const notFoundHandler = (req: Request, res: Response): void => {
   const payload: ResponsePayload<IErrorResponseData> = {

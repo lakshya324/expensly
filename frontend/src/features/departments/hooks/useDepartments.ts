@@ -16,6 +16,7 @@ interface DeptFilters {
 }
 
 export function useDepartments(filters: DeptFilters = {}) {
+  const filterKey = JSON.stringify(filters);
   const [data, setData] = useState<IDepartmentData[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,8 +24,9 @@ export function useDepartments(filters: DeptFilters = {}) {
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
+      const queryFilters = JSON.parse(filterKey) as DeptFilters;
       const params = Object.fromEntries(
-        Object.entries(filters).filter(([, v]) => v !== undefined),
+        Object.entries(queryFilters).filter(([, v]) => v !== undefined),
       );
       const res = await apiClient.get<ApiResponse<PaginatedData<IDepartmentData>>>(
         EP.ADMIN_DEPARTMENTS,
@@ -37,7 +39,7 @@ export function useDepartments(filters: DeptFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(filters)]);
+  }, [filterKey]);
 
   useEffect(() => {
     fetch();
@@ -54,8 +56,10 @@ interface DeptBody {
 }
 
 interface DeptPermissions {
-  canViewAllTickets: boolean;
-  canApprove: boolean;
+  view_all_tickets: boolean;
+  approve_finance: boolean;
+  export_reports: boolean;
+  view_analytics: boolean;
 }
 
 export function useCreateDepartment(onSuccess?: () => void) {
@@ -64,17 +68,18 @@ export function useCreateDepartment(onSuccess?: () => void) {
   const createDepartment = async (
     body: DeptBody,
     permissions?: DeptPermissions,
+    policyId?: string | null,
   ): Promise<IDepartmentData | null> => {
     setLoading(true);
     try {
-      const res = await apiClient.post<ApiResponse<IDepartmentData>>(EP.ADMIN_DEPARTMENTS, body);
-      const dept = res.data.data;
-      if (permissions) {
-        await apiClient.patch(EP.ADMIN_DEPT_PERMISSIONS(dept._id), permissions);
-      }
+      const res = await apiClient.post<ApiResponse<IDepartmentData>>(EP.ADMIN_DEPARTMENTS, {
+        ...body,
+        ...(permissions !== undefined ? { permissions } : {}),
+        ...(policyId !== undefined ? { policyId } : {}),
+      });
       toast.success('Department created');
       onSuccess?.();
-      return dept;
+      return res.data.data;
     } catch (e) {
       toast.error(errMsg(e, 'Failed to create department'));
       return null;
@@ -92,12 +97,16 @@ export function useUpdateDepartment(id: string, onSuccess?: () => void) {
   const updateDepartment = async (
     body: Partial<DeptBody>,
     permissions?: DeptPermissions,
+    policyId?: string | null,
   ): Promise<IDepartmentData | null> => {
     setLoading(true);
     try {
       const res = await apiClient.patch<ApiResponse<IDepartmentData>>(EP.ADMIN_DEPT(id), body);
-      if (permissions) {
-        await apiClient.patch(EP.ADMIN_DEPT_PERMISSIONS(id), permissions);
+      if (permissions !== undefined || policyId !== undefined) {
+        await apiClient.patch(EP.ADMIN_DEPT_PERMISSIONS(id), {
+          permissions,
+          policyId,
+        });
       }
       toast.success('Department updated');
       onSuccess?.();
@@ -157,7 +166,7 @@ export function useDepartmentTags(id: string) {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     apiClient
       .get<ApiResponse<string[]>>(EP.ADMIN_DEPT_TAGS(id))
       .then((r) => setTags(r.data.data))

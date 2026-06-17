@@ -13,6 +13,9 @@ import type { TicketStatus } from '@/core/types/api.types';
 
 const STATUS_OPTIONS: { label: string; value: TicketStatus | '' }[] = [
   { label: 'All statuses', value: '' },
+  { label: 'Draft', value: 'draft' },
+  { label: 'Scanning', value: 'scanning' },
+  { label: 'Failed', value: 'failed' },
   { label: 'Pending', value: 'pending' },
   { label: 'Awaiting Finance', value: 'awaiting_finance' },
   { label: 'Approved', value: 'approved' },
@@ -191,7 +194,7 @@ export function ExpenseFiltersBar({
           </button>
         )}
 
-        {/* Clear — right-aligned */}
+        {/* Clear - right-aligned */}
         {hasActiveFilters && (
           <Button
             variant="ghost"
@@ -223,7 +226,7 @@ export function ExpenseFiltersBar({
             />
           )}
 
-          {/* User combobox — disabled until a dept is picked */}
+          {/* User combobox - disabled until a dept is picked */}
           {fetchUsers && onUserChange && (
             <SearchCombobox
               value={userId}

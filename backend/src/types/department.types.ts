@@ -1,10 +1,8 @@
 import { Document, Types } from "mongoose";
-import { BudgetResetPeriod } from "../config/constants.js";
+import { BudgetResetPeriod, PermissionKey } from "../config/constants.js";
+import { IEntitySnapshot, IEntitySnapshotData } from "./common.types.js";
 
-export interface IDepartmentPermissions {
-  canViewAllTickets: boolean;
-  canApprove: boolean;
-}
+export type IDepartmentPermissions = { [K in PermissionKey]: boolean };
 
 export interface IDepartment extends Document {
   _id: Types.ObjectId;
@@ -15,7 +13,9 @@ export interface IDepartment extends Document {
   /** Per-currency approval threshold map. Key = ISO currency code, value = amount. */
   approvalThresholds: Map<string, number>;
   permissions: IDepartmentPermissions;
-  /** Tag pool — union of all tags used by this dept's tickets */
+  policyId: Types.ObjectId | null;
+  policySnapshot: IEntitySnapshot | null;
+  /** Tag pool - union of all tags used by this dept's tickets */
   tags: string[];
   budgetResetPeriod: BudgetResetPeriod;
   nextResetDate: Date | null;
@@ -33,6 +33,8 @@ export interface IDepartmentData {
   spent: number;
   approvalThresholds: Record<string, number>;
   permissions: IDepartmentPermissions;
+  policyId: string | null;
+  policySnapshot: IEntitySnapshotData | null;
   tags: string[];
   budgetResetPeriod: BudgetResetPeriod;
   nextResetDate: Date | null;

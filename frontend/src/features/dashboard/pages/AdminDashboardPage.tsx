@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/sha
 import { Skeleton } from '@/shared/components/ui/Skeleton';
 import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
 import { ROUTES } from '@/core/constants/constants';
-import { formatCurrency, formatPercent } from '@/core/utils/formatters';
+import { formatCurrency } from '@/core/utils/formatters';
+import { useAuthStore } from '@/features/auth/store/authStore';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -15,6 +16,7 @@ import {
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const { data, loading, refreshing, refresh } = useAnalytics();
+  const baseCurrency = useAuthStore((s) => s.user?.org?.baseCurrency ?? 'USD');
 
   return (
     <AppShell title="Admin Dashboard">
@@ -34,23 +36,23 @@ export function AdminDashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Total Expenses"
-            value={loading ? '—' : (data?.org.totalTickets ?? 0)}
+            value={loading ? '-' : (data?.org.totalTickets ?? 0)}
             icon={Receipt} color="brand" loading={loading}
           />
           <StatCard
             title="Pending"
-            value={loading ? '—' : ((data?.org.totalPending ?? 0) + (data?.org.totalAwaitingFinance ?? 0))}
+            value={loading ? '-' : ((data?.org.totalPending ?? 0) + (data?.org.totalAwaitingFinance ?? 0))}
             icon={Clock} color="warning" loading={loading}
           />
           <StatCard
             title="Approved"
-            value={loading ? '—' : (data?.org.totalApproved ?? 0)}
-            subtitle={data ? formatCurrency(data.org.totalAmountApproved, 'USD', true) : undefined}
+            value={loading ? '-' : (data?.org.totalApproved ?? 0)}
+            subtitle={data ? formatCurrency(data.org.totalAmountApproved, baseCurrency, true) : undefined}
             icon={CheckCircle2} color="success" loading={loading}
           />
           <StatCard
             title="Rejected"
-            value={loading ? '—' : (data?.org.totalRejected ?? 0)}
+            value={loading ? '-' : (data?.org.totalRejected ?? 0)}
             icon={XCircle} color="danger" loading={loading}
           />
         </div>

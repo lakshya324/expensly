@@ -6,7 +6,10 @@ interface StatusBadgeProps {
   status: TicketStatus;
 }
 
-const variantMap: Record<TicketStatus, 'warning' | 'info' | 'success' | 'danger'> = {
+const variantMap: Record<TicketStatus, 'warning' | 'info' | 'success' | 'danger' | 'muted'> = {
+  draft: 'muted',
+  scanning: 'info',
+  failed: 'danger',
   pending: 'warning',
   awaiting_finance: 'info',
   approved: 'success',
@@ -16,6 +19,9 @@ const variantMap: Record<TicketStatus, 'warning' | 'info' | 'success' | 'danger'
 export function StatusBadge({ status }: StatusBadgeProps) {
   return (
     <Badge variant={variantMap[status]}>
+      {status === 'scanning' && (
+        <span className="mr-1.5 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400 animate-pulse" />
+      )}
       {TICKET_STATUS_LABELS[status] ?? status}
     </Badge>
   );

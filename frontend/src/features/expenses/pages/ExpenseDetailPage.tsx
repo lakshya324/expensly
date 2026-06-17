@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Flag, Download, CheckCircle, XCircle, Loader2, Clock, User, AlertTriangle
+  ArrowLeft, Flag, Download, CheckCircle, XCircle, Loader2, Clock, User, AlertTriangle,
+  ChevronDown, ChevronUp, Brain, MessageSquare, Send, Package,
 } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { Button } from '@/shared/components/ui/Button';
@@ -10,10 +11,10 @@ import { StatusBadge } from '@/shared/components/data-display/StatusBadge';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/shared/components/ui/Dialog';
-import { useExpense, useUpdateExpenseStatus, useFlagExpense, useReceiptUrl } from '../hooks/useExpenses';
+import { useExpense, useUpdateExpenseStatus, useFlagExpense, useReceiptUrl, useDiscussion, useSubmitDraft } from '../hooks/useExpenses';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { formatCurrency, formatDateTime, formatRelativeTime } from '@/core/utils/formatters';
-import { CURRENCY_SYMBOLS } from '@/core/constants/constants';
+import { ROUTES } from '@/core/constants/constants';
 
 export function ExpenseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +23,13 @@ export function ExpenseDetailPage() {
   const { data: ticket, loading, setData } = useExpense(id!);
   const { toggleFlag, loading: flagLoading } = useFlagExpense(id!, setData);
   const { openReceipt } = useReceiptUrl(id!);
+  const { messages, loading: discussionLoading, posting, postMessage, loadPrevious, hasOlderMessages, loadingPrev } = useDiscussion(id!);
+  const [discussionInput, setDiscussionInput] = useState('');
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [discussionOpen, setDiscussionOpen] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const scrollAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
   const [statusModal, setStatusModal] = useState<{ 
     open: boolean; 
     action: 'approved' | 'rejected' | null;
@@ -34,6 +42,29 @@ export function ExpenseDetailPage() {
     requiresOverrideWarning: false,
   });
   const [comments, setComments] = useState('');
+  const { submitDraft, loading: submitDraftLoading } = useSubmitDraft();
+
+  // Scroll to bottom on initial load; restore position after loading previous
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    if (scrollAnchorRef.current) {
+      // Restore scroll position after prepending older messages
+      const { scrollHeight: prevHeight, scrollTop: prevTop } = scrollAnchorRef.current;
+      container.scrollTop = prevTop + (container.scrollHeight - prevHeight);
+      scrollAnchorRef.current = null;
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  const handleLoadPrevious = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      scrollAnchorRef.current = { scrollHeight: container.scrollHeight, scrollTop: container.scrollTop };
+    }
+    loadPrevious();
+  }, [loadPrevious]);
 
   const { updateStatus, loading: statusLoading } = useUpdateExpenseStatus(id!, (updated) => {
     setData(updated);
@@ -53,7 +84,7 @@ export function ExpenseDetailPage() {
 
   if (!ticket) return null;
 
-  // Check if user can do manager approval (only the actual assigned manager — not admin)
+  // Check if user can do manager approval (only the actual assigned manager - not admin)
   const canApproveAsManager =
     ticket.managerApproval !== null &&
     ticket.managerApproval.approved === null &&
@@ -65,8 +96,8 @@ export function ExpenseDetailPage() {
   // Priority: user role (admin) → user-level permission → dept-level permission
   const hasFinancePermission =
     user?.role === 'admin' ||
-    user?.permissions?.canApprove === true ||
-    (user?.permissions?.canApprove == null && user?.department?.permissions?.canApprove === true);
+    user?.permissions?.approve_finance === true ||
+    (user?.permissions?.approve_finance == null && user?.department?.permissions?.approve_finance === true);
 
   // Finance users can act when:
   //   - status is 'awaiting_finance' (manager already approved)
@@ -93,6 +124,27 @@ export function ExpenseDetailPage() {
     ticket.managerApproval.approved === null;
 
   const isSubmitter = ticket.submittedBy._id === user?._id;
+  const canPublishDraft = ticket.status === 'draft' && isSubmitter;
+  const aiAnalysisPassed =
+    ticket.aiValidation?.status === 'passed' &&
+    (ticket.aiValidation?.checks?.every((check) => check.passed) ?? true);
+
+  const handlePublishDraft = async () => {
+    if (!canPublishDraft) return;
+
+    const updated = await submitDraft(ticket._id, {
+      title: ticket.title ?? undefined,
+      amount: ticket.amount != null ? String(ticket.amount) : undefined,
+      currency: ticket.currency ?? undefined,
+      description: ticket.description ?? undefined,
+      merchant: ticket.merchant?._id,
+      category: ticket.category?._id,
+    });
+
+    if (updated) {
+      setData(updated);
+    }
+  };
 
   return (
     <AppShell title="Expense Detail">
@@ -104,14 +156,25 @@ export function ExpenseDetailPage() {
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
-              <h2 className="text-xl font-bold text-[var(--foreground)]">{ticket.title}</h2>
+              <h2 className="text-xl font-bold text-[var(--foreground)]">
+                {ticket.title ?? <span className="italic text-[var(--muted-foreground)]">Untitled Draft</span>}
+              </h2>
               <p className="text-sm text-[var(--muted-foreground)]">
                 Submitted {formatRelativeTime(ticket.createdAt)}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <StatusBadge status={ticket.status} />
+            {ticket.bundle && (
+              <button
+                onClick={() => navigate(ROUTES.BUNDLE_DETAIL(ticket.bundle!._id))}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-50 text-info-600 dark:bg-info-500/15 dark:text-info-400 hover:opacity-80 transition-opacity"
+              >
+                <Package className="w-3 h-3" />
+                {ticket.bundle.title}
+              </button>
+            )}
             {ticket.flagged && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-400">
                 <Flag className="w-3 h-3 fill-current" /> Flagged
@@ -119,6 +182,27 @@ export function ExpenseDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Missing fields strip (shown for draft/scanning) */}
+        {(ticket.status === 'draft' || ticket.status === 'scanning') &&
+          (!ticket.merchant || !ticket.category || ticket.amount === null) && (
+          <div className="flex items-start gap-2.5 rounded-xl bg-warning-50 dark:bg-warning-500/10 border border-warning-200 dark:border-warning-500/30 px-3.5 py-3">
+            <AlertTriangle className="w-4 h-4 text-warning-600 dark:text-warning-400 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-warning-700 dark:text-warning-400">Incomplete expense</p>
+              <p className="text-xs text-warning-600/80 dark:text-warning-400/80 mt-0.5">
+                Missing:{' '}
+                {[
+                  !ticket.merchant && 'merchant',
+                  !ticket.category && 'category',
+                  ticket.amount === null && 'amount',
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Main Info */}
@@ -129,18 +213,21 @@ export function ExpenseDetailPage() {
                 <div>
                   <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">Amount</dt>
                   <dd className="mt-1 text-xl font-bold text-[var(--foreground)]">
-                    {formatCurrency(ticket.amount, ticket.currency)}
+                    {ticket.amount !== null && ticket.currency !== null
+                      ? formatCurrency(ticket.amount, ticket.currency)
+                      : <span className="italic text-[var(--muted-foreground)] text-base font-normal">Pending</span>
+                    }
                   </dd>
                   {ticket.convertedAmount && (
                     <dd className="text-xs text-[var(--muted-foreground)]">
-                      ≈ {CURRENCY_SYMBOLS['USD'] ?? '$'}{ticket.convertedAmount.toFixed(2)} USD (locked)
+                      ≈ {formatCurrency(ticket.convertedAmount, 'USD')} USD (locked)
                     </dd>
                   )}
                 </div>
                 <div>
                   <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">Department</dt>
                   <dd className="mt-1 text-sm font-semibold text-[var(--foreground)]">
-                    {ticket.department?.name ?? '—'}
+                    {ticket.department?.name ?? '-'}
                   </dd>
                 </div>
                 <div>
@@ -154,6 +241,28 @@ export function ExpenseDetailPage() {
                   <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">Date</dt>
                   <dd className="mt-1 text-sm text-[var(--foreground)]">{formatDateTime(ticket.createdAt)}</dd>
                 </div>
+                {ticket.merchant && (
+                  <div>
+                    <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">Merchant</dt>
+                    <dd className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-[var(--foreground)]">
+                      {ticket.merchant.logoUrl && (
+                        <img src={ticket.merchant.logoUrl} alt="" className="w-4 h-4 rounded object-contain" />
+                      )}
+                      {ticket.merchant.name}
+                    </dd>
+                  </div>
+                )}
+                {ticket.category && (
+                  <div>
+                    <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">Category</dt>
+                    <dd className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-[var(--foreground)]">
+                      {ticket.category.iconUrl && (
+                        <img src={ticket.category.iconUrl} alt="" className="w-4 h-4 rounded object-contain" />
+                      )}
+                      {ticket.category.name}
+                    </dd>
+                  </div>
+                )}
                 {ticket.tags.length > 0 && (
                   <div className="col-span-2">
                     <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide mb-1.5">Tags</dt>
@@ -244,7 +353,7 @@ export function ExpenseDetailPage() {
           <Card>
             <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              {ticket.receiptKey && (
+              {ticket.receipts.length > 0 && (
                 <Button variant="outline" size="sm" className="w-full" onClick={openReceipt}>
                   <Download className="w-4 h-4" />
                   View Receipt
@@ -260,6 +369,17 @@ export function ExpenseDetailPage() {
                 >
                   <Flag className={`w-4 h-4 ${ticket.flagged ? 'fill-warning-500 text-warning-500' : ''}`} />
                   {ticket.flagged ? 'Unflag' : 'Flag'} Expense
+                </Button>
+              )}
+              {canPublishDraft && (
+                <Button
+                  size="sm"
+                  className="w-full"
+                  loading={submitDraftLoading}
+                  onClick={handlePublishDraft}
+                >
+                  <Send className="w-4 h-4" />
+                  Publish Draft
                 </Button>
               )}
               {canApproveAsManager && (
@@ -309,6 +429,201 @@ export function ExpenseDetailPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* AI Analysis Panel */}
+        {(ticket.ocrData || ticket.aiValidation) && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Brain className="w-4 h-4 text-brand-500" />
+                  AI Analysis
+                  {ticket.aiValidation && (
+                    aiAnalysisPassed
+                      ? <CheckCircle className="w-4 h-4 text-success-600 dark:text-success-400" />
+                      : <XCircle className="w-4 h-4 text-danger-500" />
+                  )}
+                  {ticket.ocrData?.confidence != null && (
+                    <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                      OCR · {Math.round(ticket.ocrData.confidence * 100)}% confidence
+                    </span>
+                  )}
+                </CardTitle>
+                <button
+                  type="button"
+                  onClick={() => setAiPanelOpen((o) => !o)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[var(--muted)] text-[var(--muted-foreground)] transition-colors"
+                >
+                  {aiPanelOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+              </div>
+            </CardHeader>
+            {aiPanelOpen && (
+              <CardContent className="space-y-4">
+                {/* AI validation checks */}
+                {ticket.aiValidation && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">Validation checks</p>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        ticket.aiValidation.status === 'passed'
+                          ? 'bg-success-50 dark:bg-success-500/10 text-success-700 dark:text-success-400'
+                          : ticket.aiValidation.status === 'error'
+                          ? 'bg-danger-50 dark:bg-danger-500/10 text-danger-700 dark:text-danger-400'
+                          : 'bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400'
+                      }`}>
+                        {ticket.aiValidation.status}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {ticket.aiValidation.checks.map((check, i) => (
+                        <div key={i} className="flex items-start gap-2.5 rounded-lg border border-[var(--border)] px-3 py-2.5">
+                          {check.passed
+                            ? <CheckCircle className="w-3.5 h-3.5 text-success-600 dark:text-success-400 mt-0.5 flex-shrink-0" />
+                            : <XCircle className="w-3.5 h-3.5 text-danger-500 mt-0.5 flex-shrink-0" />
+                          }
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-[var(--foreground)]">{check.label}</p>
+                            {check.detail && (
+                              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">{check.detail}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            )}
+          </Card>
+        )}
+
+        {/* Discussion Thread */}
+        <Card>
+          <CardHeader>
+            <button
+              type="button"
+              onClick={() => setDiscussionOpen((prev) => !prev)}
+              className="w-full flex items-center gap-2 text-left"
+              aria-expanded={discussionOpen}
+            >
+              <CardTitle className="flex items-center gap-2 text-base w-full">
+                <MessageSquare className="w-4 h-4" />
+                Discussion
+                <span className="ml-auto text-xs font-normal text-[var(--muted-foreground)]">
+                  {messages.length} {messages.length === 1 ? 'message' : 'messages'}
+                </span>
+                {discussionOpen ? (
+                  <ChevronUp className="w-4 h-4 text-[var(--muted-foreground)]" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-[var(--muted-foreground)]" />
+                )}
+              </CardTitle>
+            </button>
+          </CardHeader>
+
+          {discussionOpen && (
+            <CardContent>
+              <div ref={messagesContainerRef} className="space-y-2.5 max-h-80 overflow-y-auto mb-4 pr-1">
+                {discussionLoading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="w-5 h-5 animate-spin text-[var(--muted-foreground)]" />
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--muted)]/40 px-4 py-6 text-center">
+                    <p className="text-sm text-[var(--muted-foreground)]">No messages yet. Start the conversation.</p>
+                  </div>
+                ) : (
+                  <>
+                    {hasOlderMessages && (
+                      <div className="flex justify-center pt-1 pb-0.5">
+                        <button
+                          type="button"
+                          onClick={handleLoadPrevious}
+                          disabled={loadingPrev}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--muted)]/60 px-3 py-1 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+                        >
+                          {loadingPrev ? <Loader2 className="w-3 h-3 animate-spin" /> : <ChevronUp className="w-3 h-3" />}
+                          {loadingPrev ? 'Loading…' : 'Load previous messages'}
+                        </button>
+                      </div>
+                    )}
+
+                    {messages.map((msg) => (
+                      <div key={msg._id} className="flex gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--muted)]/25 px-3 py-2.5">
+                        <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-brand-700 dark:text-brand-300 uppercase">
+                          {msg.author.name.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold text-[var(--foreground)]">{msg.author.name}</span>
+                            {msg.author.department?.name && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--muted)] text-[var(--muted-foreground)] border border-[var(--border)]">
+                                {msg.author.department.name}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-[var(--muted-foreground)]">{formatRelativeTime(msg.createdAt)}</span>
+                            {msg.editedAt && !msg.deleted && (
+                              <span className="text-[10px] text-[var(--muted-foreground)] italic">edited</span>
+                            )}
+                          </div>
+                          {msg.deleted ? (
+                            <p className="text-xs italic text-[var(--muted-foreground)] mt-0.5">Message deleted</p>
+                          ) : (
+                            <p className="text-sm leading-5 text-[var(--foreground)] mt-0.5 break-words whitespace-pre-wrap">{msg.text}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              <div className="pt-3 border-t border-[var(--border)]">
+                <div className="flex gap-2 items-end rounded-xl border border-[var(--input)] bg-[var(--background)] px-2.5 py-2">
+                  <textarea
+                    value={discussionInput}
+                    onChange={(e) => setDiscussionInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && !posting) {
+                        e.preventDefault();
+                        if (discussionInput.trim()) {
+                          postMessage(discussionInput).then((ok) => {
+                            if (ok) setDiscussionInput('');
+                          });
+                        }
+                      }
+                    }}
+                    disabled={posting || discussionLoading}
+                    rows={2}
+                    placeholder={posting ? 'Sending message...' : 'Write a message... (Enter to send, Shift+Enter for newline)'}
+                    className="flex-1 px-2 py-1.5 rounded-lg bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none disabled:opacity-70 resize-none"
+                  />
+
+                  <Button
+                    size="icon-sm"
+                    disabled={!discussionInput.trim() || posting || discussionLoading}
+                    loading={posting}
+                    onClick={() => {
+                      if (discussionInput.trim()) {
+                        postMessage(discussionInput).then((ok) => {
+                          if (ok) setDiscussionInput('');
+                        });
+                      }
+                    }}
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                <p className="mt-1.5 px-1 text-[10px] text-[var(--muted-foreground)]">
+                  Press Enter to send · Shift + Enter for a new line
+                </p>
+              </div>
+            </CardContent>
+          )}
+        </Card>
 
         {/* Status Change Dialog */}
         <Dialog open={statusModal.open} onOpenChange={(o) => { if (!o) setStatusModal({ open: false, action: null, isManagerApproval: false, requiresOverrideWarning: false }); }}>

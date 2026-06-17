@@ -61,7 +61,7 @@ function OrgSelect({
         onChange={(e) => onChange(e.target.value)}
         className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--input)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
       >
-        <option value="">— None —</option>
+        <option value="">- None -</option>
         {orgs.map((o) => (
           <option key={o._id} value={o._id}>{o.name}</option>
         ))}
@@ -299,7 +299,7 @@ export function SuperAdminUsersPage() {
         row.org ? (
           <span className="text-sm text-[var(--foreground)]">{row.org.name}</span>
         ) : (
-          <span className="text-xs text-[var(--muted-foreground)] italic">—</span>
+          <span className="text-xs text-[var(--muted-foreground)] italic">-</span>
         ),
     },
     {

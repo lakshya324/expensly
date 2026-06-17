@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .env
+.env.*
+!.env.example
 logs/
 *.log
 coverage/
@@ -9,3 +11,7 @@ coverage/
 .vscode/
 
 archive/
+seed-*-credentials.json
+seed-credentials.json
+seed-api-credentials.json
+seed-demo-credentials.json

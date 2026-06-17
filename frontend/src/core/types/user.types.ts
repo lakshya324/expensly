@@ -1,9 +1,12 @@
-import type { Role, Currency } from './api.types';
-import type { IDepartmentData } from './ticket.types';
+import type { Role, Currency } from "./api.types";
+import type { DepartmentPermissions, PermissionKey } from "./ticket.types";
+import type { IEntitySnapshotData } from "./common.types";
 
 export interface UserPermissions {
-  canViewAllTickets: boolean | null;
-  canApprove: boolean | null;
+  view_all_tickets: boolean | null;
+  approve_finance: boolean | null;
+  export_reports: boolean | null;
+  view_analytics: boolean | null;
 }
 
 export interface IOrganizationData {
@@ -25,9 +28,11 @@ export interface IUserData {
   role: Role;
   orgId: string | null;
   org: IOrganizationData | null;
-  department: IDepartmentData | null;
-  manager: { _id: string; name: string; email: string; role: Role; isDisabled: boolean; createdAt: string; updatedAt: string } | null;
+  department: (IEntitySnapshotData & { permissions?: DepartmentPermissions }) | null;
+  manager: IEntitySnapshotData | null;
   permissions: UserPermissions;
+  policyId: string | null;
+  effectivePermissions: Record<PermissionKey, boolean>;
   isDisabled: boolean;
   createdAt: string;
   updatedAt: string;

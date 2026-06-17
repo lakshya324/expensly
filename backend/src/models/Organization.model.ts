@@ -41,7 +41,8 @@ const OrganizationSchema = new Schema<IOrganization>(
 //   }
 // });
 
-OrganizationSchema.index({ isDisabled: 1 }); // daily analytics cron scans all active orgs
+// OrganizationSchema.index({ isDisabled: 1 }); // daily analytics cron scans all active orgs
+OrganizationSchema.index({ isDisabled: 1, createdAt: -1 });
 
 OrganizationSchema.methods.data = function (
   this: IOrganization,

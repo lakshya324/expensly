@@ -17,9 +17,12 @@ export const departmentSchema = z.object({
     .min(1, 'Budget is required')
     .regex(/^[0-9]+(\.[0-9]+)?$/, 'Must be a valid non-negative number'),
   budgetResetPeriod: z.enum(['none', 'monthly', 'quarterly', 'yearly']),
+  policyId: z.string().nullable().optional(),
   permissions: z.object({
-    canViewAllTickets: z.boolean(),
-    canApprove: z.boolean(),
+    view_all_tickets: z.boolean(),
+    approve_finance: z.boolean(),
+    export_reports: z.boolean(),
+    view_analytics: z.boolean(),
   }),
   approvalThresholds: z.array(approvalThresholdEntrySchema),
 });

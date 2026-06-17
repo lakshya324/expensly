@@ -1,6 +1,5 @@
 import type { IOrgAnalyticsData } from './analytics.types';
-import type { IDepartmentData } from './ticket.types';
-import type { ITicketData } from './ticket.types';
+import type { IDepartmentData, IDiscussionMessageData, ITicketData } from './ticket.types';
 import type { IUserData } from './user.types';
 import type { Currency } from './api.types';
 
@@ -16,13 +15,13 @@ export interface SocketEnvelope<T> {
   meta: SocketEventMeta;
 }
 
-export type SocketEvents = {
-  // Client → Server
+export type ClientSocketEvents = {
   ping: undefined;
   subscribe_dept: { deptId: string };
   unsubscribe_dept: { deptId: string };
+};
 
-  // Server → Client
+export type ServerSocketEvents = {
   pong: Record<string, never>;
   new_ticket: { ticket: ITicketData };
   ticket_update: { ticket: ITicketData };
@@ -42,4 +41,13 @@ export type SocketEvents = {
   };
   analytics_update: { analytics: IOrgAnalyticsData };
   rates_update: { snapshotId: string; rates: Record<Currency, number>; baseCurrency: Currency };
+  // OCR & AI async results (enveloped like all other server events)
+  'ticket:ocr_completed': SocketEnvelope<{ ticket: ITicketData }>;
+  'ticket:ai_validated': SocketEnvelope<{ ticket: ITicketData }>;
+  'ticket:failed': SocketEnvelope<{ ticket: ITicketData; reason: string }>;
+  'discussion:message': SocketEnvelope<{ ticketId: string; message: IDiscussionMessageData }>;
+  'discussion:edit': SocketEnvelope<{ ticketId: string; message: IDiscussionMessageData }>;
+  'discussion:delete': SocketEnvelope<{ ticketId: string; messageId: string }>;
 };
+
+export type SocketEvents = ServerSocketEvents & ClientSocketEvents;

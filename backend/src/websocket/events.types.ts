@@ -8,6 +8,7 @@ import { ITicketData } from "../types/ticket.types.js";
 import { IUserData } from "../types/user.types.js";
 import { IDepartmentData } from "../types/department.types.js";
 import { IOrgAnalyticsData } from "../types/analytics.types.js";
+import { IDiscussionMessageData } from "../types/discussion.types.js";
 
 // ---------------------------------------------------------------------------
 // Envelope
@@ -52,6 +53,16 @@ export const WS_EVENTS = {
   // Exchange Rates
   RATES_UPDATE: "rates_update",
 
+  // OCR & AI async results
+  OCR_COMPLETED: "ticket:ocr_completed",
+  AI_VALIDATED: "ticket:ai_validated",
+  TICKET_FAILED: "ticket:failed",
+
+  // Discussion
+  DISCUSSION_MESSAGE: "discussion:message",
+  DISCUSSION_EDIT: "discussion:edit",
+  DISCUSSION_DELETE: "discussion:delete",
+
   // System
   PING: "ping",
   PONG: "pong",
@@ -89,3 +100,11 @@ export type RatesUpdatePayload = WSEnvelope<{
   rates: Record<string, number>;
   baseCurrency: string;
 }>;
+
+export type OcrCompletedPayload = WSEnvelope<{ ticket: ITicketData }>;
+export type AiValidatedPayload = WSEnvelope<{ ticket: ITicketData }>;
+export type TicketFailedPayload = WSEnvelope<{ ticket: ITicketData; reason: string }>;
+
+export type DiscussionMessagePostedPayload = WSEnvelope<{ ticketId: string; message: IDiscussionMessageData }>;
+export type DiscussionMessageEditedPayload = WSEnvelope<{ ticketId: string; message: IDiscussionMessageData }>;
+export type DiscussionMessageDeletedPayload = WSEnvelope<{ ticketId: string; messageId: string }>;

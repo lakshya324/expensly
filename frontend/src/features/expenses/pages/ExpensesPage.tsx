@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Receipt, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { DataTable, type Column } from '@/shared/components/data-display/DataTable';
 import { StatusBadge } from '@/shared/components/data-display/StatusBadge';
+import { StatCard } from '@/shared/components/data-display/StatCard';
 import { Button } from '@/shared/components/ui/Button';
 import { ExpenseFiltersBar } from '../components/ExpenseFiltersBar';
-import { useExpenses } from '../hooks/useExpenses';
-import { ROUTES } from '@/core/constants/constants';
-import { formatCurrency, formatDate } from '@/core/utils/formatters';
-import type { ITicketData } from '@/core/types/ticket.types';
+import { AiValidationIndicator } from '../components/AiValidationIndicator';
+import { useExpenses, useExpenseStats } from '../hooks/useExpenses';
+import { ROUTES, CURRENCY_SYMBOLS } from '@/core/constants/constants';
+import { formatDate } from '@/core/utils/formatters';
+import type { ITicketSummaryData } from '@/core/types/ticket.types';
 import type { TicketStatus } from '@/core/types/api.types';
 
 export function ExpensesPage() {
@@ -32,6 +34,7 @@ export function ExpensesPage() {
   }, [searchInput]);
 
   const { data, pagination, loading } = useExpenses({ page, limit: 15, status: status || undefined, search: search || undefined, from: dateFrom || undefined, to: dateTo || undefined, flagged: flagged ? 'true' : undefined });
+  const { data: stats, loading: statsLoading } = useExpenseStats();
 
   const clearFilters = () => {
     setSearchInput('');
@@ -45,16 +48,30 @@ export function ExpensesPage() {
 
   const hasActiveFilters = !!searchInput || !!status || !!dateFrom || !!dateTo || flagged;
 
-  const columns: Column<ITicketData>[] = [
+  const columns: Column<ITicketSummaryData>[] = [
     {
       key: 'title',
       header: 'Title',
       render: (row) => (
         <div>
-          <p className="font-medium text-(--foreground) truncate max-w-50">{row.title}</p>
+          <p className="font-medium text-(--foreground) truncate max-w-50 flex items-center gap-2">
+            <span className="truncate">
+              {row.title ?? <span className="italic text-(--muted-foreground)">Untitled</span>}
+            </span>
+            <AiValidationIndicator aiValidation={row.aiValidation} ocrData={row.ocrData} />
+          </p>
           <p className="text-xs text-(--muted-foreground) mt-0.5">
             {row.tags.slice(0, 2).join(', ')}
           </p>
+          {/* Missing fields indicator */}
+          {(row.status === 'draft' || row.status === 'scanning') && (!row.merchant || !row.category) && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <span className="text-[10px] text-amber-600 dark:text-amber-400">
+                Needs {!row.merchant && !row.category ? 'merchant & category' : !row.merchant ? 'merchant' : 'category'}
+              </span>
+            </div>
+          )}
         </div>
       ),
     },
@@ -64,7 +81,10 @@ export function ExpensesPage() {
       width: '120px',
       render: (row) => (
         <span className="font-semibold text-(--foreground)">
-          {formatCurrency(row.amount, row.currency)}
+          {row.amount != null && row.currency
+            ? `${CURRENCY_SYMBOLS[row.currency] ?? row.currency}${row.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            : <span className="text-(--muted-foreground) italic text-xs">Pending</span>
+          }
         </span>
       ),
     },
@@ -74,14 +94,14 @@ export function ExpensesPage() {
       width: '140px',
       render: (row) => (
         <span className="text-sm text-(--muted-foreground)">
-          {row.department?.name ?? '—'}
+          {row.department?.name ?? '-'}
         </span>
       ),
     },
     {
       key: 'status',
       header: 'Status',
-      width: '150px',
+      width: '160px',
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
@@ -107,6 +127,14 @@ export function ExpensesPage() {
             <Plus className="w-4 h-4" />
             New Expense
           </Button>
+        </div>
+
+        {/* Stats bar */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard title="Total" value={stats?.total ?? 0} icon={Receipt} color="brand" loading={statsLoading} />
+          <StatCard title="Pending" value={stats?.pending ?? 0} icon={Clock} color="warning" loading={statsLoading} />
+          <StatCard title="Approved" value={stats?.approved ?? 0} icon={CheckCircle} color="success" loading={statsLoading} />
+          <StatCard title="Rejected" value={stats?.rejected ?? 0} icon={XCircle} color="danger" loading={statsLoading} />
         </div>
 
         {/* Filters */}

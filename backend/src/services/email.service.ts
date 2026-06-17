@@ -2,7 +2,7 @@
  * Email Service
  *
  * Handles all outbound email notifications via SMTP (nodemailer).
- * Every send function is fire-and-catch — email failures never break API responses.
+ * Every send function is fire-and-catch - email failures never break API responses.
  */
 import transport from "../config/email.config.js";
 import config from "../config/env.config.js";
@@ -76,6 +76,10 @@ async function send(
   html: string,
   attachments?: MailAttachment[],
 ): Promise<void> {
+  if (config.nodeEnv === "development") {
+    logInfo(`[dev] Email suppressed → ${to}: ${subject}`);
+    return;
+  }
   try {
     await transport.sendMail({ from: FROM, to, subject, html, attachments });
     logInfo(`Email sent to ${to}: ${subject}`);
@@ -100,12 +104,12 @@ export async function sendOtpEmail(
   const html = baseTemplate(
     "Your Expensly Login OTP",
     `<h2>Hello, ${name} 👋</h2>
-    <p>You requested a one-time password to sign in to your Expensly account. Use the code below — it expires in <strong>${expiresInMinutes} minute${expiresInMinutes !== 1 ? "s" : ""}</strong>.</p>
+    <p>You requested a one-time password to sign in to your Expensly account. Use the code below - it expires in <strong>${expiresInMinutes} minute${expiresInMinutes !== 1 ? "s" : ""}</strong>.</p>
     <div class="otp-box">
       <div style="font-size: 12px; text-transform: uppercase; font-weight: 600; color: #94a3b8; margin-bottom: 8px;">Your One-Time Password</div>
       <span>${otp}</span>
     </div>
-    <p style="font-size: 13px; color: #94a3b8;">⚠️ Never share this code with anyone. Expensly staff will never ask for your OTP. If you didn't request this, please ignore this email — your account remains secure.</p>`,
+    <p style="font-size: 13px; color: #94a3b8;">⚠️ Never share this code with anyone. Expensly staff will never ask for your OTP. If you didn't request this, please ignore this email - your account remains secure.</p>`,
   );
   await send(to, "Your Expensly Login OTP", html);
 }
@@ -122,18 +126,18 @@ export async function sendPasswordResetOtpEmail(
   const html = baseTemplate(
     "Reset Your Expensly Password",
     `<h2>Password Reset Request 🔐</h2>
-    <p>Hi <strong>${name}</strong>, we received a request to reset your Expensly account password. Use the code below — it expires in <strong>${expiresInMinutes} minute${expiresInMinutes !== 1 ? "s" : ""}</strong>.</p>
+    <p>Hi <strong>${name}</strong>, we received a request to reset your Expensly account password. Use the code below - it expires in <strong>${expiresInMinutes} minute${expiresInMinutes !== 1 ? "s" : ""}</strong>.</p>
     <div class="otp-box">
       <div style="font-size: 12px; text-transform: uppercase; font-weight: 600; color: #94a3b8; margin-bottom: 8px;">Password Reset OTP</div>
       <span>${otp}</span>
     </div>
-    <p style="font-size: 13px; color: #94a3b8;">⚠️ If you did not request a password reset, please ignore this email — your account remains secure and your password has not been changed.</p>`,
+    <p style="font-size: 13px; color: #94a3b8;">⚠️ If you did not request a password reset, please ignore this email - your account remains secure and your password has not been changed.</p>`,
   );
   await send(to, "Reset Your Expensly Password", html);
 }
 
 // ---------------------------------------------------------------------------
-// Ticket submitted — notify manager / admin
+// Ticket submitted - notify manager / admin
 // ---------------------------------------------------------------------------
 export async function sendTicketSubmittedEmail(
   to: string,
@@ -166,7 +170,7 @@ export async function sendTicketSubmittedEmail(
 }
 
 // ---------------------------------------------------------------------------
-// Ticket status change — notify submitter
+// Ticket status change - notify submitter
 // ---------------------------------------------------------------------------
 export async function sendTicketStatusEmail(
   to: string,
@@ -223,7 +227,7 @@ export async function sendTicketStatusEmail(
 }
 
 // ---------------------------------------------------------------------------
-// Signup approved — notify org admin
+// Signup approved - notify org admin
 // ---------------------------------------------------------------------------
 export async function sendSignupApprovedEmail(
   to: string,
@@ -249,7 +253,7 @@ export async function sendSignupApprovedEmail(
 }
 
 // ---------------------------------------------------------------------------
-// Signup rejected / org disabled — notify org admin
+// Signup rejected / org disabled - notify org admin
 // ---------------------------------------------------------------------------
 export async function sendSignupRejectedEmail(
   to: string,
@@ -275,7 +279,7 @@ export async function sendSignupRejectedEmail(
 }
 
 // ---------------------------------------------------------------------------
-// Report email — send generated CSV report to user
+// Report email - send generated CSV report to user
 // ---------------------------------------------------------------------------
 export async function sendReportEmail(
   to: string,
@@ -299,14 +303,14 @@ export async function sendReportEmail(
   );
   await send(
     to,
-    `Your Expensly Report — ${filename}`,
+    `Your Expensly Report - ${filename}`,
     html,
     [{ filename, content: csvBuffer, contentType: 'text/csv' }],
   );
 }
 
 // ---------------------------------------------------------------------------
-// Welcome email — new user added to org
+// Welcome email - new user added to org
 // ---------------------------------------------------------------------------
 export async function sendWelcomeEmail(
   to: string,
@@ -330,5 +334,5 @@ export async function sendWelcomeEmail(
     <div class="divider"></div>
     <p>If you have any questions, reach out to your organization admin.</p>`,
   );
-  await send(to, `Welcome to Expensly — ${orgName}`, html);
+  await send(to, `Welcome to Expensly - ${orgName}`, html);
 }

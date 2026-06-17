@@ -15,6 +15,36 @@ export const EP = {
   EXPENSE_FLAG: (id: string) => `/users/expenses/${id}/flag`,
   EXPENSE_STATUS: (id: string) => `/users/expenses/${id}/status`,
   EXPENSE_RECEIPT: (id: string) => `/users/expenses/${id}/receipt`,
+  EXPENSE_SCAN: '/users/expenses/receipt-scan',
+  EXPENSE_SUBMIT_DRAFT: (id: string) => `/users/expenses/${id}/submit`,
+  EXPENSE_ENRICH: (id: string) => `/users/expenses/${id}/enrich`,
+  EXPENSE_DISCUSSION: (id: string) => `/users/expenses/${id}/discussion`,
+
+  // Merchants
+  ADMIN_MERCHANTS: '/admin/merchants',
+  ADMIN_MERCHANT: (id: string) => `/admin/merchants/${id}`,
+  USER_MERCHANTS: '/users/merchants',
+
+  // Categories
+  ADMIN_CATEGORIES: '/admin/categories',
+  ADMIN_CATEGORY: (id: string) => `/admin/categories/${id}`,
+  USER_CATEGORIES: '/users/categories',
+
+  // Policies
+  ADMIN_POLICIES: '/admin/policies',
+  ADMIN_POLICY: (id: string) => `/admin/policies/${id}`,
+
+  // Bundles
+  BUNDLES: '/users/bundles',
+  BUNDLE: (id: string) => `/users/bundles/${id}`,
+  BUNDLE_SUBMIT: (id: string) => `/users/bundles/${id}/submit`,
+  BUNDLE_TICKETS: (id: string) => `/users/bundles/${id}/tickets`,
+  BUNDLE_ADD_TICKETS: (id: string) => `/users/bundles/${id}/tickets`,
+  BUNDLE_REMOVE_TICKET: (id: string, ticketId: string) => `/users/bundles/${id}/tickets/${ticketId}`,
+  BUNDLE_STATUS: (id: string) => `/users/bundles/${id}/status`,
+
+  // Audit Log
+  ADMIN_AUDIT_LOG: '/admin/audit-log',
 
   // Departments (user-facing)
   USER_DEPARTMENTS: '/users/departments',
@@ -50,12 +80,12 @@ export const EP = {
   REPORT_LIST: '/users/reports',
   REPORT_EMAIL: (id: string) => `/users/reports/${id}/email`,
 
-  // Superadmin — Organizations
+  // Superadmin - Organizations
   SA_ORGANIZATIONS: '/superadmin/organizations',
   SA_ORG: (id: string) => `/superadmin/organizations/${id}`,
   SA_ORG_DISABLE: (id: string) => `/superadmin/organizations/${id}/disable`,
 
-  // Superadmin — Users
+  // Superadmin - Users
   SA_USERS: '/superadmin/users',
   SA_USER: (id: string) => `/superadmin/users/${id}`,
   SA_USER_DISABLE: (id: string) => `/superadmin/users/${id}/disable`,

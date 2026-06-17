@@ -2,6 +2,7 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { tokenStore } from '../storage/token.store';
 import type { ApiResponse } from '@/core/types/api.types';
 import { API_BASE } from '@/config/env.config';
+import { socketClient } from '../socket/socket.client';
 
 export const apiClient = axios.create({
   baseURL: API_BASE,
@@ -29,6 +30,7 @@ async function refreshAccessToken(): Promise<string> {
     .then((res) => {
       const newToken = res.data.data.accessToken;
       tokenStore.set(newToken);
+      socketClient.refreshAuth();
       return newToken;
     })
     .finally(() => {

@@ -1,5 +1,10 @@
 import { body } from "express-validator";
-import { CURRENCIES, BUDGET_RESET_PERIODS } from "../config/constants.js";
+import {
+  CURRENCIES,
+  BUDGET_RESET_PERIODS,
+  PERMISSION_KEY,
+  PermissionKey,
+} from "../config/constants.js";
 
 export const createDepartmentValidation = [
   body("name").trim().notEmpty().withMessage("Department name is required"),
@@ -25,6 +30,26 @@ export const createDepartmentValidation = [
     .optional()
     .isArray()
     .withMessage("tags must be an array of strings"),
+  body("permissions")
+    .optional()
+    .isObject()
+    .withMessage("permissions must be an object"),
+  body("permissions.*")
+    .optional()
+    .isBoolean()
+    .withMessage("Each permission value must be a boolean")
+    .bail()
+    .custom((value, { path }) => {
+      const key = path.split(".")[1]; // get the key from permissions.key
+      if (!Object.values(PERMISSION_KEY).includes(key as PermissionKey)) {
+        throw new Error(`Invalid permission key: ${key}`);
+      }
+      return true;
+    }),
+  body("policyId")
+    .optional({ nullable: true })
+    .isMongoId()
+    .withMessage("Invalid policyId"),
 ];
 
 export const updateDepartmentValidation = [
@@ -58,21 +83,36 @@ export const updateDepartmentValidation = [
 ];
 
 export const updateDepartmentPermissionsValidation = [
-  body("canViewAllTickets")
+  body("permissions")
+    .optional()
+    .isObject()
+    .withMessage("permissions must be an object"),
+
+  body("permissions.*")
+    .optional()
     .isBoolean()
-    .withMessage("canViewAllTickets must be a boolean"),
-  body("canApprove")
-    .isBoolean()
-    .withMessage("canApprove must be a boolean"),
+    .withMessage("Each permission value must be a boolean")
+    .bail()
+    .custom((value, { path }) => {
+      const key = path.split(".")[1]; // get the key from permissions.key
+      if (!Object.values(PERMISSION_KEY).includes(key as PermissionKey)) {
+        throw new Error(`Invalid permission key: ${key}`);
+      }
+      return true;
+    }),
+  body("policyId")
+    .optional({ nullable: true })
+    .isMongoId()
+    .withMessage("Invalid policyId"),
 ];
 
 export const updateUserPermissionsValidation = [
-  body("canViewAllTickets")
+  body("permissions")
+    .optional()
+    .isObject()
+    .withMessage("permissions must be an object"),
+  body("policyId")
     .optional({ nullable: true })
-    .custom((v) => v === null || typeof v === "boolean")
-    .withMessage("canViewAllTickets must be a boolean or null"),
-  body("canApprove")
-    .optional({ nullable: true })
-    .custom((v) => v === null || typeof v === "boolean")
-    .withMessage("canApprove must be a boolean or null"),
+    .isMongoId()
+    .withMessage("Invalid policyId"),
 ];

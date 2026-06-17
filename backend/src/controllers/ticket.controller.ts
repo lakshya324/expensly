@@ -6,22 +6,29 @@ import {
   DEFAULT_PAGE,
   DEFAULT_LIMIT,
   MAX_LIMIT,
+  PERMISSION_KEY,
+  RECEIPT_USE_CASE,
+  OCR_STATUS,
+  AI_VALIDATION_STATUS,
 } from "../config/constants.js";
 import {
-  uploadFile,
-  getReceiptSignedUrl,
-  deleteFile,
-  buildReceiptKey,
-} from "../services/s3.service.js";
+  deleteReceiptsAndFiles,
+  getReceiptUrl,
+} from "../services/receipt.service.js";
 import { createError } from "../utils/error.js";
 import { AuthRequest } from "../types/types.js";
-import { buildTicketFilter } from "../utils/tickets.js";
+import { buildTicketFilter, buildTicketVisibilityFilter } from "../utils/tickets.js";
+import { resolvePermission } from "../utils/permissions.js";
 import {
   ResponsePaginationPayload,
   ResponsePayload,
 } from "../types/payloads.types.js";
 import { logError } from "../utils/logger.js";
-import { ITicket, ITicketData } from "../types/ticket.types.js";
+import {
+  ITicket,
+  ITicketData,
+  ITicketSummaryData,
+} from "../types/ticket.types.js";
 import { Ticket } from "../models/Ticket.model.js";
 import { User } from "../models/User.model.js";
 import { Department } from "../models/Department.model.js";
@@ -45,6 +52,54 @@ import {
   sendTicketStatusEmail,
 } from "../services/email.service.js";
 import { listTicketsPaginated } from "../services/ticket.service.js";
+import { extractReceiptData } from "../services/ocr.service.js";
+import { enqueueJob } from "../services/queue.service.js";
+import { logAction } from "../services/auditLog.service.js";
+import {
+  AUDIT_ACTION,
+  ENTITY_TYPE,
+  BUNDLE_STATUS,
+} from "../config/constants.js";
+import { IUser } from "../types/user.types.js";
+import { IOrganization } from "../types/organization.types.js";
+import { Bundle } from "../models/Bundle.model.js";
+import { Merchant } from "../models/Merchant.model.js";
+import { Category } from "../models/Category.model.js";
+import { Receipt } from "../models/Receipt.model.js";
+import { QueueJobType } from "../types/queue.types.js";
+import { buildTicketData } from "../utils/ticket.utils.js";
+
+async function resolveScopedEntity(
+  rawId: string | undefined,
+  orgId: Types.ObjectId,
+  model: { findOne: (filter: Record<string, unknown>) => any },
+  entityLabel: string,
+  errorCode: string,
+): Promise<{ _id: Types.ObjectId; name: string } | null | undefined> {
+  if (rawId === undefined) return undefined;
+  if (!rawId) return null;
+  if (!Types.ObjectId.isValid(rawId))
+    throw createError(`${entityLabel} must be a valid MongoDB ObjectId`, 400, "VALIDATION_ERROR");
+
+  const entity = await model.findOne({ _id: rawId, orgId }).select("_id name").lean();
+  if (!entity) throw createError(`${entityLabel} not found`, 400, errorCode);
+  return { _id: entity._id, name: entity.name };
+}
+
+async function findAccessibleTicket(
+  req: AuthRequest,
+  ticketId: string,
+): Promise<ITicket> {
+  if (!Types.ObjectId.isValid(ticketId))
+    throw createError("Ticket not found", 404, "NOT_FOUND");
+
+  const filter = await buildTicketVisibilityFilter(req);
+  filter["_id"] = new Types.ObjectId(ticketId);
+
+  const ticket = await Ticket.findOne(filter);
+  if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
+  return ticket;
+}
 
 export default class TicketController {
   /**
@@ -53,7 +108,7 @@ export default class TicketController {
    */
   static async getStats(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const filter = buildTicketFilter(req);
+      const filter = await buildTicketFilter(req);
 
       const counts: { _id: string; count: number }[] = await Ticket.aggregate([
         { $match: filter },
@@ -61,11 +116,18 @@ export default class TicketController {
       ]);
 
       const map: Record<string, number> = {};
-      counts.forEach(({ _id, count }) => { map[_id] = count; });
+      counts.forEach(({ _id, count }) => {
+        map[_id] = count;
+      });
 
       const stats = {
         total: counts.reduce((s, c) => s + c.count, 0),
-        pending: (map[TICKET_STATUS.PENDING] ?? 0) + (map[TICKET_STATUS.AWAITING_FINANCE] ?? 0),
+        draft:
+          (map[TICKET_STATUS.DRAFT] ?? 0) + (map[TICKET_STATUS.SCANNING] ?? 0),
+        // cando: draft can be used to show "tickets in progress" before submission or juct user side... idk will figure out in the frontend
+        pending:
+          (map[TICKET_STATUS.PENDING] ?? 0) +
+          (map[TICKET_STATUS.AWAITING_FINANCE] ?? 0),
         approved: map[TICKET_STATUS.APPROVED] ?? 0,
         rejected: map[TICKET_STATUS.REJECTED] ?? 0,
       };
@@ -99,7 +161,7 @@ export default class TicketController {
         MAX_LIMIT,
         Math.max(1, parseInt(limitQ ?? "") || DEFAULT_LIMIT),
       );
-      const filter = buildTicketFilter(req);
+      const filter = await buildTicketFilter(req);
       const orgSnapshotId = org.currentRateSnapshotId
         ? org.currentRateSnapshotId.toString()
         : null;
@@ -108,10 +170,11 @@ export default class TicketController {
         filter,
         page,
         limit,
+        org._id.toString(),
         orgSnapshotId,
       );
 
-      const payload: ResponsePaginationPayload<ITicketData> = {
+      const payload: ResponsePaginationPayload<ITicketSummaryData> = {
         success: true,
         message: "Tickets retrieved successfully",
         timestamp: new Date().toISOString(),
@@ -150,28 +213,57 @@ export default class TicketController {
         description,
         tags,
         timestamp,
+        statusIntent,
+        merchant: merchantId,
+        category: categoryId,
+        bundleId,
       } = req.body as Record<string, string | undefined>;
 
-      const dept = await Department.findOne({
-        _id: new Types.ObjectId(department as string),
-        orgId: org._id,
-        isActive: true,
-      });
-      if (!dept)
+      const ticketStatus =
+        statusIntent === "draft" ? TICKET_STATUS.DRAFT : TICKET_STATUS.PENDING;
+
+      let dept: Awaited<ReturnType<typeof Department.findOne>> | null = null;
+      if (department) {
+        dept = await Department.findOne({
+          _id: new Types.ObjectId(department),
+          orgId: org._id,
+          isActive: true,
+        });
+        if (!dept)
+          throw createError(
+            `Department not found or inactive`,
+            400,
+            "INVALID_DEPARTMENT",
+          );
+      }
+
+      if (ticketStatus === TICKET_STATUS.PENDING && !dept)
         throw createError(
           `Department not found or inactive`,
           400,
           "INVALID_DEPARTMENT",
         );
 
+      const [merchantEntity, categoryEntity] = await Promise.all([
+        resolveScopedEntity(merchantId, org._id, Merchant, "Merchant", "INVALID_MERCHANT"),
+        resolveScopedEntity(categoryId, org._id, Category, "Category", "INVALID_CATEGORY"),
+      ]);
+      const merchantRef = merchantEntity !== undefined ? (merchantEntity?._id ?? null) : undefined;
+      const categoryRef = categoryEntity !== undefined ? (categoryEntity?._id ?? null) : undefined;
+
       // Manager approval required only when the user has a manager AND the ticket
       // amount meets or exceeds the department threshold for that currency.
       // If no threshold is configured, default to requiring manager approval.
-      const parsedAmount = parseFloat(amount ?? "0");
+      const parsedAmount =
+        amount != null && amount !== "" ? parseFloat(String(amount)) : null;
       const currencyThreshold =
-        dept.approvalThresholds.get(currency ?? "") ?? null;
+        ticketStatus === TICKET_STATUS.PENDING && dept && currency
+          ? (dept.approvalThresholds.get(currency) ?? null)
+          : null;
       const needsManagerApproval =
+        ticketStatus === TICKET_STATUS.PENDING &&
         user?.managerId != null &&
+        parsedAmount != null &&
         (currencyThreshold === null || parsedAmount >= currencyThreshold);
 
       const parsedTags: string[] = tags
@@ -183,84 +275,177 @@ export default class TicketController {
       // Pre-generate the MongoDB _id so we can build the S3 receipt key before
       // the DB insert, eliminating the second ticket.save() when a file is attached.
       const newTicketId = new mongoose.Types.ObjectId();
-      const receiptKey = req.file
-        ? buildReceiptKey(newTicketId.toString(), org.slug, req.file.mimetype)
-        : null;
-      if (receiptKey) {
-        await uploadFile(receiptKey, req.file!.buffer, req.file!.mimetype);
+
+      // If a file was uploaded via multer-s3, create a Receipt document
+      let receiptId: mongoose.Types.ObjectId | null = null;
+      const s3File = req.file as Express.MulterS3.File | undefined;
+      if (s3File) {
+        const receiptData = await Receipt.create({
+          orgId: org._id,
+          s3Key: s3File.key,
+          mimetype: s3File.mimetype,
+          originalName: s3File.originalname,
+          size: s3File.size,
+          useCase: RECEIPT_USE_CASE.RECEIPT,
+          uploadedBy: user._id,
+        });
+        receiptId = receiptData._id;
       }
 
       const ticket = await Ticket.create({
         _id: newTicketId,
-        title,
+        title: title?.trim() || null,
         submittedBy: user._id,
         submitterManagerId: user.managerId ?? null,
         orgId: org._id,
         amount: parsedAmount,
-        currency,
-        department,
+        currency: currency ?? null,
+        department: department ? new Types.ObjectId(department) : null,
         description: description ?? "",
         tags: parsedTags,
-        receiptKey,
-        status: TICKET_STATUS.PENDING,
-        managerApproval: needsManagerApproval
+        receiptIds: receiptId ? [receiptId] : [],
+        status: ticketStatus,
+        merchant: merchantRef ?? null,
+        category: categoryRef ?? null,
+        // Denormalized display snapshots - embedded at creation
+        submitterSnapshot: { _id: user._id, name: user.name, email: user.email },
+        departmentSnapshot: dept ? { _id: dept._id, name: dept.name } : null,
+        merchantSnapshot: merchantEntity ? { _id: merchantEntity._id, name: merchantEntity.name } : null,
+        categorySnapshot: categoryEntity ? { _id: categoryEntity._id, name: categoryEntity.name } : null,
+        bundleSnapshot: null,
+        managerApproval:
+          ticketStatus === TICKET_STATUS.PENDING && needsManagerApproval
           ? {
               required: true,
               approved: null,
               reviewedBy: null,
+              reviewerSnapshot: null,
               reviewedAt: null,
               comments: null,
             }
           : null,
-        financeApproval: {
-          approved: null,
-          reviewedBy: null,
-          reviewedAt: null,
-          comments: null,
+        financeApproval:
+          ticketStatus === TICKET_STATUS.PENDING
+            ? {
+                approved: null,
+                reviewedBy: null,
+                reviewerSnapshot: null,
+                reviewedAt: null,
+                comments: null,
+              }
+            : null,
+        ocrData: receiptId
+          ? {
+              status: OCR_STATUS.PENDING,
+              rawText: null,
+              confidence: null,
+              processedAt: null,
+            }
+          : null,
+        aiValidation: {
+          status: AI_VALIDATION_STATUS.PENDING,
+          checks: [],
+          summary: null,
+          validatedAt: null,
+          suggestedTitle: null,
+          suggestedAmount: null,
+          suggestedCurrency: null,
+          suggestedDate: null,
+          suggestedMerchantName: null,
+          suggestedCategoryName: null,
+          suggestedDescription: null,
+          unmatchedMerchantSuggestionText: null,
+          unmatchedCategorySuggestionText: null,
         },
         ...(timestamp && { createdAt: new Date(timestamp) }),
       });
 
       // Add any new tags into the department's tag pool
-      if (parsedTags.length > 0) {
+      if (parsedTags.length > 0 && dept) {
         await Department.findByIdAndUpdate(dept._id, {
           $addToSet: { tags: { $each: parsedTags } },
         });
       }
 
-      const ticketData = await ticket.data(org);
+      // Link to bundle if bundleId was provided (non-fatal - silently ignored if bundle not found)
+      if (bundleId) {
+        try {
+          await Bundle.findOneAndUpdate(
+            { _id: bundleId, orgId: org._id, status: BUNDLE_STATUS.DRAFT },
+            { $addToSet: { ticketIds: ticket._id } },
+          );
+        } catch {
+          // Non-fatal: linking failure should not block ticket creation
+        }
+      }
+
+      const ticketData = await buildTicketData(ticket, org);
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: user._id.toString(),
+        performerName: user.name,
+        action: AUDIT_ACTION.CREATED,
+        entityType: ENTITY_TYPE.TICKET,
+        entityId: ticket._id.toString(),
+      }).catch(() => {});
       emitNewTicket(org._id.toString(), ticketData, user._id.toString());
 
-      // Notify manager and org admins about new submission (non-blocking)
+      // Start async AI validation for every created expense.
+      // If a receipt exists, OCR runs first and chains AI validation.
       try {
-        const notifyTargets: { email: string; name: string }[] = [];
-        // Fetch manager and org admins in parallel — both independent of each other.
-        const [manager, admins] = await Promise.all([
-          user.managerId
-            ? User.findById(user.managerId).select("email name").lean()
-            : Promise.resolve(null),
-          User.find({ orgId: org._id, role: ROLES.ADMIN, isDisabled: false })
-            .select("email name")
-            .lean(),
-        ]);
-        if (manager)
-          notifyTargets.push({ email: manager.email, name: manager.name });
-        for (const admin of admins) {
-          if (!notifyTargets.some((t) => t.email === admin.email))
-            notifyTargets.push({ email: admin.email, name: admin.name });
+        if (receiptId) {
+          await enqueueJob({
+            jobType: QueueJobType.OcrScan,
+            ticketId: ticket._id.toString(),
+            receiptId: receiptId.toString(),
+            orgId: org._id.toString(),
+          });
+        } else {
+          await enqueueJob({
+            jobType: QueueJobType.AiValidate,
+            ticketId: ticket._id.toString(),
+            orgId: org._id.toString(),
+          });
         }
-        for (const target of notifyTargets) {
-          sendTicketSubmittedEmail(
-            target.email,
-            target.name,
-            user.name,
-            ticket.title,
-            ticket.amount,
-            ticket.currency,
-          );
+      } catch (err) {
+        logError(err, {
+          message: `Failed to enqueue async validation for ticket ${ticket._id.toString()}`,
+          code: "TICKET_ASYNC_VALIDATION_ENQUEUE_ERROR",
+        });
+      }
+
+      // Notify manager and org admins only for pending submissions (non-blocking)
+      if (ticketStatus === TICKET_STATUS.PENDING) {
+        try {
+          const notifyTargets: { email: string; name: string }[] = [];
+          // Fetch manager and org admins in parallel - both independent of each other.
+          const [manager, admins] = await Promise.all([
+            user.managerId
+              ? User.findById(user.managerId).select("email name").lean()
+              : Promise.resolve(null),
+            User.find({ orgId: org._id, role: ROLES.ADMIN, isDisabled: false })
+              .select("email name")
+              .lean(),
+          ]);
+          if (manager)
+            notifyTargets.push({ email: manager.email, name: manager.name });
+          for (const admin of admins) {
+            if (!notifyTargets.some((t) => t.email === admin.email))
+              notifyTargets.push({ email: admin.email, name: admin.name });
+          }
+          for (const target of notifyTargets) {
+            sendTicketSubmittedEmail(
+              target.email,
+              target.name,
+              user.name,
+              ticket.title!,
+              ticket.amount!,
+              ticket.currency!,
+            );
+          }
+        } catch {
+          // Non-fatal notification
         }
-      } catch {
-        // Non-fatal notification
       }
 
       const payload: ResponsePayload<ITicketData> = {
@@ -275,7 +460,7 @@ export default class TicketController {
         message: "Error creating ticket",
         code: "TICKET_CREATE_ERROR",
       });
-      createError("Failed to create ticket", 500, "TICKET_CREATE_ERROR");
+      next(err);
     }
   }
 
@@ -287,18 +472,12 @@ export default class TicketController {
       const user = req.user!;
       const org = req.organization!;
       const ticketId = req.params["id"] as string;
-
-      const ticket = await Ticket.findOne({
-        _id: new mongoose.Types.ObjectId(ticketId),
-        orgId: org._id,
-      });
-
-      if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
+      const ticket = await findAccessibleTicket(req, ticketId);
 
       const payload: ResponsePayload<ITicketData> = {
         success: true,
         message: "Ticket retrieved successfully",
-        data: await ticket.data(org),
+        data: await buildTicketData(ticket, org),
         timestamp: new Date().toISOString(),
       };
 
@@ -308,7 +487,7 @@ export default class TicketController {
         message: "Error retrieving ticket",
         code: "TICKET_RETRIEVE_ERROR",
       });
-      createError("Failed to retrieve ticket", 500, "TICKET_RETRIEVE_ERROR");
+      next(err);
     }
   }
 
@@ -336,12 +515,18 @@ export default class TicketController {
           "FORBIDDEN",
         );
 
-      const { title, amount, currency, description, tags } = req.body as Record<
-        string,
-        string | undefined
-      >;
+      const {
+        title,
+        amount,
+        currency,
+        description,
+        tags,
+        department: deptId,
+        merchant: merchantId,
+        category: categoryId,
+      } = req.body as Record<string, string | undefined>;
       if (title !== undefined) ticket.title = title;
-      if (amount !== undefined) ticket.amount = parseFloat(amount);
+      if (amount !== undefined) ticket.amount = parseFloat(String(amount));
       if (currency !== undefined)
         ticket.currency = currency as ITicket["currency"];
       if (description !== undefined) ticket.description = description;
@@ -350,9 +535,44 @@ export default class TicketController {
           ? (tags as string[])
           : (JSON.parse(tags) as string[]);
 
+      // Allow department update only when the ticket is in draft state
+      if (deptId !== undefined) {
+        if (
+          ticket.status === TICKET_STATUS.DRAFT ||
+          ticket.status === TICKET_STATUS.SCANNING
+        ) {
+          const deptDoc = await Department.findOne({
+            _id: deptId,
+            orgId: org._id,
+            isActive: true,
+          });
+          if (!deptDoc)
+            throw createError(
+              "Department not found or inactive",
+              400,
+              "INVALID_DEPARTMENT",
+            );
+          ticket.department = deptDoc._id;
+          ticket.departmentSnapshot = { _id: deptDoc._id, name: deptDoc.name };
+        }
+      }
+      // Allow merchant / category link update on draft tickets
+      const [merchantEntity, categoryEntity] = await Promise.all([
+        resolveScopedEntity(merchantId, org._id, Merchant, "Merchant", "INVALID_MERCHANT"),
+        resolveScopedEntity(categoryId, org._id, Category, "Category", "INVALID_CATEGORY"),
+      ]);
+      if (merchantEntity !== undefined) {
+        ticket.merchant = merchantEntity?._id ?? null;
+        ticket.merchantSnapshot = merchantEntity ? { _id: merchantEntity._id, name: merchantEntity.name } : null;
+      }
+      if (categoryEntity !== undefined) {
+        ticket.category = categoryEntity?._id ?? null;
+        ticket.categorySnapshot = categoryEntity ? { _id: categoryEntity._id, name: categoryEntity.name } : null;
+      }
+
       await ticket.save();
 
-      const ticketData = await ticket.data(org);
+      const ticketData = await buildTicketData(ticket, org);
       emitTicketUpdate(org._id.toString(), ticketData, user._id.toString());
 
       const payload: ResponsePayload<ITicketData> = {
@@ -390,12 +610,14 @@ export default class TicketController {
           "FORBIDDEN",
         );
 
-      if (ticket.receiptKey) {
+      if (ticket.receiptIds.length > 0) {
         try {
-          await deleteFile(ticket.receiptKey);
+          await deleteReceiptsAndFiles(ticket.receiptIds);
         } catch {
           logError(
-            new Error(`Failed to delete receipt file for ticket ${ticket._id}`),
+            new Error(
+              `Failed to delete receipt files for ticket ${ticket._id}`,
+            ),
             {
               message: "Receipt deletion error",
               code: "RECEIPT_DELETE_ERROR",
@@ -406,6 +628,14 @@ export default class TicketController {
       }
 
       await ticket.deleteOne();
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: user._id.toString(),
+        performerName: user.name,
+        action: AUDIT_ACTION.DELETED,
+        entityType: ENTITY_TYPE.TICKET,
+        entityId: ticket._id.toString(),
+      }).catch(() => {});
       emitTicketDelete(org._id.toString(), ticket._id.toString());
 
       const payload: ResponsePayload = {
@@ -441,8 +671,16 @@ export default class TicketController {
         body?.flagged !== undefined ? body.flagged === true : !ticket.flagged;
       ticket.flagged = newFlagged;
       await ticket.save();
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: user._id.toString(),
+        performerName: user.name,
+        action: newFlagged ? AUDIT_ACTION.FLAGGED : AUDIT_ACTION.UNFLAGGED,
+        entityType: ENTITY_TYPE.TICKET,
+        entityId: ticket._id.toString(),
+      }).catch(() => {});
 
-      const ticketData = await ticket.data(org);
+      const ticketData = await buildTicketData(ticket, org);
       emitTicketFlag(org._id.toString(), ticketData, user._id.toString());
 
       const payload: ResponsePayload<ITicketData> = {
@@ -513,6 +751,7 @@ export default class TicketController {
           ticket.managerApproval.approved =
             status === TICKET_STATUS.AWAITING_FINANCE;
           ticket.managerApproval.reviewedBy = user._id;
+          ticket.managerApproval.reviewerSnapshot = { _id: user._id, name: user.name, email: user.email };
           ticket.managerApproval.reviewedAt = now;
           ticket.managerApproval.comments = comments ?? null;
         }
@@ -523,13 +762,12 @@ export default class TicketController {
         !isManagerStep &&
         (status === TICKET_STATUS.APPROVED || status === TICKET_STATUS.REJECTED)
       ) {
-        // Only users with canApprove permission (or admins) can do finance approval.
-        // Priority: user-level permission → dept-level permission → role default.
-        const hasApprovePermission =
-          user.role === ROLES.ADMIN ||
-          user.permissions?.canApprove === true ||
-          (user.permissions?.canApprove == null &&
-            dept?.permissions?.canApprove === true);
+        // Only users with approve_finance permission (or admins) can do finance approval.
+        const hasApprovePermission = await resolvePermission(
+          user,
+          dept ?? null,
+          PERMISSION_KEY.APPROVE_FINANCE,
+        );
         if (!hasApprovePermission)
           throw createError(
             "You do not have permission to approve or reject tickets",
@@ -545,6 +783,7 @@ export default class TicketController {
         ) {
           ticket.managerApproval.approved = true;
           ticket.managerApproval.reviewedBy = user._id;
+          ticket.managerApproval.reviewerSnapshot = { _id: user._id, name: user.name, email: user.email };
           ticket.managerApproval.reviewedAt = now;
           ticket.managerApproval.comments = "Auto-approved by finance";
         }
@@ -552,6 +791,7 @@ export default class TicketController {
         ticket.financeApproval = {
           approved: status === TICKET_STATUS.APPROVED,
           reviewedBy: user._id,
+          reviewerSnapshot: { _id: user._id, name: user.name, email: user.email },
           reviewedAt: now,
           comments: comments ?? null,
         };
@@ -570,17 +810,19 @@ export default class TicketController {
           let convertedAmount = ticket.amount;
           if (ticket.currency !== org.baseCurrency) {
             try {
-              const snapshot = freshOrg ? await getOrgRates(freshOrg as any) : null;
+              const snapshot = freshOrg
+                ? await getOrgRates(freshOrg as any)
+                : null;
               if (snapshot) {
                 convertedAmount = convertAmount(
-                  ticket.amount,
-                  ticket.currency,
+                  ticket.amount!,
+                  ticket.currency!,
                   (freshOrg?.baseCurrency ?? org.baseCurrency) as string,
                   snapshot.rates,
                 );
               }
             } catch {
-              // Non-fatal — leave convertedAmount unset if rates unavailable
+              // Non-fatal - leave convertedAmount unset if rates unavailable
             }
           }
 
@@ -595,8 +837,17 @@ export default class TicketController {
 
       ticket.status = status;
       await ticket.save();
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: user._id.toString(),
+        performerName: user.name,
+        action: AUDIT_ACTION.STATUS_CHANGED,
+        entityType: ENTITY_TYPE.TICKET,
+        entityId: ticket._id.toString(),
+        metadata: { status },
+      }).catch(() => {});
 
-      const ticketData = await ticket.data(org);
+      const ticketData = await buildTicketData(ticket, org);
       emitTicketStatusChange(
         org._id.toString(),
         ticket.submittedBy.toString(),
@@ -617,7 +868,7 @@ export default class TicketController {
             sendTicketStatusEmail(
               submitter.email,
               submitter.name,
-              ticket.title,
+              ticket.title!,
               status,
               comments ?? null,
             );
@@ -648,27 +899,335 @@ export default class TicketController {
   }
 
   /**
-   * GET /api/expenses/:id/receipt
+   * GET /api/users/expenses/:id/receipt
    */
   static async getReceipt(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const user = req.user!;
       const org = req.organization!;
       const ticketId = req.params["id"] as string;
+      const ticket = await findAccessibleTicket(req, ticketId);
+      if (!ticket.receiptIds || ticket.receiptIds.length === 0)
+        throw createError(
+          "No receipt attached to this ticket",
+          404,
+          "NO_RECEIPT",
+        );
 
-      const ticket = await Ticket.findOne({
-        _id: ticketId,
-        orgId: org._id,
-      });
-      if (!ticket) createError("Ticket not found", 404, "NOT_FOUND");
-      if (!ticket.receiptKey)
-        createError("No receipt attached to this ticket", 404, "NO_RECEIPT");
-
-      const signedUrl = await getReceiptSignedUrl(ticket.receiptKey);
-      const payload: ResponsePayload<string> = {
+      const { getReceiptUrls } = await import("../services/receipt.service.js");
+      const signedUrls = await getReceiptUrls(ticket.receiptIds);
+      const payload: ResponsePayload<string[]> = {
         success: true,
-        message: "Receipt URL retrieved successfully",
-        data: signedUrl,
+        message: "Receipt URL(s) retrieved successfully",
+        data: signedUrls,
+        timestamp: new Date().toISOString(),
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/expenses/receipt-scan
+   * Receipt-only upload: creates a `scanning` ticket, enqueues OCR + AI pipeline.
+   * The FE receives a WebSocket event when the ticket auto-promotes to `draft`.
+   */
+  static async receiptScan(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const user = req.user! as IUser;
+      const org = req.organization! as IOrganization;
+
+      if (!req.file)
+        throw createError("Receipt file is required", 400, "NO_FILE");
+
+      const newTicketId = new mongoose.Types.ObjectId();
+
+      // File already uploaded by multer-s3, create Receipt document
+      const s3File = req.file as Express.MulterS3.File;
+      const receiptData = await Receipt.create({
+        orgId: org._id,
+        s3Key: s3File.key,
+        mimetype: s3File.mimetype,
+        originalName: s3File.originalname,
+        size: s3File.size,
+        useCase: RECEIPT_USE_CASE.RECEIPT,
+        uploadedBy: user._id,
+      });
+      const receiptId = receiptData._id;
+
+      const ticket = await Ticket.create({
+        _id: newTicketId,
+        title: null,
+        submittedBy: user._id,
+        submitterManagerId: user.managerId ?? null,
+        orgId: org._id,
+        amount: null,
+        currency: null,
+        department: user.department ?? null,
+        receiptIds: [receiptId],
+        status: TICKET_STATUS.SCANNING,
+        submitterSnapshot: { _id: user._id, name: user.name, email: user.email },
+        departmentSnapshot: null,
+        merchantSnapshot: null,
+        categorySnapshot: null,
+        bundleSnapshot: null,
+        managerApproval: null,
+        financeApproval: {
+          approved: null,
+          reviewedBy: null,
+          reviewerSnapshot: null,
+          reviewedAt: null,
+          comments: null,
+        },
+        ocrData: {
+          status: OCR_STATUS.PROCESSING,
+          rawText: null,
+          confidence: null,
+          processedAt: null,
+        },
+        aiValidation: {
+          status: AI_VALIDATION_STATUS.PENDING,
+          checks: [],
+          summary: null,
+          validatedAt: null,
+          suggestedTitle: null,
+          suggestedAmount: null,
+          suggestedCurrency: null,
+          suggestedDate: null,
+          suggestedMerchantName: null,
+          suggestedCategoryName: null,
+          suggestedDescription: null,
+          unmatchedMerchantSuggestionText: null,
+          unmatchedCategorySuggestionText: null,
+        },
+      });
+
+      await enqueueJob({
+        jobType: QueueJobType.OcrScan,
+        ticketId: ticket._id.toString(),
+        receiptId: receiptId.toString(),
+        orgId: org._id.toString(),
+      });
+
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: user._id.toString(),
+        performerName: user.name,
+        action: AUDIT_ACTION.CREATED,
+        entityType: ENTITY_TYPE.TICKET,
+        entityId: ticket._id.toString(),
+      }).catch(() => {});
+
+      // Link to bundle if bundleId was provided in multipart body (non-fatal)
+      const scanBundleId = (req.body as Record<string, string | undefined>)[
+        "bundleId"
+      ];
+      if (scanBundleId) {
+        try {
+          await Bundle.findOneAndUpdate(
+            { _id: scanBundleId, orgId: org._id, status: BUNDLE_STATUS.DRAFT },
+            { $addToSet: { ticketIds: ticket._id } },
+          );
+        } catch {
+          // Non-fatal
+        }
+      }
+
+      const ticketData = await buildTicketData(ticket, org);
+      emitNewTicket(org._id.toString(), ticketData, user._id.toString());
+
+      const payload: ResponsePayload<ITicketData> = {
+        success: true,
+        message:
+          "Receipt uploaded - scanning in progress. Results will arrive via WebSocket.",
+        data: ticketData,
+        timestamp: new Date().toISOString(),
+      };
+      res.status(202).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/expenses/:id/submit
+   * Promote a `draft` ticket to `pending`, entering the approval flow.
+   * All required fields (title, amount, currency, department) must be set.
+   */
+  static async submitDraft(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const user = req.user! as IUser;
+      const org = req.organization! as IOrganization;
+      const ticketId = req.params["id"] as string;
+
+      const ticket = await Ticket.findOne({ _id: ticketId, orgId: org._id });
+      if (!ticket) throw createError("Ticket not found", 404, "NOT_FOUND");
+
+      if (ticket.status !== TICKET_STATUS.DRAFT)
+        throw createError(
+          "Only draft tickets can be submitted",
+          400,
+          "INVALID_STATUS",
+        );
+
+      if (ticket.submittedBy.toString() !== user._id.toString())
+        throw createError(
+          "Only the submitter can submit a draft",
+          403,
+          "FORBIDDEN",
+        );
+
+      const {
+        title,
+        amount,
+        currency,
+        description,
+        merchant: merchantId,
+        category: categoryId,
+      } = req.body as Record<string, string | undefined>;
+
+      if (title !== undefined) ticket.title = title.trim() || null;
+      if (amount !== undefined) {
+        const parsedAmount = parseFloat(String(amount));
+        if (Number.isNaN(parsedAmount)) {
+          throw createError("Invalid amount", 400, "VALIDATION_ERROR");
+        }
+        ticket.amount = parsedAmount;
+      }
+      if (currency !== undefined)
+        ticket.currency = currency as ITicket["currency"];
+      if (description !== undefined) ticket.description = description;
+      const [merchantEntity, categoryEntity] = await Promise.all([
+        resolveScopedEntity(merchantId, org._id, Merchant, "Merchant", "INVALID_MERCHANT"),
+        resolveScopedEntity(categoryId, org._id, Category, "Category", "INVALID_CATEGORY"),
+      ]);
+      if (merchantEntity !== undefined) {
+        ticket.merchant = merchantEntity?._id ?? null;
+        ticket.merchantSnapshot = merchantEntity ? { _id: merchantEntity._id, name: merchantEntity.name } : null;
+      }
+      if (categoryEntity !== undefined) {
+        ticket.category = categoryEntity?._id ?? null;
+        ticket.categorySnapshot = categoryEntity ? { _id: categoryEntity._id, name: categoryEntity.name } : null;
+      }
+
+      if (!ticket.department)
+        throw createError(
+          "Department is required before submitting",
+          400,
+          "MISSING_DEPARTMENT",
+        );
+
+      const dept = await Department.findOne({
+        _id: ticket.department,
+        orgId: org._id,
+        isActive: true,
+      });
+      if (!dept)
+        throw createError(
+          "Department not found or inactive",
+          400,
+          "INVALID_DEPARTMENT",
+        );
+
+      // Update department snapshot (dept may have been set after creation)
+      ticket.departmentSnapshot = { _id: dept._id, name: dept.name };
+
+      // Compute manager approval requirement (same logic as create)
+      const currencyThreshold = ticket.currency
+        ? (dept.approvalThresholds.get(ticket.currency) ?? null)
+        : null;
+      const needsManagerApproval =
+        user?.managerId != null &&
+        ticket.amount != null &&
+        (currencyThreshold === null || ticket.amount >= currencyThreshold);
+
+      ticket.status = TICKET_STATUS.PENDING;
+      ticket.submitterManagerId = user.managerId ?? null;
+      ticket.managerApproval = needsManagerApproval
+        ? {
+            required: true,
+            approved: null,
+            reviewedBy: null,
+            reviewerSnapshot: null,
+            reviewedAt: null,
+            comments: null,
+          }
+        : null;
+      if (!ticket.financeApproval) {
+        ticket.financeApproval = {
+          approved: null,
+          reviewedBy: null,
+          reviewerSnapshot: null,
+          reviewedAt: null,
+          comments: null,
+        };
+      }
+
+      // pre-validate hook enforces required fields if any are still null
+      await ticket.save();
+
+      const ticketData = await buildTicketData(ticket, org);
+
+      logAction({
+        orgId: org._id.toString(),
+        performedBy: user._id.toString(),
+        performerName: user.name,
+        action: AUDIT_ACTION.STATUS_CHANGED,
+        entityType: ENTITY_TYPE.TICKET,
+        entityId: ticket._id.toString(),
+        metadata: { from: TICKET_STATUS.DRAFT, to: TICKET_STATUS.PENDING },
+      }).catch(() => {});
+
+      emitTicketStatusChange(
+        org._id.toString(),
+        user._id.toString(),
+        ticketData,
+        user._id.toString(),
+      );
+
+      // Notify manager + admins (non-blocking, same as create)
+      try {
+        const notifyTargets: { email: string; name: string }[] = [];
+        const [manager, admins] = await Promise.all([
+          user.managerId
+            ? User.findById(user.managerId).select("email name").lean()
+            : Promise.resolve(null),
+          User.find({ orgId: org._id, role: ROLES.ADMIN, isDisabled: false })
+            .select("email name")
+            .lean(),
+        ]);
+        if (manager)
+          notifyTargets.push({ email: manager.email, name: manager.name });
+        for (const admin of admins) {
+          if (!notifyTargets.some((t) => t.email === admin.email))
+            notifyTargets.push({ email: admin.email, name: admin.name });
+        }
+        for (const target of notifyTargets) {
+          sendTicketSubmittedEmail(
+            target.email,
+            target.name,
+            user.name,
+            ticket.title!,
+            ticket.amount!,
+            ticket.currency!,
+          );
+        }
+      } catch {
+        // Non-fatal
+      }
+
+      const payload: ResponsePayload<ITicketData> = {
+        success: true,
+        message: "Draft submitted successfully",
+        data: ticketData,
         timestamp: new Date().toISOString(),
       };
       res.status(200).json(payload);

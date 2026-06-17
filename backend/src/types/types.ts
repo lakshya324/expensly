@@ -5,6 +5,7 @@ import { IOrganization } from "./organization.types.js";
 import { IDepartment } from "./department.types.js";
 
 export interface AuthRequest extends Request {
+  requestId?: string;
   user?: IUser;
   organization?: IOrganization;
   /** The department document for the authenticated user (null if user has no department) */

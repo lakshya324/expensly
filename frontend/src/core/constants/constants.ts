@@ -1,4 +1,5 @@
 import type { Currency, TicketStatus } from '../types/api.types';
+import type { BundleStatus } from '../types/ticket.types';
 
 export const CURRENCIES: Currency[] = [
   'USD', 'EUR', 'GBP', 'INR', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'SGD',
@@ -15,6 +16,9 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
+  draft: 'Draft',
+  scanning: 'Scanning',
+  failed: 'Failed',
   pending: 'Pending',
   awaiting_finance: 'Awaiting Finance',
   approved: 'Approved',
@@ -22,8 +26,25 @@ export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
 };
 
 export const TICKET_STATUS_COLORS: Record<TicketStatus, string> = {
+  draft: 'muted',
+  scanning: 'info',
+  failed: 'danger',
   pending: 'warning',
   awaiting_finance: 'info',
+  approved: 'success',
+  rejected: 'danger',
+};
+
+export const BUNDLE_STATUS_LABELS: Record<BundleStatus, string> = {
+  draft: 'Draft',
+  submitted: 'Submitted',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
+
+export const BUNDLE_STATUS_VARIANT: Record<BundleStatus, 'muted' | 'warning' | 'success' | 'danger'> = {
+  draft: 'muted',
+  submitted: 'warning',
   approved: 'success',
   rejected: 'danger',
 };
@@ -41,6 +62,10 @@ export const ROUTES = {
   EXPENSE_NEW: '/expenses/new',
   EXPENSE_DETAIL: (id: string) => `/expenses/${id}`,
 
+  // User - Bundles
+  BUNDLES: '/bundles',
+  BUNDLE_DETAIL: (id: string) => `/bundles/${id}`,
+
   // Admin
   ADMIN_DASHBOARD: '/admin/dashboard',
   ADMIN_EXPENSES: '/admin/expenses',
@@ -49,6 +74,12 @@ export const ROUTES = {
   ADMIN_ANALYTICS: '/admin/analytics',
   ADMIN_EXCHANGE_RATES: '/admin/exchange-rates',
   ADMIN_REPORTS: '/admin/reports',
+  ADMIN_MERCHANTS: '/admin/merchants',
+  ADMIN_CATEGORIES: '/admin/categories',
+  ADMIN_POLICIES: '/admin/policies',
+  ADMIN_AUDIT_LOG: '/admin/audit-log',
+  ADMIN_BUNDLES: '/admin/bundles',
+  ADMIN_BUNDLE_DETAIL: (id: string) => `/admin/bundles/${id}`,
 
   // Superadmin
   SA_ORGANIZATIONS: '/superadmin/organizations',

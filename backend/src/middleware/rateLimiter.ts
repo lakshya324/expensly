@@ -5,11 +5,15 @@ import {
 } from "../types/payloads.types.js";
 import config from "../config/env.config.js";
 
+const skipRateLimit = () =>
+  process.env["NODE_ENV"] === "development";
+
 export const authLimiter = rateLimit({
   windowMs: config.ratelimit.auth.windowMs,
   max: config.ratelimit.auth.max,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipRateLimit,
   message: {
     success: false,
     message: "Too many login attempts. Please try again later.",
@@ -23,6 +27,7 @@ export const apiLimiter = rateLimit({
   max: config.ratelimit.api.max,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipRateLimit,
   message: {
     success: false,
     message: "Too many requests. Please try again later.",

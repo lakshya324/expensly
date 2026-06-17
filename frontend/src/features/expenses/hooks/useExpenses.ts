@@ -2,8 +2,10 @@ import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
-import type { ITicketData } from '@/core/types/ticket.types';
+import type { ITicketData, ITicketSummaryData, IDiscussionMessageData } from '@/core/types/ticket.types';
 import type { ApiResponse, PaginatedData, TicketStatus } from '@/core/types/api.types';
+import { useSocket } from '@/shared/hooks/useSocket';
+import type { SocketEnvelope } from '@/core/types/socket.types';
 
 interface TicketFilters {
   page?: number;
@@ -18,7 +20,8 @@ interface TicketFilters {
 }
 
 export function useExpenses(filters: TicketFilters = {}) {
-  const [data, setData] = useState<ITicketData[]>([]);
+  const filterKey = JSON.stringify(filters);
+  const [data, setData] = useState<ITicketSummaryData[]>([]);
   const [pagination, setPagination] = useState<import('@/core/types/api.types').PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,10 +30,11 @@ export function useExpenses(filters: TicketFilters = {}) {
     setLoading(true);
     setError(null);
     try {
+      const queryFilters = JSON.parse(filterKey) as TicketFilters;
       const params = Object.fromEntries(
-        Object.entries(filters).filter(([, v]) => v !== '' && v !== undefined),
+        Object.entries(queryFilters).filter(([, v]) => v !== '' && v !== undefined),
       );
-      const res = await apiClient.get<ApiResponse<PaginatedData<ITicketData>>>(EP.EXPENSES, { params });
+      const res = await apiClient.get<ApiResponse<PaginatedData<ITicketSummaryData>>>(EP.EXPENSES, { params });
       setData(res.data.data.data);
       setPagination(res.data.data.pagination);
     } catch (err: unknown) {
@@ -39,9 +43,37 @@ export function useExpenses(filters: TicketFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(filters)]);
+  }, [filterKey]);
 
   useEffect(() => { fetch(); }, [fetch]);
+
+  const mergeTicketIntoList = useCallback((ticket: ITicketData) => {
+    setData((prev) =>
+      prev.map((row) => (row._id === ticket._id ? ({ ...row, ...ticket } as ITicketSummaryData) : row)),
+    );
+  }, []);
+
+  const handleAiValidated = useCallback((payload: SocketEnvelope<{ ticket: ITicketData }>) => {
+    const ticket = payload?.data?.ticket;
+    if (!ticket) return;
+    mergeTicketIntoList(ticket);
+  }, [mergeTicketIntoList]);
+
+  const handleOcrCompleted = useCallback((payload: SocketEnvelope<{ ticket: ITicketData }>) => {
+    const ticket = payload?.data?.ticket;
+    if (!ticket) return;
+    mergeTicketIntoList(ticket);
+  }, [mergeTicketIntoList]);
+
+  const handleTicketFailed = useCallback((payload: SocketEnvelope<{ ticket: ITicketData; reason: string }>) => {
+    const ticket = payload?.data?.ticket;
+    if (!ticket) return;
+    mergeTicketIntoList(ticket);
+  }, [mergeTicketIntoList]);
+
+  useSocket('ticket:ai_validated', handleAiValidated);
+  useSocket('ticket:ocr_completed', handleOcrCompleted);
+  useSocket('ticket:failed', handleTicketFailed);
 
   return { data, pagination, loading, error, refetch: fetch };
 }
@@ -51,7 +83,7 @@ export function useExpense(id: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     apiClient
       .get<ApiResponse<ITicketData>>(EP.EXPENSE(id))
       .then((res) => setData(res.data.data))
@@ -65,16 +97,21 @@ export function useExpense(id: string) {
 export function useCreateExpense() {
   const [loading, setLoading] = useState(false);
 
-  const createExpense = async (formData: FormData): Promise<ITicketData | null> => {
+  const createExpense = async (
+    formData: FormData,
+    statusIntent: 'pending' | 'draft' = 'pending',
+  ): Promise<ITicketData | null> => {
     setLoading(true);
     try {
       const res = await apiClient.post<ApiResponse<ITicketData>>(EP.EXPENSES, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      toast.success('Expense submitted successfully');
+      toast.success(statusIntent === 'draft' ? 'Draft saved successfully' : 'Expense submitted successfully');
       return res.data.data;
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to create expense';
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (statusIntent === 'draft' ? 'Failed to save draft' : 'Failed to create expense');
       toast.error(msg);
       return null;
     } finally {
@@ -162,7 +199,7 @@ export function useExpenseStats() {
       const res = await apiClient.get<ApiResponse<ExpenseStats>>(EP.EXPENSE_STATS);
       setData(res.data.data);
     } catch {
-      // silently fail — stats will remain null
+      // silently fail - stats will remain null
     } finally {
       setLoading(false);
     }
@@ -171,6 +208,175 @@ export function useExpenseStats() {
   useEffect(() => { fetch(); }, [fetch]);
 
   return { data, loading, refetch: fetch };
+}
+
+export function useScanReceipt() {
+  const [loading, setLoading] = useState(false);
+
+  const scanReceipt = async (file: File): Promise<ITicketData | null> => {
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append('receipt', file);
+      const res = await apiClient.post<ApiResponse<ITicketData>>(EP.EXPENSE_SCAN, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return res.data.data;
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Scan failed';
+      toast.error(msg);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { scanReceipt, loading };
+}
+
+export function useSubmitDraft() {
+  const [loading, setLoading] = useState(false);
+
+  const submitDraft = async (
+    id: string,
+    payload: {
+      title?: string;
+      amount?: string;
+      currency?: string;
+      description?: string;
+      merchant?: string;
+      category?: string;
+    },
+  ): Promise<ITicketData | null> => {
+    setLoading(true);
+    try {
+      const res = await apiClient.post<ApiResponse<ITicketData>>(EP.EXPENSE_SUBMIT_DRAFT(id), payload);
+      toast.success('Expense submitted successfully');
+      return res.data.data;
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to submit draft';
+      toast.error(msg);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { submitDraft, loading };
+}
+
+export function useDiscussion(ticketId: string) {
+  const [messages, setMessages] = useState<IDiscussionMessageData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [posting, setPosting] = useState(false);
+  const [currentPage, setCurrentPage] = useState<number | null>(null);
+  const [totalMessages, setTotalMessages] = useState(0);
+  const [loadingPrev, setLoadingPrev] = useState(false);
+
+  const hasOlderMessages = currentPage != null && currentPage > 1;
+
+  const appendMessage = useCallback((message: IDiscussionMessageData) => {
+    setMessages((prev) => {
+      if (prev.some((item) => item._id === message._id)) return prev;
+      return [...prev, message];
+    });
+  }, []);
+
+  const replaceMessage = useCallback((message: IDiscussionMessageData) => {
+    setMessages((prev) => prev.map((item) => (item._id === message._id ? message : item)));
+  }, []);
+
+  const markDeleted = useCallback((messageId: string) => {
+    setMessages((prev) =>
+      prev.map((item) => (item._id === messageId ? { ...item, deleted: true, text: '[deleted]' } : item)),
+    );
+  }, []);
+
+  const fetchMessages = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get<ApiResponse<{ data: IDiscussionMessageData[]; total: number; page: number; pageSize: number }>>(
+        EP.EXPENSE_DISCUSSION(ticketId),
+      );
+      const { data, total, page } = res.data.data;
+      setMessages(data);
+      setTotalMessages(total);
+      setCurrentPage(page);
+    } catch {
+      // silently fail - discussion is non-critical
+    } finally {
+      setLoading(false);
+    }
+  }, [ticketId]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages]);
+
+  const handleDiscussionMessage = useCallback((payload: SocketEnvelope<{ ticketId: string; message: IDiscussionMessageData }>) => {
+    if (payload?.data?.ticketId !== ticketId || !payload?.data?.message) return;
+    appendMessage(payload.data.message);
+  }, [appendMessage, ticketId]);
+
+  const handleDiscussionEdit = useCallback((payload: SocketEnvelope<{ ticketId: string; message: IDiscussionMessageData }>) => {
+    if (payload?.data?.ticketId !== ticketId || !payload?.data?.message) return;
+    replaceMessage(payload.data.message);
+  }, [replaceMessage, ticketId]);
+
+  const handleDiscussionDelete = useCallback((payload: SocketEnvelope<{ ticketId: string; messageId: string }>) => {
+    if (payload?.data?.ticketId !== ticketId || !payload?.data?.messageId) return;
+    markDeleted(payload.data.messageId);
+  }, [markDeleted, ticketId]);
+
+  useSocket('discussion:message', handleDiscussionMessage);
+  useSocket('discussion:edit', handleDiscussionEdit);
+  useSocket('discussion:delete', handleDiscussionDelete);
+
+  const loadPrevious = useCallback(async () => {
+    if (currentPage == null || currentPage <= 1) return;
+    setLoadingPrev(true);
+    try {
+      const targetPage = currentPage - 1;
+      const res = await apiClient.get<ApiResponse<{ data: IDiscussionMessageData[]; total: number; page: number; pageSize: number }>>(
+        `${EP.EXPENSE_DISCUSSION(ticketId)}?page=${targetPage}`,
+      );
+      const { data, total, page } = res.data.data;
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m._id));
+        const newMsgs = data.filter((m) => !existingIds.has(m._id));
+        return [...newMsgs, ...prev];
+      });
+      setTotalMessages(total);
+      setCurrentPage(page);
+    } catch {
+      toast.error('Failed to load previous messages');
+    } finally {
+      setLoadingPrev(false);
+    }
+  }, [ticketId, currentPage]);
+
+  const postMessage = async (text: string): Promise<boolean> => {
+    if (!text.trim()) return false;
+    setPosting(true);
+    try {
+      const res = await apiClient.post<ApiResponse<IDiscussionMessageData>>(
+        EP.EXPENSE_DISCUSSION(ticketId),
+        { text },
+      );
+      appendMessage(res.data.data);
+      return true;
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Failed to send message';
+      toast.error(msg);
+      return false;
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  return { messages, loading, posting, postMessage, refetch: fetchMessages, loadPrevious, hasOlderMessages, loadingPrev, totalMessages };
 }
 
 export function useReceiptUrl(id: string) {

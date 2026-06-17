@@ -2,9 +2,8 @@ import { User } from "../models/User.model.js";
 import { PipelineStage } from "mongoose";
 import { IUserData } from "../types/user.types.js";
 import { IOrganizationData } from "../types/organization.types.js";
-import { IDepartmentData } from "../types/department.types.js";
+import { computeEffectivePermissions } from "../utils/permissions.js";
 
-// map raw aggregation docs to typed data objects
 function mapOrg(o: any): IOrganizationData | null {
   if (!o) return null;
   return {
@@ -19,38 +18,6 @@ function mapOrg(o: any): IOrganizationData | null {
       : null,
     createdAt: new Date(o.createdAt).toISOString(),
     updatedAt: new Date(o.updatedAt).toISOString(),
-  };
-}
-
-function mapDept(d: any): IDepartmentData | null {
-  if (!d) return null;
-  return {
-    _id: d._id.toString(),
-    orgId: d.orgId.toString(),
-    name: d.name,
-    budget: d.budget,
-    spent: d.spent,
-    approvalThresholds: d.approvalThresholds ?? {},
-    permissions: d.permissions,
-    tags: d.tags ?? [],
-    budgetResetPeriod: d.budgetResetPeriod,
-    nextResetDate: d.nextResetDate,
-    isActive: d.isActive,
-    createdAt: d.createdAt,
-    updatedAt: d.updatedAt,
-  };
-}
-
-function mapManager(m: any): IUserData["manager"] | null {
-  if (!m) return null;
-  return {
-    _id: m._id.toString(),
-    name: m.name,
-    email: m.email,
-    role: m.role,
-    isDisabled: m.isDisabled,
-    createdAt: new Date(m.createdAt).toISOString(),
-    updatedAt: new Date(m.updatedAt).toISOString(),
   };
 }
 
@@ -98,66 +65,18 @@ export async function listUsersPaginated(
 
   const skip = (page - 1) * limit;
 
-  // Build the $lookup stages for the data branch.
-  // The org lookup is only added when the caller does not already supply an org.
-  const lookups: PipelineStage.FacetPipelineStage[] = [];
+  // org $lookup only when the caller does not already supply an org (e.g. super admin listing)
+  const orgLookup: PipelineStage.FacetPipelineStage[] = knownOrg
+    ? []
+    : [{ $lookup: { from: "organizations", localField: "orgId", foreignField: "_id", as: "_org" } }];
 
-  // adding $lookup for org when knownOrg is not provided
-  // (e.g. superadmin listing users across orgs)
-  if (!knownOrg) {
-    lookups.push({
-      $lookup: {
-        from: "organizations",
-        localField: "orgId",
-        foreignField: "_id",
-        as: "_org",
-      },
-    });
-  }
-
-  lookups.push(
-    // manager lookup
-    {
-      $lookup: {
-        from: "users",
-        localField: "managerId",
-        foreignField: "_id",
-        pipeline: [
-          {
-            $project: {
-              _id: 1,
-              name: 1,
-              email: 1,
-              role: 1,
-              isDisabled: 1,
-              createdAt: 1,
-              updatedAt: 1,
-            },
-          },
-        ],
-        as: "_manager",
-      },
-    },
-
-    // department lookup
-    {
-      $lookup: {
-        from: "departments",
-        localField: "department",
-        foreignField: "_id",
-        as: "_dept",
-      },
-    },
-  );
-
-  //! Running the aggregation with $facet to get total count and paginated data in one query
   const [result] = await User.aggregate([
     { $match: filter },
     { $sort: { createdAt: -1 } },
     {
       $facet: {
         total: [{ $count: "count" }],
-        data: [{ $skip: skip }, { $limit: limit }, ...lookups],
+        data: [{ $skip: skip }, { $limit: limit }, ...orgLookup],
       },
     },
   ]);
@@ -165,22 +84,34 @@ export async function listUsersPaginated(
   const total: number = result?.total?.[0]?.count ?? 0;
   const users: any[] = result?.data ?? [];
 
-  const data: IUserData[] = users.map((u) => ({
-    _id: u._id.toString(),
-    name: u.name,
-    email: u.email,
-    role: u.role,
-    org: knownOrg ?? mapOrg(u._org?.[0] ?? null),
-    department: mapDept(u._dept?.[0] ?? null),
-    permissions: {
-      canViewAllTickets: u.permissions?.canViewAllTickets ?? null,
-      canApprove: u.permissions?.canApprove ?? null,
-    },
-    manager: mapManager(u._manager?.[0] ?? null),
-    isDisabled: u.isDisabled,
-    createdAt: new Date(u.createdAt).toISOString(),
-    updatedAt: new Date(u.updatedAt).toISOString(),
-  }));
+  const data: IUserData[] = users.map((u) => {
+    const userPolicyGrants = (u.policySnapshot?.grants ?? []) as string[];
+    const userPerms = {
+      view_all_tickets: u.permissions?.view_all_tickets ?? null,
+      approve_finance: u.permissions?.approve_finance ?? null,
+      export_reports: u.permissions?.export_reports ?? null,
+      view_analytics: u.permissions?.view_analytics ?? null,
+    };
+    return {
+      _id: u._id.toString(),
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      org: knownOrg ?? mapOrg(u._org?.[0] ?? null),
+      department: u.departmentSnapshot
+        ? { _id: u.departmentSnapshot._id.toString(), name: u.departmentSnapshot.name }
+        : null,
+      permissions: userPerms,
+      policyId: u.policyId?.toString() ?? null,
+      effectivePermissions: computeEffectivePermissions(userPerms, userPolicyGrants, null, []),
+      manager: u.managerSnapshot
+        ? { _id: u.managerSnapshot._id.toString(), name: u.managerSnapshot.name }
+        : null,
+      isDisabled: u.isDisabled,
+      createdAt: new Date(u.createdAt).toISOString(),
+      updatedAt: new Date(u.updatedAt).toISOString(),
+    };
+  });
 
   return { data, total };
 }

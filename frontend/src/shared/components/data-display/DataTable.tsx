@@ -111,23 +111,47 @@ export function DataTable<T>({
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            {Array.from({ length: Math.min(pagination.totalPages, 5) }).map((_, i) => {
-              const page = i + 1;
-              return (
-                <button
-                  key={page}
-                  onClick={() => onPageChange?.(page)}
-                  className={cn(
-                    'w-7 h-7 rounded-lg text-xs font-medium transition',
-                    page === pagination.page
-                      ? 'bg-brand-600 dark:bg-brand-500 text-white'
-                      : 'text-[var(--muted-foreground)] hover:bg-[var(--accent)]',
-                  )}
-                >
-                  {page}
-                </button>
-              );
-            })}
+            {(() => {
+              const { page: cur, totalPages } = pagination;
+              const pages: (number | 'ellipsis-start' | 'ellipsis-end')[] = [];
+
+              if (totalPages <= 7) {
+                for (let i = 1; i <= totalPages; i++) pages.push(i);
+              } else {
+                const windowStart = Math.max(2, cur - 1);
+                const windowEnd = Math.min(totalPages - 1, cur + 1);
+
+                pages.push(1);
+                if (windowStart > 2) pages.push('ellipsis-start');
+                for (let i = windowStart; i <= windowEnd; i++) pages.push(i);
+                if (windowEnd < totalPages - 1) pages.push('ellipsis-end');
+                pages.push(totalPages);
+              }
+
+              return pages.map((p) => {
+                if (p === 'ellipsis-start' || p === 'ellipsis-end') {
+                  return (
+                    <span key={p} className="w-7 h-7 flex items-center justify-center text-xs text-[var(--muted-foreground)]">
+                      …
+                    </span>
+                  );
+                }
+                return (
+                  <button
+                    key={p}
+                    onClick={() => onPageChange?.(p)}
+                    className={cn(
+                      'w-7 h-7 rounded-lg text-xs font-medium transition',
+                      p === cur
+                        ? 'bg-brand-600 dark:bg-brand-500 text-white'
+                        : 'text-[var(--muted-foreground)] hover:bg-[var(--accent)]',
+                    )}
+                  >
+                    {p}
+                  </button>
+                );
+              });
+            })()}
             <Button
               variant="ghost"
               size="icon-sm"

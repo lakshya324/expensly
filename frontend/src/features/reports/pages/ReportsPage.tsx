@@ -11,7 +11,7 @@ import { EP } from '@/infrastructure/api/endpoints';
 import { listReports, emailReport } from '../api/reports.api';
 import type { ReportListItem } from '../api/reports.api';
 import { formatDateTime, formatCurrency, formatDate } from '@/core/utils/formatters';
-import { ROUTES } from '@/core/constants/constants';
+import { ROUTES, TICKET_STATUS_LABELS } from '@/core/constants/constants';
 import type { IDepartmentData, ITicketData } from '@/core/types/ticket.types';
 import type { ApiResponse, PaginatedData, TicketStatus } from '@/core/types/api.types';
 
@@ -44,11 +44,14 @@ const DATE_PRESETS: { value: DatePreset; label: string }[] = [
   { value: 'custom', label: 'Custom' },
 ];
 
-const STATUS_BADGE: Record<TicketStatus, { label: string; className: string }> = {
-  pending: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' },
-  awaiting_finance: { label: 'Awaiting Finance', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
-  approved: { label: 'Approved', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
-  rejected: { label: 'Rejected', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
+const STATUS_BADGE_CLASS: Record<TicketStatus, string> = {
+  draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  scanning: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  failed: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  awaiting_finance: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  approved: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  rejected: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
 };
 
 function toDateStr(d: Date): string {
@@ -126,7 +129,7 @@ export function ReportsPage() {
       const items = await listReports();
       setReportHistory(items);
     } catch {
-      // silently ignore — history is a nice-to-have
+      // silently ignore - history is a nice-to-have
     } finally {
       setHistoryLoading(false);
     }
@@ -290,7 +293,7 @@ export function ReportsPage() {
                     </div>
                   </div>
 
-                  {/* From / To — editable only when Custom */}
+                  {/* From / To - editable only when Custom */}
                   <Input
                     label="From Date"
                     type="date"
@@ -364,7 +367,7 @@ export function ReportsPage() {
                             <span>{report.ticketCount} ticket{report.ticketCount !== 1 ? 's' : ''}</span>
                             {report.filters.status && <span className="capitalize">{report.filters.status.replace('_', ' ')}</span>}
                             {(report.filters.from || report.filters.to) && (
-                              <span>{report.filters.from ?? '—'} → {report.filters.to ?? '—'}</span>
+                              <span>{report.filters.from ?? '-'} → {report.filters.to ?? '-'}</span>
                             )}
                           </div>
                         </div>
@@ -432,7 +435,7 @@ export function ReportsPage() {
                 ) : (
                   <ul className="divide-y divide-[var(--border)]">
                     {previewTickets.map((t) => {
-                      const badge = STATUS_BADGE[t.status];
+                      const badgeClass = STATUS_BADGE_CLASS[t.status];
                       return (
                         <li
                           key={t._id}
@@ -452,8 +455,8 @@ export function ReportsPage() {
                                 {t.title}
                               </p>
                             </div>
-                            <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${badge.className}`}>
-                              {badge.label}
+                            <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${badgeClass}`}>
+                              {TICKET_STATUS_LABELS[t.status]}
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
@@ -474,7 +477,7 @@ export function ReportsPage() {
                 {!previewLoading && previewTotal !== null && previewTotal > 5 && (
                   <div className="px-4 py-2.5 border-t border-[var(--border)] bg-[var(--muted)]/30">
                     <p className="text-xs text-center text-[var(--muted-foreground)]">
-                      Showing 5 of {previewTotal} — export CSV to see all
+                      Showing 5 of {previewTotal} - export CSV to see all
                     </p>
                   </div>
                 )}

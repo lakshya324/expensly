@@ -4,23 +4,29 @@ import { AppShell } from '@/shared/components/layout/AppShell';
 import { DataTable, type Column } from '@/shared/components/data-display/DataTable';
 import { StatusBadge } from '@/shared/components/data-display/StatusBadge';
 import { ExpenseFiltersBar } from '../components/ExpenseFiltersBar';
+import { AiValidationIndicator } from '../components/AiValidationIndicator';
 import { useExpenses } from '../hooks/useExpenses';
 import { formatDate, formatCurrency } from '@/core/utils/formatters';
 import { ROUTES } from '@/core/constants/constants';
 import { EP } from '@/infrastructure/api/endpoints';
 import apiClient from '@/infrastructure/api/client';
 import type { TicketStatus, ApiResponse, PaginatedData } from '@/core/types/api.types';
-import type { ITicketData, IDepartmentData } from '@/core/types/ticket.types';
+import type { ITicketSummaryData, IDepartmentData } from '@/core/types/ticket.types';
 import type { IUserData } from '@/core/types/user.types';
 import type { ComboboxOption } from '@/shared/components/ui/SearchCombobox';
 
-const COLUMNS: Column<ITicketData>[] = [
+const COLUMNS: Column<ITicketSummaryData>[] = [
   {
     key: 'title',
     header: 'Title',
     render: (row) => (
       <div>
-        <p className="font-medium text-foreground line-clamp-1">{row.title}</p>
+        <p className="font-medium text-foreground line-clamp-1 flex items-center gap-2">
+          <span className="truncate">
+            {row.title ?? <span className="italic text-muted-foreground">Untitled</span>}
+          </span>
+          <AiValidationIndicator aiValidation={row.aiValidation} ocrData={row.ocrData} />
+        </p>
         {row.tags?.length > 0 && (
           <p className="text-xs text-muted-foreground mt-0.5">{row.tags.slice(0, 3).join(', ')}</p>
         )}
@@ -32,7 +38,7 @@ const COLUMNS: Column<ITicketData>[] = [
     header: 'Submitted By',
     render: (row) => (
       <div>
-        <p className="text-sm font-medium">{(row as unknown as { submittedBy?: { name?: string } }).submittedBy?.name ?? '—'}</p>
+        <p className="text-sm font-medium">{(row as unknown as { submittedBy?: { name?: string } }).submittedBy?.name ?? '-'}</p>
         <p className="text-xs text-muted-foreground">{(row as unknown as { submittedBy?: { email?: string } }).submittedBy?.email ?? ''}</p>
       </div>
     ),
@@ -40,14 +46,16 @@ const COLUMNS: Column<ITicketData>[] = [
   {
     key: 'department',
     header: 'Department',
-    render: (row) => <span className="text-sm">{row.department?.name ?? '—'}</span>,
+    render: (row) => <span className="text-sm">{row.department?.name ?? '-'}</span>,
   },
   {
     key: 'amount',
     header: 'Amount',
     render: (row) => (
       <span className="font-semibold text-foreground">
-        {formatCurrency(row.amount, row.currency)}
+        {row.amount != null && row.currency
+          ? formatCurrency(row.amount, row.currency)
+          : <span className="text-muted-foreground italic text-xs">Pending</span>}
       </span>
     ),
   },
