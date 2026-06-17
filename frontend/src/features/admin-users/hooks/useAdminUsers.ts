@@ -18,12 +18,13 @@ const errMsg = (e: unknown, fallback: string) =>
   (e as ApiErr)?.response?.data?.message ?? fallback;
 
 export function useAdminUsers(filters: UserFilters = {}) {
-  const { enabled = true, ...queryFilters } = filters;
+  const filterKey = JSON.stringify(filters);
   const [data, setData] = useState<IUserData[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
-  const [loading, setLoading] = useState(enabled);
+  const [loading, setLoading] = useState(() => (JSON.parse(filterKey) as UserFilters).enabled ?? true);
 
   const fetch = useCallback(async () => {
+    const { enabled = true, ...queryFilters } = JSON.parse(filterKey) as UserFilters;
     if (!enabled) {
       setData([]);
       setPagination(null);
@@ -45,7 +46,7 @@ export function useAdminUsers(filters: UserFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(filters)]);
+  }, [filterKey]);
 
   useEffect(() => {
     fetch();

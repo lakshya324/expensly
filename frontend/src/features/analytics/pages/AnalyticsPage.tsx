@@ -1,4 +1,5 @@
 import { RefreshCw, CheckCircle2, Clock, XCircle, Receipt, AlertTriangle } from 'lucide-react';
+import type { ReactNode } from 'react';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, ComposedChart, Area, Line,
@@ -50,7 +51,15 @@ const PIE_SIDE_LEGEND_STYLE = {
   right: '8px',
 };
 
-function renderLegendLabel(value: string): JSX.Element {
+type PieTooltipPayload = {
+  payload?: {
+    name?: string;
+    label?: string;
+    totalAmount?: number;
+  };
+};
+
+function renderLegendLabel(value: string): ReactNode {
   return <span className="text-[11px] text-[var(--foreground)]">{value}</span>;
 }
 
@@ -140,10 +149,10 @@ export function AnalyticsPage() {
                     <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrency(v, baseCurrency, true)} width={90} />
                     <Tooltip
                       contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--popover-foreground)' }}
-                      formatter={(value: number, name: string) =>
+                      formatter={(value: number | undefined, name: string | undefined) =>
                         name === 'Approved Amount'
-                          ? [formatCurrency(value, baseCurrency), name]
-                          : [value, name]
+                          ? [formatCurrency(value ?? 0, baseCurrency), name]
+                          : [value ?? 0, name]
                       }
                     />
                     <Legend />
@@ -195,8 +204,8 @@ export function AnalyticsPage() {
                         formatter={(value) => renderLegendLabel(truncateLabel(String(value), 14))}
                       />
                       <Tooltip
-                        formatter={(v: number, _name: string, props: any) => [
-                          formatCurrency(v, baseCurrency),
+                        formatter={(v: number | undefined, _name: string | undefined, props: PieTooltipPayload) => [
+                          formatCurrency(v ?? 0, baseCurrency),
                           props?.payload?.name ?? 'Category',
                         ]}
                       />
@@ -243,8 +252,8 @@ export function AnalyticsPage() {
                         iconType="circle"
                         formatter={(value) => renderLegendLabel(truncateLabel(String(value), 14))}
                       />
-                      <Tooltip formatter={(v: number, _name: string, props: any) => [
-                        `${v} tickets · ${formatCurrency(props?.payload?.totalAmount ?? 0, baseCurrency, true)}`,
+                      <Tooltip formatter={(v: number | undefined, _name: string | undefined, props: PieTooltipPayload) => [
+                        `${v ?? 0} tickets · ${formatCurrency(props?.payload?.totalAmount ?? 0, baseCurrency, true)}`,
                         props?.payload?.label ?? '',
                       ]} />
                     </PieChart>
@@ -272,7 +281,7 @@ export function AnalyticsPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrency(v, baseCurrency, true)} />
                       <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={88} />
-                      <Tooltip formatter={(v: number) => [formatCurrency(v, baseCurrency), 'Spend']} />
+                      <Tooltip formatter={(v: number | undefined) => [formatCurrency(v ?? 0, baseCurrency), 'Spend']} />
                       <Bar dataKey="totalAmount" fill={BAR_COLOR} radius={[0, 4, 4, 0]} barSize={16} />
                     </BarChart>
                   </ResponsiveContainer>

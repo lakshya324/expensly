@@ -16,6 +16,7 @@ interface OrgFilters {
 }
 
 export function useSuperAdminOrgs(filters: OrgFilters = {}) {
+  const filterKey = JSON.stringify(filters);
   const [data, setData] = useState<IOrganizationData[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,8 +24,9 @@ export function useSuperAdminOrgs(filters: OrgFilters = {}) {
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
+      const queryFilters = JSON.parse(filterKey) as OrgFilters;
       const params = Object.fromEntries(
-        Object.entries(filters).filter(([, v]) => v !== undefined && v !== ''),
+        Object.entries(queryFilters).filter(([, v]) => v !== undefined && v !== ''),
       );
       const res = await apiClient.get<ApiResponse<PaginatedData<IOrganizationData>>>(
         EP.SA_ORGANIZATIONS,
@@ -37,7 +39,7 @@ export function useSuperAdminOrgs(filters: OrgFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(filters)]);
+  }, [filterKey]);
 
   useEffect(() => {
     fetch();
@@ -75,6 +77,7 @@ interface UserFilters {
 }
 
 export function useSuperAdminUsers(filters: UserFilters = {}) {
+  const filterKey = JSON.stringify(filters);
   const [data, setData] = useState<IUserData[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,8 +85,9 @@ export function useSuperAdminUsers(filters: UserFilters = {}) {
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
+      const queryFilters = JSON.parse(filterKey) as UserFilters;
       const params = Object.fromEntries(
-        Object.entries(filters).filter(([, v]) => v !== undefined && v !== ''),
+        Object.entries(queryFilters).filter(([, v]) => v !== undefined && v !== ''),
       );
       const res = await apiClient.get<ApiResponse<PaginatedData<IUserData>>>(EP.SA_USERS, {
         params,
@@ -95,7 +99,7 @@ export function useSuperAdminUsers(filters: UserFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(filters)]);
+  }, [filterKey]);
 
   useEffect(() => {
     fetch();

@@ -16,6 +16,7 @@ interface DeptFilters {
 }
 
 export function useDepartments(filters: DeptFilters = {}) {
+  const filterKey = JSON.stringify(filters);
   const [data, setData] = useState<IDepartmentData[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,8 +24,9 @@ export function useDepartments(filters: DeptFilters = {}) {
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
+      const queryFilters = JSON.parse(filterKey) as DeptFilters;
       const params = Object.fromEntries(
-        Object.entries(filters).filter(([, v]) => v !== undefined),
+        Object.entries(queryFilters).filter(([, v]) => v !== undefined),
       );
       const res = await apiClient.get<ApiResponse<PaginatedData<IDepartmentData>>>(
         EP.ADMIN_DEPARTMENTS,
@@ -37,7 +39,7 @@ export function useDepartments(filters: DeptFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(filters)]);
+  }, [filterKey]);
 
   useEffect(() => {
     fetch();
@@ -164,7 +166,7 @@ export function useDepartmentTags(id: string) {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     apiClient
       .get<ApiResponse<string[]>>(EP.ADMIN_DEPT_TAGS(id))
       .then((r) => setTags(r.data.data))

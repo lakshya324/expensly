@@ -20,6 +20,7 @@ interface TicketFilters {
 }
 
 export function useExpenses(filters: TicketFilters = {}) {
+  const filterKey = JSON.stringify(filters);
   const [data, setData] = useState<ITicketSummaryData[]>([]);
   const [pagination, setPagination] = useState<import('@/core/types/api.types').PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,8 +30,9 @@ export function useExpenses(filters: TicketFilters = {}) {
     setLoading(true);
     setError(null);
     try {
+      const queryFilters = JSON.parse(filterKey) as TicketFilters;
       const params = Object.fromEntries(
-        Object.entries(filters).filter(([, v]) => v !== '' && v !== undefined),
+        Object.entries(queryFilters).filter(([, v]) => v !== '' && v !== undefined),
       );
       const res = await apiClient.get<ApiResponse<PaginatedData<ITicketSummaryData>>>(EP.EXPENSES, { params });
       setData(res.data.data.data);
@@ -41,7 +43,7 @@ export function useExpenses(filters: TicketFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(filters)]);
+  }, [filterKey]);
 
   useEffect(() => { fetch(); }, [fetch]);
 
@@ -81,7 +83,7 @@ export function useExpense(id: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     apiClient
       .get<ApiResponse<ITicketData>>(EP.EXPENSE(id))
       .then((res) => setData(res.data.data))

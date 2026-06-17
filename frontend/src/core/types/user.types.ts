@@ -1,5 +1,5 @@
 import type { Role, Currency } from "./api.types";
-import type { PermissionKey } from "./ticket.types";
+import type { DepartmentPermissions, PermissionKey } from "./ticket.types";
 import type { IEntitySnapshotData } from "./common.types";
 
 export interface UserPermissions {
@@ -28,7 +28,7 @@ export interface IUserData {
   role: Role;
   orgId: string | null;
   org: IOrganizationData | null;
-  department: IEntitySnapshotData | null;
+  department: (IEntitySnapshotData & { permissions?: DepartmentPermissions }) | null;
   manager: IEntitySnapshotData | null;
   permissions: UserPermissions;
   policyId: string | null;

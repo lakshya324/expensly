@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { MoreHorizontal, Plus, UserCheck, UserX, Shield, Pencil, Info, Building2, User } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
@@ -7,7 +7,7 @@ import { DataTable, type Column } from '@/shared/components/data-display/DataTab
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Input } from '@/shared/components/ui/Input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
+import { Card, CardContent } from '@/shared/components/ui/Card';
 import {
   Dialog,
   DialogContent,
@@ -98,14 +98,14 @@ export function AdminUsersPage() {
     resolver: zodResolver(createUserSchema),
     defaultValues: { role: 'user' },
   });
-  const watchedCreateDept = createForm.watch('department');
+  const watchedCreateDept = useWatch({ control: createForm.control, name: 'department' });
   const [createDeptUsers, setCreateDeptUsers] = useState<IUserData[]>([]);
 
   // Edit dialog
   const [editTarget, setEditTarget] = useState<IUserData | null>(null);
   const { updateUser, loading: updating } = useUpdateUser(editTarget?._id ?? '');
   const editForm = useForm<UpdateUserFormValues>({ resolver: zodResolver(updateUserSchema) });
-  const watchedEditDept = editForm.watch('department');
+  const watchedEditDept = useWatch({ control: editForm.control, name: 'department' });
   const [editDeptUsers, setEditDeptUsers] = useState<IUserData[]>([]);
 
   useEffect(() => {
@@ -124,18 +124,18 @@ export function AdminUsersPage() {
           .then((r) => setEditDeptUsers(r.data.data.data))
           .catch(() => {});
       } else {
-        setEditDeptUsers([]);
+        queueMicrotask(() => setEditDeptUsers([]));
       }
     } else {
-      setEditDeptUsers([]);
+      queueMicrotask(() => setEditDeptUsers([]));
     }
-  }, [editTarget]);
+  }, [editForm, editTarget]);
 
   // Fetch users in selected dept for manager dropdown (create form)
   useEffect(() => {
     createForm.setValue('managerId', '');
     if (!watchedCreateDept) {
-      setCreateDeptUsers([]);
+      queueMicrotask(() => setCreateDeptUsers([]));
       return;
     }
     apiClient
@@ -144,7 +144,7 @@ export function AdminUsersPage() {
       })
       .then((r) => setCreateDeptUsers(r.data.data.data))
       .catch(() => {});
-  }, [watchedCreateDept]);
+  }, [createForm, watchedCreateDept]);
 
   // Re-fetch users when dept changes in edit form (skip initial render that matches editTarget)
   useEffect(() => {
@@ -152,7 +152,7 @@ export function AdminUsersPage() {
     if (watchedEditDept === (editTarget.department?._id ?? '')) return;
     editForm.setValue('managerId', '');
     if (!watchedEditDept) {
-      setEditDeptUsers([]);
+      queueMicrotask(() => setEditDeptUsers([]));
       return;
     }
     apiClient
@@ -161,7 +161,7 @@ export function AdminUsersPage() {
       })
       .then((r) => setEditDeptUsers(r.data.data.data))
       .catch(() => {});
-  }, [watchedEditDept]);
+  }, [editForm, editTarget, watchedEditDept]);
 
   // Disable / enable
   const [disableTarget, setDisableTarget] = useState<IUserData | null>(null);
@@ -189,14 +189,16 @@ export function AdminUsersPage() {
 
   useEffect(() => {
     if (permTarget) {
-      setPerms({
-        permissions: {
-          view_all_tickets: permTarget.permissions.view_all_tickets,
-          approve_finance: permTarget.permissions.approve_finance,
-          export_reports: permTarget.permissions.export_reports,
-          view_analytics: permTarget.permissions.view_analytics,
-        },
-        policyId: permTarget.policyId ?? null,
+      queueMicrotask(() => {
+        setPerms({
+          permissions: {
+            view_all_tickets: permTarget.permissions.view_all_tickets,
+            approve_finance: permTarget.permissions.approve_finance,
+            export_reports: permTarget.permissions.export_reports,
+            view_analytics: permTarget.permissions.view_analytics,
+          },
+          policyId: permTarget.policyId ?? null,
+        });
       });
     }
   }, [permTarget]);

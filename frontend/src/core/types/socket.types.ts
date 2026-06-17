@@ -15,13 +15,13 @@ export interface SocketEnvelope<T> {
   meta: SocketEventMeta;
 }
 
-export type SocketEvents = {
-  // Client → Server
+export type ClientSocketEvents = {
   ping: undefined;
   subscribe_dept: { deptId: string };
   unsubscribe_dept: { deptId: string };
+};
 
-  // Server → Client
+export type ServerSocketEvents = {
   pong: Record<string, never>;
   new_ticket: { ticket: ITicketData };
   ticket_update: { ticket: ITicketData };
@@ -49,3 +49,5 @@ export type SocketEvents = {
   'discussion:edit': SocketEnvelope<{ ticketId: string; message: IDiscussionMessageData }>;
   'discussion:delete': SocketEnvelope<{ ticketId: string; messageId: string }>;
 };
+
+export type SocketEvents = ServerSocketEvents & ClientSocketEvents;

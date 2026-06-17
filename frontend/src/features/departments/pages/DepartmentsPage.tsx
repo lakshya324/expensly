@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, RotateCcw, Trash2, Pencil, Tag, Building2, Shield } from 'lucide-react';
 import { AppShell } from '@/shared/components/layout/AppShell';
@@ -76,7 +76,7 @@ export function DepartmentsPage() {
     },
   });
   const createThresholds = useFieldArray({ control: createForm.control, name: 'approvalThresholds' });
-  const watchedCreatePolicy = createForm.watch('policyId');
+  const watchedCreatePolicy = useWatch({ control: createForm.control, name: 'policyId' });
 
   // Edit
   const [editTarget, setEditTarget] = useState<IDepartmentData | null>(null);
@@ -86,7 +86,7 @@ export function DepartmentsPage() {
   });
   const editForm = useForm<DepartmentFormValues>({ resolver: zodResolver(departmentSchema) });
   const editThresholds = useFieldArray({ control: editForm.control, name: 'approvalThresholds' });
-  const watchedEditPolicy = editForm.watch('policyId');
+  const watchedEditPolicy = useWatch({ control: editForm.control, name: 'policyId' });
 
   const openEdit = (dept: IDepartmentData) => {
     setEditTarget(dept);

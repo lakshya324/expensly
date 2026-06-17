@@ -23,7 +23,7 @@ import { AddExpenseDialog } from '../components/AddExpenseDialog';
 import apiClient from '@/infrastructure/api/client';
 import { EP } from '@/infrastructure/api/endpoints';
 import type { ApiResponse, PaginatedData } from '@/core/types/api.types';
-import type { IBundleData, BundleStatus, ITicketData } from '@/core/types/ticket.types';
+import type { IBundleData, ITicketData } from '@/core/types/ticket.types';
 import { ROUTES, CURRENCY_SYMBOLS, BUNDLE_STATUS_LABELS, BUNDLE_STATUS_VARIANT } from '@/core/constants/constants';
 import { formatRelativeTime, formatDate } from '@/core/utils/formatters';
 import { useAuthStore } from '@/features/auth/store/authStore';
@@ -153,7 +153,7 @@ export function BundleDetailPage() {
   }, [id, ticketPage]);
 
   useEffect(() => { fetchBundle(); }, [fetchBundle]);
-  useEffect(() => { if (bundle) fetchTickets(); }, [fetchTickets, bundle?._id]);
+  useEffect(() => { if (bundle?._id) fetchTickets(); }, [fetchTickets, bundle?._id]);
 
   // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
